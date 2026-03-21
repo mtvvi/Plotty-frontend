@@ -14,39 +14,30 @@ export function StoryCard({ story }: { story: StoryListItem }) {
           <h2 className="text-[22px] font-bold leading-none tracking-[-0.03em]">{story.title}</h2>
           <div className="flex flex-wrap gap-x-[10px] gap-y-1 text-[13px] text-[var(--plotty-muted)]">
             {story.fandom ? <span>{story.fandom}</span> : null}
-            {story.pairing ? <span>{story.pairing}</span> : null}
-            {story.tags.slice(0, 2).map((tag) => (
-              <span key={tag.id}>{tag.name}</span>
-            ))}
+            {story.ratingLabel ? <span>{story.ratingLabel}</span> : null}
+            {story.statusLabel ? <span>{story.statusLabel}</span> : null}
           </div>
         </div>
 
-        {story.aiHint ? (
-          <div className="rounded-[12px] bg-[rgba(54,81,63,0.08)] px-[10px] py-[8px] text-[13px] font-bold text-[var(--plotty-olive)]">
-            {story.aiHint}
-          </div>
-        ) : null}
+        <span className="rounded-[12px] bg-[rgba(54,81,63,0.08)] px-[10px] py-[8px] text-[13px] font-bold text-[var(--plotty-olive)]">
+          {story.chaptersCount} глав
+        </span>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        {story.ratingLabel ? <CatalogMetaChip>{story.ratingLabel}</CatalogMetaChip> : null}
-        {story.statusLabel ? <CatalogMetaChip>{story.statusLabel}</CatalogMetaChip> : null}
-        <CatalogMetaChip>{story.chaptersCount} глав</CatalogMetaChip>
-        {story.sizeLabel ? <CatalogMetaChip>{story.sizeLabel}</CatalogMetaChip> : null}
+      <div className="flex flex-wrap gap-2">
+        {story.tags.slice(0, 5).map((tag) => (
+          <CatalogMetaChip key={tag.id}>{tag.name}</CatalogMetaChip>
+        ))}
       </div>
-
-      <p className="text-[14px] leading-[1.6] text-[var(--plotty-muted)]">{story.excerpt}</p>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-[10px]">
-          <CatalogMiniStat>❤️ {story.likesCount?.toLocaleString("ru-RU") ?? 0}</CatalogMiniStat>
-          <CatalogMiniStat>💬 {story.commentsCount?.toLocaleString("ru-RU") ?? 0}</CatalogMiniStat>
-          <CatalogMiniStat>🔖 {story.bookmarksCount?.toLocaleString("ru-RU") ?? 0}</CatalogMiniStat>
-          {story.updatedLabel ? <CatalogMiniStat>{story.updatedLabel}</CatalogMiniStat> : null}
+          <CatalogMiniStat>Создана {new Date(story.createdAt).toLocaleDateString("ru-RU")}</CatalogMiniStat>
+          <CatalogMiniStat>Обновлена {new Date(story.updatedAt).toLocaleDateString("ru-RU")}</CatalogMiniStat>
         </div>
 
         <span className="inline-flex h-[38px] items-center justify-center rounded-[12px] bg-[var(--plotty-gold-soft)] px-[14px] text-[13px] font-extrabold text-[#6b4d15]">
-          Сводка для читателя
+          Открыть историю
         </span>
       </div>
     </Link>

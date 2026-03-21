@@ -13,13 +13,15 @@ import { GenerateChapterImageButton } from "./generate-chapter-image-button";
 import { PlottyShell, ShellCard } from "./plotty-shell";
 import { StoryTagChip } from "./story-tag-chip";
 
+const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
+
 export function StoryDetailsScreen({ slug }: { slug: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const createChapterMutation = useMutation({
     mutationFn: ({ storyId, nextNumber }: { storyId: string; nextNumber: number }) =>
-      createChapter(storyId, { title: `Глава ${nextNumber}`, content: "" }),
+      createChapter(storyId, { title: `Глава ${nextNumber}`, content: emptyChapterDraft }),
   });
   const deleteStoryMutation = useMutation({
     mutationFn: deleteStory,
@@ -61,7 +63,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
   if (storyQuery.isError || !storyQuery.data) {
     return (
-      <PlottyShell title="История не найдена" description="Либо slug неверный, либо mock API не отдал данные.">
+      <PlottyShell title="История не найдена" description="Либо slug неверный, либо бэкенд не отдал данные.">
         <EmptyState title="История не найдена" description="Вернитесь в каталог и выберите другую историю." />
       </PlottyShell>
     );
@@ -72,7 +74,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   return (
     <PlottyShell
       title={storyQuery.data.title}
-      description={storyQuery.data.excerpt}
+      description={`История обновлена ${new Date(storyQuery.data.updatedAt).toLocaleString("ru-RU")}`}
       actions={
         latestChapter ? (
           <Link href={routes.chapterEditor(storyQuery.data.id, latestChapter.id)}>
@@ -83,18 +85,19 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
     >
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-5">
-          <ShellCard title="Описание" description="Теги и главы живут в одной рабочей карточке истории.">
-            <div className="space-y-4">
-              <p className="text-sm leading-7 text-[var(--plotty-muted)]">{storyQuery.data.description}</p>
+          <ShellCard title="Теги" description="Это весь набор метаданных, который сейчас поддерживает бэкенд истории.">
+            {storyQuery.data.tags.length ? (
               <div className="flex flex-wrap gap-2">
                 {storyQuery.data.tags.map((tag) => (
                   <StoryTagChip key={tag.id} tag={tag} />
                 ))}
               </div>
-            </div>
+            ) : (
+              <p className="text-sm leading-6 text-[var(--plotty-muted)]">У истории пока нет тегов.</p>
+            )}
           </ShellCard>
 
-          <ShellCard title="Главы" description="Чтение и редактирование разведены по разным маршрутам.">
+          <ShellCard title="Главы" description="Переход в чтение и редактирование работает через реальные chapter endpoint'ы.">
             {storyQuery.data.chapters.length ? (
               <div className="space-y-3">
                 {storyQuery.data.chapters.map((chapter) => (
@@ -107,7 +110,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                         Глава {chapter.number}. {chapter.title}
                       </div>
                       <div className="text-sm text-[var(--plotty-muted)]">
-                        {chapter.wordCount} слов {chapter.hasImage ? "• есть картинка" : ""}
+                        Обновлена {new Date(chapter.updatedAt).toLocaleString("ru-RU")}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-3">
@@ -115,9 +118,9 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                         chapterId={chapter.id}
                         chapterTitle={chapter.title}
                         storySlug={storyQuery.data.slug}
-                        hasImage={chapter.hasImage}
+                        storyTitle={storyQuery.data.title}
                       />
-                      <Link href={routes.chapter(storyQuery.data.slug, chapter.number)}>
+                      <Link href={routes.chapter(storyQuery.data.slug, chapter.number ?? 1)}>
                         <Button variant="secondary">Читать</Button>
                       </Link>
                       <Link href={routes.chapterEditor(storyQuery.data.id, chapter.id)}>

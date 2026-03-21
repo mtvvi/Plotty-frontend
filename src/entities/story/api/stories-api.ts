@@ -7,6 +7,7 @@ import type {
   AiJobAccepted,
   AiJobResponse,
   ChapterDetails,
+  ChapterListItem,
   CreateChapterPayload,
   CreateStoryPayload,
   ImageGenerationPayload,
@@ -16,86 +17,290 @@ import type {
   StoriesQuery,
   StoriesResponse,
   StoryDetails,
+  StoryListItem,
+  StoryTag,
+  StoryTagsResponse,
   UpdateChapterPayload,
   UpdateStoryPayload,
 } from "../model/types";
 
+interface BackendStory {
+  id: string;
+  slug: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface BackendStoryListItem extends BackendStory {
+  tags: StoryTag[];
+  chaptersCount: number;
+}
+
+interface BackendStoryDetails extends BackendStory {
+  tags: StoryTag[];
+  chapters: Array<{
+    id: string;
+    title: string;
+    updatedAt: string;
+  }>;
+}
+
+interface BackendChapterDetails {
+  id: string;
+  storyId: string;
+  title: string;
+  content: string;
+  updatedAt: string;
+}
+
+interface BackendStoriesResponse {
+  items: BackendStoryListItem[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+}
+
+const STORY_LOOKUP_PAGE_SIZE = 100;
+
 export const storyKeys = {
   all: ["stories"] as const,
+  tags: () => ["stories", "tags"] as const,
   list: (query: StoriesQuery) => ["stories", "list", query] as const,
   details: (slug: string) => ["stories", "details", slug] as const,
+  detailsById: (storyId: string) => ["stories", "details-by-id", storyId] as const,
   chapter: (chapterId: string) => ["stories", "chapter", chapterId] as const,
+  chapterEditor: (storyId: string, chapterId: string) => ["stories", "chapter-editor", storyId, chapterId] as const,
   aiJob: (jobId: string) => ["stories", "ai-job", jobId] as const,
 };
 
-export function storiesQueryOptions(query: StoriesQuery) {
+function countWords(content: string) {
+  return content.trim() ? content.trim().split(/\s+/).length : 0;
+}
+
+function getTagName(tags: StoryTag[], category: string) {
+  return tags.find((tag) => tag.category === category)?.name;
+}
+
+function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
+  return {
+    id: item.id,
+    slug: item.slug,
+    title: item.title,
+    tags: item.tags,
+    chaptersCount: item.chaptersCount,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    fandom: getTagName(item.tags, "directionality"),
+    ratingLabel: getTagName(item.tags, "rating"),
+    statusLabel: getTagName(item.tags, "completion"),
+    sizeLabel: getTagName(item.tags, "size"),
+  };
+}
+
+function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
+  const chapters: ChapterListItem[] = item.chapters.map((chapter, index) => ({
+    id: chapter.id,
+    number: index + 1,
+    title: chapter.title,
+    updatedAt: chapter.updatedAt,
+  }));
+
+  return {
+    id: item.id,
+    slug: item.slug,
+    title: item.title,
+    tags: item.tags,
+    chapters,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
+  return {
+    id: item.id,
+    storyId: item.storyId,
+    title: item.title,
+    content: item.content,
+    updatedAt: item.updatedAt,
+    wordCount: countWords(item.content),
+  };
+}
+
+function enrichChapterDetails(chapter: BackendChapterDetails, story: StoryDetails): ChapterDetails {
+  const mappedChapter = mapChapterDetails(chapter);
+  const storyChapter = story.chapters.find((item) => item.id === chapter.id);
+
+  return {
+    ...mappedChapter,
+    storySlug: story.slug,
+    storyTitle: story.title,
+    storyTags: story.tags,
+    storyChapters: story.chapters,
+    number: storyChapter?.number,
+  };
+}
+
+async function fetchStoriesPage(query: StoriesQuery) {
   const params = serializeStoriesQuery(query);
 
+  return fetchJson<BackendStoriesResponse>(`/stories?${params.toString()}`);
+}
+
+async function fetchStoryDetails(slug: string) {
+  const story = await fetchJson<BackendStoryDetails>(`/stories/${slug}`);
+
+  return mapStoryDetails(story);
+}
+
+async function fetchStoryDetailsById(storyId: string) {
+  let page = 1;
+  let total = 0;
+
+  do {
+    const response = await fetchStoriesPage({
+      tags: [],
+      q: "",
+      fandom: "",
+      rating: "",
+      status: "",
+      size: "",
+      page,
+      pageSize: STORY_LOOKUP_PAGE_SIZE,
+    });
+
+    const match = response.items.find((item) => item.id === storyId);
+
+    if (match) {
+      return fetchStoryDetails(match.slug);
+    }
+
+    total = response.pagination.total;
+    page += 1;
+  } while ((page - 1) * STORY_LOOKUP_PAGE_SIZE < total);
+
+  throw new Error(`Story not found: ${storyId}`);
+}
+
+export function storyTagsQueryOptions() {
+  return queryOptions({
+    queryKey: storyKeys.tags(),
+    queryFn: () => fetchJson<StoryTagsResponse>("/tags"),
+  });
+}
+
+export function storiesQueryOptions(query: StoriesQuery) {
   return queryOptions({
     queryKey: storyKeys.list(query),
-    queryFn: () => fetchJson<StoriesResponse>(`/stories?${params.toString()}`),
+    queryFn: async (): Promise<StoriesResponse> => {
+      const response = await fetchStoriesPage(query);
+
+      return {
+        items: response.items.map(mapStoryListItem),
+        pagination: response.pagination,
+      };
+    },
   });
 }
 
 export function storyDetailsQueryOptions(slug: string) {
   return queryOptions({
     queryKey: storyKeys.details(slug),
-    queryFn: () => fetchJson<StoryDetails>(`/stories/${slug}`),
+    queryFn: () => fetchStoryDetails(slug),
+  });
+}
+
+export function storyDetailsByIdQueryOptions(storyId: string) {
+  return queryOptions({
+    queryKey: storyKeys.detailsById(storyId),
+    queryFn: () => fetchStoryDetailsById(storyId),
+    enabled: Boolean(storyId),
   });
 }
 
 export function chapterDetailsQueryOptions(chapterId: string) {
   return queryOptions({
     queryKey: storyKeys.chapter(chapterId),
-    queryFn: () => fetchJson<ChapterDetails>(`/chapters/${chapterId}`),
+    queryFn: async () => mapChapterDetails(await fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`)),
     enabled: Boolean(chapterId),
+  });
+}
+
+export function chapterEditorDetailsQueryOptions(storyId: string, chapterId: string) {
+  return queryOptions({
+    queryKey: storyKeys.chapterEditor(storyId, chapterId),
+    queryFn: async () => {
+      const [chapter, story] = await Promise.all([
+        fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`),
+        fetchStoryDetailsById(storyId),
+      ]);
+
+      return enrichChapterDetails(chapter, story);
+    },
+    enabled: Boolean(storyId && chapterId),
   });
 }
 
 export function aiJobQueryOptions<TResult>(jobId: string) {
   return queryOptions({
     queryKey: storyKeys.aiJob(jobId),
-    queryFn: () => fetchJson<AiJobResponse<TResult>>(`/ai/jobs/${jobId}`),
+    queryFn: async () => {
+      const response = await fetchJson<AiJobResponse<TResult>>(`/ai/jobs/${jobId}`);
+
+      return {
+        ...response,
+        errorMessage: response.errorMessage ?? response.error,
+      };
+    },
     enabled: Boolean(jobId),
   });
 }
 
 export function createStory(payload: CreateStoryPayload) {
-  return fetchJson<StoryDetails>("/stories", {
+  return fetchJson<BackendStory>("/stories", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      title: payload.title,
+      tagIds: payload.tagIds ?? [],
+    }),
   });
 }
 
 export function updateStory(storyId: string, payload: UpdateStoryPayload) {
-  return fetchJson<StoryDetails>(`/stories/${storyId}`, {
+  return fetchJson<BackendStory>(`/stories/${storyId}`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      title: payload.title,
+      tagIds: payload.tagIds,
+    }),
   });
 }
 
 export function deleteStory(storyId: string) {
-  return fetchJson<{ ok: true }>(`/stories/${storyId}`, {
+  return fetchJson<null>(`/stories/${storyId}`, {
     method: "DELETE",
   });
 }
 
 export function createChapter(storyId: string, payload: CreateChapterPayload) {
-  return fetchJson<ChapterDetails>(`/stories/${storyId}/chapters`, {
+  return fetchJson<BackendChapterDetails>(`/stories/${storyId}/chapters`, {
     method: "POST",
     body: JSON.stringify(payload),
-  });
+  }).then(mapChapterDetails);
 }
 
 export function updateChapter(chapterId: string, payload: UpdateChapterPayload) {
-  return fetchJson<ChapterDetails>(`/chapters/${chapterId}`, {
+  return fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
-  });
+  }).then(mapChapterDetails);
 }
 
 export function deleteChapter(chapterId: string) {
-  return fetchJson<{ ok: true }>(`/chapters/${chapterId}`, {
+  return fetchJson<null>(`/chapters/${chapterId}`, {
     method: "DELETE",
   });
 }

@@ -6,12 +6,13 @@ import { useEffect, useState } from "react";
 
 import {
   aiJobQueryOptions,
+  chapterEditorDetailsQueryOptions,
   createChapter,
   deleteChapter,
   deleteStory,
-  chapterDetailsQueryOptions,
   startSpellcheck,
   storyKeys,
+  storyTagsQueryOptions,
   updateChapter,
   updateStory,
 } from "@/entities/story/api/stories-api";
@@ -24,12 +25,12 @@ import { StoryEditorForm, type StoryEditorValues } from "./story-editor-form";
 
 const emptyValues: StoryEditorValues = {
   storyTitle: "",
-  storyDescription: "",
-  storyExcerpt: "",
-  selectedTagSlugs: [],
+  selectedTagIds: [],
   chapterTitle: "",
   chapterContent: "",
 };
+
+const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
 
 export function StoryEditorScreen({
   storyId,
@@ -40,7 +41,8 @@ export function StoryEditorScreen({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const chapterQuery = useQuery(chapterDetailsQueryOptions(chapterId));
+  const chapterQuery = useQuery(chapterEditorDetailsQueryOptions(storyId, chapterId));
+  const tagsQuery = useQuery(storyTagsQueryOptions());
   const [values, setValues] = useState<StoryEditorValues>(emptyValues);
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
 
@@ -50,10 +52,8 @@ export function StoryEditorScreen({
     }
 
     setValues({
-      storyTitle: chapterQuery.data.storyTitle,
-      storyDescription: chapterQuery.data.storyDescription,
-      storyExcerpt: chapterQuery.data.storyExcerpt,
-      selectedTagSlugs: chapterQuery.data.storyTags.map((tag) => tag.slug),
+      storyTitle: chapterQuery.data.storyTitle ?? "",
+      selectedTagIds: chapterQuery.data.storyTags?.map((tag) => tag.id) ?? [],
       chapterTitle: chapterQuery.data.title,
       chapterContent: chapterQuery.data.content,
     });
@@ -62,22 +62,20 @@ export function StoryEditorScreen({
   const updateStoryMutation = useMutation({
     mutationFn: ({ targetStoryId, targetPayload }: { targetStoryId: string; targetPayload: StoryEditorValues }) =>
       updateStory(targetStoryId, {
-        title: targetPayload.storyTitle,
-        description: targetPayload.storyDescription,
-        excerpt: targetPayload.storyExcerpt,
-        tags: targetPayload.selectedTagSlugs,
+        title: targetPayload.storyTitle.trim(),
+        tagIds: targetPayload.selectedTagIds,
       }),
   });
   const updateChapterMutation = useMutation({
     mutationFn: ({ targetChapterId, targetPayload }: { targetChapterId: string; targetPayload: StoryEditorValues }) =>
       updateChapter(targetChapterId, {
-        title: targetPayload.chapterTitle,
-        content: targetPayload.chapterContent,
+        title: targetPayload.chapterTitle.trim(),
+        content: targetPayload.chapterContent.trim(),
       }),
   });
   const createChapterMutation = useMutation({
     mutationFn: ({ nextStoryId, nextTitle }: { nextStoryId: string; nextTitle: string }) =>
-      createChapter(nextStoryId, { title: nextTitle, content: "" }),
+      createChapter(nextStoryId, { title: nextTitle, content: emptyChapterDraft }),
   });
   const deleteChapterMutation = useMutation({
     mutationFn: deleteChapter,
@@ -103,14 +101,18 @@ export function StoryEditorScreen({
       targetStoryId: storyId,
       targetPayload: values,
     });
-    const chapter = await updateChapterMutation.mutateAsync({
+    await updateChapterMutation.mutateAsync({
       targetChapterId: chapterId,
       targetPayload: values,
     });
 
     await queryClient.invalidateQueries({ queryKey: storyKeys.all });
     await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
-    await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapter.storySlug) });
+    await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
+
+    if (chapterQuery.data?.storySlug) {
+      await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+    }
   }
 
   async function handleCreateNextChapter() {
@@ -118,13 +120,16 @@ export function StoryEditorScreen({
       return;
     }
 
-    const nextNumber = (chapterQuery.data.storyChapters.at(-1)?.number ?? 0) + 1;
+    const nextNumber = (chapterQuery.data.storyChapters?.at(-1)?.number ?? 0) + 1;
     const chapter = await createChapterMutation.mutateAsync({
       nextStoryId: storyId,
       nextTitle: `Глава ${nextNumber}`,
     });
 
-    await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapter.storySlug) });
+    if (chapterQuery.data.storySlug) {
+      await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+    }
+
     router.push(routes.chapterEditor(storyId, chapter.id));
   }
 
@@ -134,7 +139,13 @@ export function StoryEditorScreen({
     }
 
     await deleteChapterMutation.mutateAsync(chapterId);
-    router.push(routes.story(chapterQuery.data?.storySlug ?? ""));
+
+    if (chapterQuery.data?.storySlug) {
+      router.push(routes.story(chapterQuery.data.storySlug));
+      return;
+    }
+
+    router.push(routes.write);
   }
 
   async function handleDeleteStory() {
@@ -179,12 +190,13 @@ export function StoryEditorScreen({
 
   return (
     <PlottyShell
-      title={`Редактор: ${chapterQuery.data.storyTitle}`}
-      description={`Глава ${chapterQuery.data.number}. ${chapterQuery.data.title}`}
+      title={`Редактор: ${chapterQuery.data.storyTitle ?? "История"}`}
+      description={`Глава ${chapterQuery.data.number ?? "—"}. ${chapterQuery.data.title}`}
     >
       <StoryEditorForm
         mode="edit"
         values={values}
+        availableTags={tagsQuery.data?.items ?? chapterQuery.data.storyTags ?? []}
         storyId={storyId}
         storySlug={chapterQuery.data.storySlug}
         chapterId={chapterId}

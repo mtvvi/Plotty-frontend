@@ -16,16 +16,18 @@ describe("story query helpers", () => {
     expect(params.toString()).toBe("tag=drama&tag=ooc");
   });
 
-  it("parses supported tags and drops unknown values", () => {
+  it("parses repeated tags, keeps order and includes q/page", () => {
     const params = new URLSearchParams([
       ["tag", "drama"],
       ["tag", "wrong-tag"],
       ["tag", "ooc"],
+      ["q", "архив"],
       ["page", "2"],
     ]);
 
     expect(parseStoriesQuery(params)).toEqual({
-      tags: ["drama", "ooc"],
+      tags: ["drama", "wrong-tag", "ooc"],
+      q: "архив",
       fandom: "",
       rating: "",
       status: "",
@@ -49,7 +51,7 @@ describe("story query helpers", () => {
     );
   });
 
-  it("drops unsupported secondary filters", () => {
+  it("keeps arbitrary secondary filters when they are present in the URL", () => {
     const params = new URLSearchParams([
       ["fandom", "Аркейн"],
       ["rating", "NC-99"],
@@ -57,6 +59,12 @@ describe("story query helpers", () => {
       ["size", "супер-макси"],
     ]);
 
-    expect(parseStoriesQuery(params)).toEqual(defaultStoriesQuery);
+    expect(parseStoriesQuery(params)).toEqual({
+      ...defaultStoriesQuery,
+      fandom: "Аркейн",
+      rating: "NC-99",
+      status: "Черновик",
+      size: "супер-макси",
+    });
   });
 });

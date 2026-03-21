@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
 
 import { chapterDetailsQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
+import { getGeneratedImageUrl } from "@/entities/story/model/generated-image-cache";
 import { routes } from "@/shared/config/routes";
 import { Button } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
@@ -22,6 +24,16 @@ export function ChapterReaderScreen({
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const chapterId = storyQuery.data?.chapters.find((chapter) => chapter.number === chapterNumber)?.id ?? "";
   const chapterQuery = useQuery(chapterDetailsQueryOptions(chapterId));
+  const [generatedImageUrl, setGeneratedImage] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!chapterId) {
+      setGeneratedImage(undefined);
+      return;
+    }
+
+    setGeneratedImage(getGeneratedImageUrl(chapterId));
+  }, [chapterId]);
 
   if (storyQuery.isLoading || (chapterId && chapterQuery.isLoading)) {
     return (
@@ -48,8 +60,8 @@ export function ChapterReaderScreen({
 
   return (
     <PlottyShell
-      title={`${storyQuery.data.title} • Глава ${chapterQuery.data.number}`}
-      description={chapterQuery.data.title}
+      title={`${storyQuery.data.title} • Глава ${chapterNumber}`}
+      description={`Обновлена ${new Date(chapterQuery.data.updatedAt).toLocaleString("ru-RU")}`}
       actions={
         <Link href={routes.chapterEditor(chapterQuery.data.storyId, chapterQuery.data.id)}>
           <Button variant="secondary">Редактировать главу</Button>
@@ -57,9 +69,9 @@ export function ChapterReaderScreen({
       }
     >
       <div className="space-y-5">
-        {chapterQuery.data.imageUrl ? (
+        {generatedImageUrl ? (
           <Image
-            src={chapterQuery.data.imageUrl}
+            src={generatedImageUrl}
             alt={chapterQuery.data.title}
             width={960}
             height={540}
@@ -68,7 +80,7 @@ export function ChapterReaderScreen({
           />
         ) : null}
 
-        <ShellCard title={chapterQuery.data.title} description={`${chapterQuery.data.wordCount} слов`}>
+        <ShellCard title={chapterQuery.data.title} description={`${chapterQuery.data.wordCount ?? 0} слов`}>
           <div className="space-y-4">
             <div className="whitespace-pre-wrap text-[15px] leading-8 text-[var(--plotty-ink)]">
               {chapterQuery.data.content}
@@ -76,14 +88,14 @@ export function ChapterReaderScreen({
 
             <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--plotty-line)] pt-4">
               {prevChapter ? (
-                <Link href={routes.chapter(slug, prevChapter.number)}>
+                <Link href={routes.chapter(slug, prevChapter.number ?? chapterNumber - 1)}>
                   <Button variant="secondary">Предыдущая глава</Button>
                 </Link>
               ) : (
                 <span />
               )}
               {nextChapter ? (
-                <Link href={routes.chapter(slug, nextChapter.number)}>
+                <Link href={routes.chapter(slug, nextChapter.number ?? chapterNumber + 1)}>
                   <Button variant="secondary">Следующая глава</Button>
                 </Link>
               ) : null}

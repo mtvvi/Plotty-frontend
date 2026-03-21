@@ -3,13 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import type {
-  ChapterListItem,
-  SpellcheckResult,
-  StoryTag,
-} from "@/entities/story/model/types";
-import { storyTags } from "@/shared/config/story-tags";
+import type { ChapterListItem, SpellcheckResult, StoryTag } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
+import { getStoryTagCategoryLabel, groupStoryTags } from "@/shared/config/story-tags";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
@@ -19,9 +15,7 @@ import { StoryTagChip } from "./story-tag-chip";
 
 export interface StoryEditorValues {
   storyTitle: string;
-  storyDescription: string;
-  storyExcerpt: string;
-  selectedTagSlugs: string[];
+  selectedTagIds: string[];
   chapterTitle: string;
   chapterContent: string;
 }
@@ -29,6 +23,7 @@ export interface StoryEditorValues {
 export interface StoryEditorFormProps {
   mode: "create" | "edit";
   values: StoryEditorValues;
+  availableTags: StoryTag[];
   storyId?: string;
   storySlug?: string;
   chapterId?: string;
@@ -50,6 +45,7 @@ export interface StoryEditorFormProps {
 export function StoryEditorForm({
   mode,
   values,
+  availableTags,
   storyId,
   storySlug,
   chapterId,
@@ -80,13 +76,14 @@ export function StoryEditorForm({
   }
 
   function toggleTag(tag: StoryTag) {
-    const nextTags = draftValues.selectedTagSlugs.includes(tag.slug)
-      ? draftValues.selectedTagSlugs.filter((slug) => slug !== tag.slug)
-      : [...draftValues.selectedTagSlugs, tag.slug];
+    const nextTags = draftValues.selectedTagIds.includes(tag.id)
+      ? draftValues.selectedTagIds.filter((id) => id !== tag.id)
+      : [...draftValues.selectedTagIds, tag.id];
 
-    update("selectedTagSlugs", nextTags);
+    update("selectedTagIds", nextTags);
   }
 
+  const groupedTags = groupStoryTags(availableTags);
   const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
   const previousChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : undefined;
   const nextChapter =
@@ -95,7 +92,7 @@ export function StoryEditorForm({
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-5">
-        <ShellCard title="История" description="Метаданные истории сохраняются отдельно от текста главы.">
+        <ShellCard title="История" description="Бэкенд сейчас хранит название и набор тегов истории.">
           <div className="grid gap-4">
             <label className="space-y-2">
               <span className="text-sm font-semibold">Название истории</span>
@@ -106,45 +103,29 @@ export function StoryEditorForm({
               />
             </label>
 
-            <label className="space-y-2">
-              <span className="text-sm font-semibold">Короткий тизер</span>
-              <Textarea
-                value={draftValues.storyExcerpt}
-                onChange={(event) => update("storyExcerpt", event.target.value)}
-                placeholder="Короткое описание для каталога"
-                className="min-h-28"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold">Полное описание</span>
-              <Textarea
-                value={draftValues.storyDescription}
-                onChange={(event) => update("storyDescription", event.target.value)}
-                placeholder="Описание истории"
-                className="min-h-36"
-              />
-            </label>
-
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Теги</div>
-              <div className="flex flex-wrap gap-2">
-                {storyTags.map((tag) => (
-                  <StoryTagChip
-                    key={tag.id}
-                    tag={tag}
-                    active={draftValues.selectedTagSlugs.includes(tag.slug)}
-                    onClick={() => toggleTag(tag)}
-                  />
-                ))}
-              </div>
+            <div className="space-y-4">
+              {Object.entries(groupedTags).map(([category, tags]) => (
+                <div key={category} className="space-y-2">
+                  <div className="text-sm font-semibold">{getStoryTagCategoryLabel(category)}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <StoryTagChip
+                        key={tag.id}
+                        tag={tag}
+                        active={draftValues.selectedTagIds.includes(tag.id)}
+                        onClick={() => toggleTag(tag)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </ShellCard>
 
         <ShellCard
           title={mode === "create" ? "Первая глава" : `Глава ${chapterNumber ?? "—"}`}
-          description="Базовый редактор главы с отдельной отправкой текста на орфографическую проверку."
+          description="Текст главы хранится отдельно и редактируется своим запросом."
         >
           <div className="grid gap-4">
             {mode === "edit" && storyId ? (
@@ -236,17 +217,17 @@ export function StoryEditorForm({
             )}
           </ShellCard>
         ) : (
-          <ShellCard title="Что будет дальше" description="После создания истории вы сразу попадёте в редактор первой главы.">
+          <ShellCard title="Что будет дальше" description="После создания истории откроется маршрут редактирования главы.">
             <div className="space-y-3 text-sm leading-6 text-[var(--plotty-muted)]">
-              <p>Сначала создается карточка истории с описанием и выбранными тегами.</p>
-              <p>Затем автоматически создается первая глава и открывается маршрут редактирования.</p>
-              <p>Орфографическую проверку можно запускать уже внутри редактора конкретной главы.</p>
+              <p>Сначала создается история с названием и выбранными тегами.</p>
+              <p>Сразу после этого создается первая глава с введенным текстом.</p>
+              <p>Орфографическую проверку и генерацию картинки можно запускать уже из редактора главы.</p>
             </div>
           </ShellCard>
         )}
 
         {mode === "edit" ? (
-          <ShellCard title="Навигация по истории" description="Переход по главам и destructive actions.">
+          <ShellCard title="Навигация по истории" description="Переход между главами и удаление.">
             <div className="space-y-3">
               {storySlug && chapters.length ? (
                 <div className="space-y-2">
@@ -260,7 +241,7 @@ export function StoryEditorForm({
                           : "border-[var(--plotty-line)] bg-white/70 text-[var(--plotty-muted)]"
                       }`}
                     >
-                      Глава {chapter.number}. {chapter.title}
+                      Глава {chapter.number ?? "—"}. {chapter.title}
                     </Link>
                   ))}
                 </div>

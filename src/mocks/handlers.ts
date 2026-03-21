@@ -20,12 +20,17 @@ import {
   getAiJob,
   getChapterById,
   getStoryBySlug,
+  listTags,
   listStories,
   updateChapterRecord,
   updateStoryRecord,
 } from "./data/stories";
 
 export const handlers = [
+  http.get("*/tags", () => {
+    return HttpResponse.json(listTags());
+  }),
+
   http.get("*/stories", ({ request }) => {
     const url = new URL(request.url);
     const query = parseStoriesQuery(url.searchParams);

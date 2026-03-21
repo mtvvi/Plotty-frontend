@@ -1,5 +1,15 @@
+function resolveApiInput(input: string) {
+  if (/^https?:\/\//.test(input)) {
+    return input;
+  }
+
+  const path = input.startsWith("/") ? input : `/${input}`;
+
+  return path.startsWith("/api/") ? path : `/api${path}`;
+}
+
 export async function fetchJson<T>(input: string, init?: RequestInit) {
-  const response = await fetch(input, {
+  const response = await fetch(resolveApiInput(input), {
     cache: "no-store",
     ...init,
     headers: {

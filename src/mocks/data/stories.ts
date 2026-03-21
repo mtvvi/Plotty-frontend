@@ -84,6 +84,20 @@ interface MockStoriesDb {
 
 const tagMap = new Map(storyTags.map((tag) => [tag.slug, tag]));
 
+function resolveTagSlugsFromPayload(payload: { tags?: string[]; tagIds?: string[] }) {
+  if (payload.tags?.length) {
+    return payload.tags;
+  }
+
+  if (payload.tagIds?.length) {
+    return payload.tagIds
+      .map((tagId) => storyTags.find((tag) => tag.id === tagId)?.slug)
+      .filter((slug): slug is string => Boolean(slug));
+  }
+
+  return [];
+}
+
 function createInitialDb(): MockStoriesDb {
   return {
     stories: [
@@ -321,6 +335,7 @@ function toStoryListItem(story: StoryRecord): StoryListItem {
     id: story.id,
     slug: story.slug,
     title: story.title,
+    createdAt: story.createdAt,
     description: story.description,
     excerpt: story.excerpt,
     status: story.status,
@@ -410,6 +425,7 @@ function countWords(content: string) {
 
 function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
   const filtered = db.stories
+    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
     .filter((story) => query.tags.every((tag) => story.tagSlugs.includes(tag)))
     .filter((story) => (query.fandom ? story.fandom === query.fandom : true))
     .filter((story) => (query.rating ? story.ratingLabel === query.rating : true))
@@ -434,6 +450,12 @@ export function listStories(query: StoriesQuery) {
   return buildStoriesQueryResult(query);
 }
 
+export function listTags() {
+  return {
+    items: storyTags,
+  };
+}
+
 export function getStoryBySlug(slug: string) {
   const story = db.stories.find((item) => item.slug === slug);
 
@@ -452,10 +474,10 @@ export function createStoryRecord(payload: CreateStoryPayload) {
     id: `story-${db.storySeed}`,
     slug: uniqueStorySlug(payload.title),
     title: payload.title,
-    description: payload.description,
-    excerpt: payload.excerpt,
+    description: payload.description ?? "",
+    excerpt: payload.excerpt ?? "",
     status: "draft",
-    tagSlugs: payload.tags,
+    tagSlugs: resolveTagSlugsFromPayload(payload),
     createdAt: timestamp,
     updatedAt: timestamp,
     fandom: "Гарри Поттер",
@@ -485,11 +507,15 @@ export function updateStoryRecord(storyId: string, payload: UpdateStoryPayload) 
     return null;
   }
 
-  story.title = payload.title;
-  story.description = payload.description;
-  story.excerpt = payload.excerpt;
-  story.tagSlugs = payload.tags;
-  story.slug = uniqueStorySlug(payload.title, story.id);
+  if (payload.title) {
+    story.title = payload.title;
+    story.slug = uniqueStorySlug(payload.title, story.id);
+  }
+  story.description = payload.description ?? story.description;
+  story.excerpt = payload.excerpt ?? story.excerpt;
+  if (payload.tags || payload.tagIds) {
+    story.tagSlugs = resolveTagSlugsFromPayload(payload);
+  }
   story.updatedAt = nowIso();
   story.updatedLabel = "обновлено только что";
 

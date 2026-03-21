@@ -4,6 +4,7 @@ export type AiJobType = "spellcheck" | "image_generation";
 
 export interface StoryTag {
   id: string;
+  category?: string;
   slug: string;
   name: string;
 }
@@ -12,12 +13,13 @@ export interface StoryListItem {
   id: string;
   slug: string;
   title: string;
-  description: string;
-  excerpt: string;
-  status: StoryStatus;
   tags: StoryTag[];
   chaptersCount: number;
+  createdAt: string;
   updatedAt: string;
+  description?: string;
+  excerpt?: string;
+  status?: StoryStatus;
   fandom?: string;
   pairing?: string;
   ratingLabel?: string;
@@ -34,11 +36,11 @@ export interface StoryListItem {
 
 export interface ChapterListItem {
   id: string;
-  number: number;
   title: string;
-  wordCount: number;
   updatedAt: string;
-  hasImage: boolean;
+  number?: number;
+  wordCount?: number;
+  hasImage?: boolean;
   imageUrl?: string;
 }
 
@@ -46,34 +48,35 @@ export interface StoryDetails {
   id: string;
   slug: string;
   title: string;
-  description: string;
-  excerpt: string;
-  status: StoryStatus;
   tags: StoryTag[];
   chapters: ChapterListItem[];
   createdAt: string;
   updatedAt: string;
+  description?: string;
+  excerpt?: string;
+  status?: StoryStatus;
 }
 
 export interface ChapterDetails {
   id: string;
   storyId: string;
-  storySlug: string;
-  storyTitle: string;
-  storyDescription: string;
-  storyExcerpt: string;
-  storyTags: StoryTag[];
-  storyChapters: ChapterListItem[];
-  number: number;
   title: string;
   content: string;
-  wordCount: number;
   updatedAt: string;
+  storySlug?: string;
+  storyTitle?: string;
+  storyDescription?: string;
+  storyExcerpt?: string;
+  storyTags?: StoryTag[];
+  storyChapters?: ChapterListItem[];
+  number?: number;
+  wordCount?: number;
   imageUrl?: string;
 }
 
 export interface StoriesQuery {
   tags: string[];
+  q: string;
   fandom: string;
   rating: string;
   status: string;
@@ -93,12 +96,19 @@ export interface StoriesResponse {
 
 export interface CreateStoryPayload {
   title: string;
-  description: string;
-  excerpt: string;
-  tags: string[];
+  tagIds?: string[];
+  description?: string;
+  excerpt?: string;
+  tags?: string[];
 }
 
-export type UpdateStoryPayload = CreateStoryPayload;
+export interface UpdateStoryPayload {
+  title?: string;
+  tagIds?: string[];
+  description?: string;
+  excerpt?: string;
+  tags?: string[];
+}
 
 export interface CreateChapterPayload {
   title: string;
@@ -140,6 +150,7 @@ export interface AiJobResponse<TResult> {
   type: AiJobType;
   status: AiJobStatus;
   result?: TResult;
+  error?: string;
   errorMessage?: string;
 }
 
@@ -150,4 +161,8 @@ export interface SpellcheckPayload {
 
 export interface ImageGenerationPayload extends SpellcheckPayload {
   prompt: string;
+}
+
+export interface StoryTagsResponse {
+  items: StoryTag[];
 }

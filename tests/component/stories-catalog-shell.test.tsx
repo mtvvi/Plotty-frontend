@@ -31,12 +31,12 @@ describe("StoriesCatalogShell", () => {
       expect(screen.getByRole("heading", { name: "После полуночи снег не тает" })).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: "драма" }));
+    await user.click(screen.getByRole("button", { name: "Драма" }));
 
     expect(replace).toHaveBeenCalledWith("/?tag=drama", { scroll: false });
   });
 
-  it("updates the URL when a fandom filter is clicked", async () => {
+  it("updates the URL when a fandom tag is clicked", async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -54,10 +54,10 @@ describe("StoriesCatalogShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Ведьмак" }));
 
-    expect(replace).toHaveBeenCalledWith("/?fandom=%D0%92%D0%B5%D0%B4%D1%8C%D0%BC%D0%B0%D0%BA", { scroll: false });
+    expect(replace).toHaveBeenCalledWith("/?tag=witcher", { scroll: false });
   });
 
-  it("keeps all fixed fandom chips visible after selecting one", async () => {
+  it("keeps all tag groups visible after selecting one fandom", async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
