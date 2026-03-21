@@ -114,8 +114,7 @@ export function StoriesCatalogShell() {
             </nav>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="olive">AI-орфография</Badge>
-              <Badge tone="gold">Генерация изображений</Badge>
+              
             </div>
           </div>
 
