@@ -9,6 +9,7 @@ import { routes } from "@/shared/config/routes";
 import { Button } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 
+import { GenerateChapterImageButton } from "./generate-chapter-image-button";
 import { PlottyShell, ShellCard } from "./plotty-shell";
 import { StoryTagChip } from "./story-tag-chip";
 
@@ -110,6 +111,12 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-3">
+                      <GenerateChapterImageButton
+                        chapterId={chapter.id}
+                        chapterTitle={chapter.title}
+                        storySlug={storyQuery.data.slug}
+                        hasImage={chapter.hasImage}
+                      />
                       <Link href={routes.chapter(storyQuery.data.slug, chapter.number)}>
                         <Button variant="secondary">Читать</Button>
                       </Link>

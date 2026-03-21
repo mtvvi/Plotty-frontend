@@ -17,6 +17,7 @@ import { routes } from "@/shared/config/routes";
 import { Button } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 
+import { GenerateChapterImageButton } from "./generate-chapter-image-button";
 import { PlottyShell, ShellCard } from "./plotty-shell";
 import { StoryEditorForm, type StoryEditorValues } from "./story-editor-form";
 import { StoryTagChip } from "./story-tag-chip";
@@ -204,6 +205,12 @@ export function StoryCreateScreen() {
                               <div className="mt-1 text-sm text-[var(--plotty-muted)]">{chapter.wordCount} слов</div>
                             </div>
                             <div className="flex flex-wrap gap-3">
+                              <GenerateChapterImageButton
+                                chapterId={chapter.id}
+                                chapterTitle={chapter.title}
+                                storySlug={selectedStoryQuery.data.slug}
+                                hasImage={chapter.hasImage}
+                              />
                               <Link href={routes.chapter(selectedStoryQuery.data.slug, chapter.number)}>
                                 <Button variant="secondary">Читать</Button>
                               </Link>
