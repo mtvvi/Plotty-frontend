@@ -1,15 +1,22 @@
-export async function fetchJson<T>(input: string) {
+export async function fetchJson<T>(input: string, init?: RequestInit) {
   const response = await fetch(input, {
+    cache: "no-store",
+    ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
     },
-    cache: "no-store",
   });
 
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);
   }
 
-  return (await response.json()) as T;
-}
+  if (response.status === 204) {
+    return null as T;
+  }
 
+  const text = await response.text();
+
+  return (text ? (JSON.parse(text) as T) : (null as T));
+}
