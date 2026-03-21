@@ -57,9 +57,7 @@ export function StoriesCatalogShell() {
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--plotty-line)] bg-white/35 px-7 py-3 text-[13px] text-[var(--plotty-muted)]">
           <div className="flex flex-wrap items-center gap-3">
-            <span>Plotty</span>
-            <span>•</span>
-            <span>каталог подключен к реальному Go-бэкенду</span>
+            
           </div>
           <div className="flex flex-wrap items-center gap-4 text-[16px] font-bold text-[var(--plotty-ink)]">
             <span>Всего историй: {(storiesQuery.data?.pagination.total ?? 0).toLocaleString("ru-RU")}</span>
