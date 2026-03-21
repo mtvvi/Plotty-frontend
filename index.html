@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plotty MVP Catalog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,600;7..72,700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #e9e3da;
+        --paper: #f7f3ec;
+        --paper-strong: #fcfaf6;
+        --ink: #1f2421;
+        --muted: #65625d;
+        --border: #d6cec2;
+        --accent: #b95b36;
+        --accent-soft: #f0d8cd;
+        --olive: #51614b;
+        --olive-soft: #d9e1d5;
+        --gold: #c39a4a;
+        --gold-soft: #efe4c8;
+        --berry: #874553;
+        --berry-soft: #ead5db;
+        --shadow: 0 22px 60px rgba(44, 35, 26, 0.08);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Manrope", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(185, 91, 54, 0.09), transparent 22%),
+          radial-gradient(circle at top right, rgba(81, 97, 75, 0.08), transparent 18%),
+          linear-gradient(180deg, #f0ebe2 0%, var(--bg) 100%);
+      }
+
+      .page {
+        width: 1520px;
+        margin: 0 auto;
+        padding: 36px 40px 72px;
+      }
+
+      .app-frame {
+        background: linear-gradient(180deg, rgba(252, 250, 246, 0.96), rgba(247, 243, 236, 0.98));
+        border: 1px solid rgba(214, 206, 194, 0.9);
+        border-radius: 34px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .utility-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 28px;
+        background: #282724;
+        color: #f6f1eb;
+        font-size: 13px;
+      }
+
+      .utility-group,
+      .utility-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .utility-pill {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        padding: 24px 28px 20px;
+        border-bottom: 1px solid rgba(214, 206, 194, 0.7);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 230px;
+      }
+
+      .brand-mark {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px 14px 14px 4px;
+        background:
+          linear-gradient(135deg, rgba(185, 91, 54, 0.18), rgba(81, 97, 75, 0.12)),
+          var(--paper-strong);
+        border: 1px solid rgba(185, 91, 54, 0.18);
+        position: relative;
+      }
+
+      .brand-mark::before,
+      .brand-mark::after {
+        content: "";
+        position: absolute;
+        background: var(--accent);
+      }
+
+      .brand-mark::before {
+        width: 18px;
+        height: 2px;
+        left: 12px;
+        top: 13px;
+        transform: rotate(-18deg);
+        border-radius: 999px;
+      }
+
+      .brand-mark::after {
+        width: 14px;
+        height: 2px;
+        left: 12px;
+        top: 22px;
+        transform: rotate(-18deg);
+        border-radius: 999px;
+        opacity: 0.8;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-family: "Literata", serif;
+        font-size: 33px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+      }
+
+      .brand p {
+        margin: 3px 0 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .search-wrap {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .search {
+        flex: 1;
+        height: 54px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 18px;
+        background: #fffdfa;
+        border: 1px solid rgba(214, 206, 194, 0.92);
+        border-radius: 18px;
+      }
+
+      .search-icon {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #857f78;
+        border-radius: 50%;
+        position: relative;
+      }
+
+      .search-icon::after {
+        content: "";
+        position: absolute;
+        width: 7px;
+        height: 2px;
+        border-radius: 999px;
+        background: #857f78;
+        transform: rotate(40deg);
+        right: -5px;
+        bottom: -2px;
+      }
+
+      .search span {
+        color: #8b847c;
+        font-size: 15px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 48px;
+        padding: 0 18px;
+        border: 1px solid transparent;
+        border-radius: 16px;
+        font-weight: 700;
+        font-size: 14px;
+      }
+
+      .button-primary {
+        background: var(--accent);
+        color: #fff7f3;
+        box-shadow: 0 12px 20px rgba(185, 91, 54, 0.18);
+      }
+
+      .button-ghost {
+        background: rgba(255, 255, 255, 0.82);
+        border-color: rgba(214, 206, 194, 0.92);
+      }
+
+      .main-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 28px 18px;
+        border-bottom: 1px solid rgba(214, 206, 194, 0.65);
+      }
+
+      .nav-links,
+      .nav-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .nav-link {
+        padding: 12px 16px;
+        border-radius: 14px;
+        color: var(--muted);
+        font-weight: 700;
+        font-size: 14px;
+      }
+
+      .nav-link.active {
+        background: rgba(31, 36, 33, 0.06);
+        color: var(--ink);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .badge-accent {
+        background: var(--accent-soft);
+        color: #8e3f22;
+      }
+
+      .badge-olive {
+        background: var(--olive-soft);
+        color: #385138;
+      }
+
+      .badge-gold {
+        background: var(--gold-soft);
+        color: #825d14;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 280px 1fr 300px;
+        gap: 24px;
+        padding: 28px;
+      }
+
+      .panel {
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(214, 206, 194, 0.8);
+        border-radius: var(--radius-lg);
+      }
+
+      .panel-inner {
+        padding: 18px;
+      }
+
+      .section-title {
+        margin: 0 0 14px;
+        font-size: 13px;
+        line-height: 1.3;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #7f776f;
+      }
+
+      .filter-group + .filter-group {
+        margin-top: 20px;
+      }
+
+      .filter-label {
+        display: block;
+        margin-bottom: 10px;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .chip-grid,
+      .stack {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip {
+        padding: 9px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(214, 206, 194, 0.92);
+        background: #fffdfa;
+        font-size: 12px;
+        font-weight: 700;
+        color: #5f5b56;
+      }
+
+      .chip.selected {
+        background: rgba(31, 36, 33, 0.92);
+        border-color: rgba(31, 36, 33, 0.92);
+        color: #f7f3ec;
+      }
+
+      .chip.soft-accent {
+        background: var(--accent-soft);
+        border-color: rgba(185, 91, 54, 0.14);
+        color: #8d4427;
+      }
+
+      .chip.soft-berry {
+        background: var(--berry-soft);
+        border-color: rgba(135, 69, 83, 0.14);
+        color: #743846;
+      }
+
+      .filter-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .filter-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 11px 12px;
+        border-radius: 14px;
+        background: rgba(252, 250, 246, 0.92);
+        font-size: 13px;
+      }
+
+      .filter-item strong {
+        font-size: 14px;
+      }
+
+      .content {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .hero {
+        padding: 24px;
+        border-radius: 26px;
+        border: 1px solid rgba(214, 206, 194, 0.84);
+        background:
+          radial-gradient(circle at top left, rgba(185, 91, 54, 0.14), transparent 34%),
+          radial-gradient(circle at top right, rgba(81, 97, 75, 0.15), transparent 32%),
+          linear-gradient(180deg, #fffdfa, #f5efe7);
+      }
+
+      .hero-top,
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: rgba(31, 36, 33, 0.06);
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .hero h2 {
+        margin: 18px 0 12px;
+        max-width: 660px;
+        font-family: "Literata", serif;
+        font-size: 38px;
+        line-height: 1.12;
+        letter-spacing: -0.04em;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 760px;
+        font-size: 15px;
+        line-height: 1.7;
+        color: #5f5b56;
+      }
+
+      .metric-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .metric {
+        min-width: 152px;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(214, 206, 194, 0.75);
+        border-radius: 18px;
+      }
+
+      .metric span {
+        display: block;
+        font-size: 12px;
+        color: #7e776f;
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 22px;
+        font-weight: 800;
+      }
+
+      .toolbar {
+        padding: 18px 22px;
+        border-radius: 20px;
+        border: 1px solid rgba(214, 206, 194, 0.8);
+        background: rgba(255, 255, 255, 0.82);
+      }
+
+      .tabs,
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .tab {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(31, 36, 33, 0.05);
+        color: #615d58;
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .tab.active {
+        background: rgba(31, 36, 33, 0.92);
+        color: #f7f3ec;
+      }
+
+      .catalog-list {
+        display: grid;
+        gap: 16px;
+      }
+
+      .story-card {
+        display: grid;
+        grid-template-columns: 132px 1fr;
+        gap: 18px;
+        padding: 18px;
+        border-radius: 24px;
+        border: 1px solid rgba(214, 206, 194, 0.84);
+        background: rgba(255, 255, 255, 0.88);
+      }
+
+      .cover {
+        min-height: 188px;
+        border-radius: 18px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .cover::after {
+        content: "";
+        position: absolute;
+        inset: auto 14px 14px 14px;
+        height: 56px;
+        border-radius: 14px;
+        background: linear-gradient(180deg, transparent, rgba(19, 21, 22, 0.78));
+      }
+
+      .cover-title {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 18px;
+        z-index: 1;
+        color: #fff9f6;
+        font-family: "Literata", serif;
+        font-size: 21px;
+        line-height: 1.05;
+      }
+
+      .cover-1 {
+        background:
+          linear-gradient(180deg, rgba(15, 22, 26, 0.18), rgba(15, 22, 26, 0.85)),
+          linear-gradient(135deg, #6c3423, #d79467 62%, #f0d2ae);
+      }
+
+      .cover-2 {
+        background:
+          linear-gradient(180deg, rgba(13, 19, 28, 0.18), rgba(9, 15, 22, 0.85)),
+          linear-gradient(135deg, #20304a, #557193 58%, #d3e1f2);
+      }
+
+      .cover-3 {
+        background:
+          linear-gradient(180deg, rgba(25, 15, 22, 0.1), rgba(24, 12, 18, 0.84)),
+          linear-gradient(135deg, #5f2234, #b36d85 62%, #f0d8e3);
+      }
+
+      .cover-4 {
+        background:
+          linear-gradient(180deg, rgba(14, 18, 10, 0.18), rgba(11, 15, 10, 0.86)),
+          linear-gradient(135deg, #2d4228, #6f8658 58%, #d6dfb7);
+      }
+
+      .cover-5 {
+        background:
+          linear-gradient(180deg, rgba(26, 19, 12, 0.18), rgba(20, 14, 10, 0.84)),
+          linear-gradient(135deg, #51412d, #9a7b57 62%, #f1e0bf);
+      }
+
+      .cover-6 {
+        background:
+          linear-gradient(180deg, rgba(12, 19, 18, 0.18), rgba(10, 16, 15, 0.86)),
+          linear-gradient(135deg, #1e3f42, #4b8180 58%, #cbebdc);
+      }
+
+      .story-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .story-meta h3 {
+        margin: 0 0 8px;
+        font-size: 24px;
+        line-height: 1.15;
+      }
+
+      .story-meta p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #615d58;
+      }
+
+      .stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 14px 0 12px;
+      }
+
+      .stat-pill {
+        padding: 8px 10px;
+        border-radius: 999px;
+        background: rgba(31, 36, 33, 0.05);
+        font-size: 12px;
+        font-weight: 800;
+        color: #4d4b47;
+      }
+
+      .summary-box {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(81, 97, 75, 0.09), rgba(81, 97, 75, 0.03));
+        border: 1px solid rgba(81, 97, 75, 0.14);
+      }
+
+      .summary-box strong,
+      .ai-block strong,
+      .side-card strong,
+      .author-entry strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+      }
+
+      .summary-box p,
+      .ai-block p,
+      .side-card p,
+      .author-entry p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #615d58;
+      }
+
+      .story-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .action {
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: #fffdfa;
+        border: 1px solid rgba(214, 206, 194, 0.92);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .side-card,
+      .ai-block,
+      .author-entry {
+        padding: 18px;
+      }
+
+      .list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .list-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .list-item span:last-child {
+        color: #8c8379;
+      }
+
+      .checklist {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .check {
+        display: grid;
+        grid-template-columns: 18px 1fr;
+        gap: 10px;
+        align-items: start;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .check-mark {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgba(81, 97, 75, 0.16);
+        position: relative;
+      }
+
+      .check-mark::after {
+        content: "";
+        position: absolute;
+        left: 5px;
+        top: 4px;
+        width: 7px;
+        height: 4px;
+        border-left: 2px solid #385138;
+        border-bottom: 2px solid #385138;
+        transform: rotate(-45deg);
+      }
+
+      .cta-stack {
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .cta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: #fffdfa;
+        border: 1px solid rgba(214, 206, 194, 0.8);
+      }
+
+      .compact-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(31, 36, 33, 0.92);
+        color: #f7f3ec;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .editor-frame {
+        margin-top: 30px;
+        padding: 26px;
+      }
+
+      .editor-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+      }
+
+      .editor-card {
+        min-height: 280px;
+        border-radius: 24px;
+        border: 1px solid rgba(214, 206, 194, 0.84);
+        background: rgba(255, 255, 255, 0.74);
+        padding: 22px;
+      }
+
+      .editor-toolbar,
+      .editor-tools,
+      .editor-notes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .editor-toolbar {
+        margin-top: 12px;
+      }
+
+      .editor-line {
+        width: 100%;
+        height: 16px;
+        margin-top: 14px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(31, 36, 33, 0.14), rgba(31, 36, 33, 0.05));
+      }
+
+      .editor-line.short {
+        width: 62%;
+      }
+
+      .editor-note {
+        flex: 1 1 100%;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(185, 91, 54, 0.08);
+        border: 1px solid rgba(185, 91, 54, 0.14);
+      }
+
+      .editor-note.olive {
+        background: rgba(81, 97, 75, 0.08);
+        border-color: rgba(81, 97, 75, 0.15);
+      }
+
+      .footer-note {
+        margin-top: 16px;
+        font-size: 12px;
+        color: #857d74;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="app-frame">
+        <div class="utility-bar">
+          <div class="utility-group">
+            <span>Plotty beta</span>
+            <span class="utility-pill">Фанфики с AI-бета-ридером</span>
+          </div>
+          <div class="utility-actions">
+            <span>Правила</span>
+            <span>FAQ</span>
+            <span>Уведомления</span>
+            <span>Вход</span>
+          </div>
+        </div>
+
+        <header class="header">
+          <div class="brand">
+            <div class="brand-mark"></div>
+            <div>
+              <h1>Plotty</h1>
+              <p>Каталог историй и AI-помощник для авторов</p>
+            </div>
+          </div>
+
+          <div class="search-wrap">
+            <div class="search">
+              <div class="search-icon"></div>
+              <span>Поиск по историям, фандомам, персонажам и авторам</span>
+            </div>
+            <div class="button button-primary">Начать писать</div>
+          </div>
+        </header>
+
+        <div class="main-nav">
+          <div class="nav-links">
+            <div class="nav-link active">Каталог</div>
+            <div class="nav-link">Фандомы</div>
+            <div class="nav-link">Авторы</div>
+            <div class="nav-link">Рекомендации</div>
+            <div class="nav-link">Подборки</div>
+          </div>
+          <div class="nav-meta">
+            <span class="badge badge-olive">2 481 обновление сегодня</span>
+            <span class="badge badge-accent">Plotty AI Beta Reader</span>
+          </div>
+        </div>
+
+        <div class="shell">
+          <aside class="panel">
+            <div class="panel-inner">
+              <h3 class="section-title">Фильтры</h3>
+
+              <div class="filter-group">
+                <span class="filter-label">Фандомы</span>
+                <div class="chip-grid">
+                  <span class="chip selected">Гарри Поттер</span>
+                  <span class="chip">Наруто</span>
+                  <span class="chip">Ведьмак</span>
+                  <span class="chip">BTS</span>
+                  <span class="chip">Genshin</span>
+                  <span class="chip">Ориджиналы</span>
+                </div>
+              </div>
+
+              <div class="filter-group">
+                <span class="filter-label">Статус</span>
+                <div class="stack">
+                  <span class="chip selected">В процессе</span>
+                  <span class="chip">Завершён</span>
+                  <span class="chip">Заморожен</span>
+                </div>
+              </div>
+
+              <div class="filter-group">
+                <span class="filter-label">Рейтинг</span>
+                <div class="stack">
+                  <span class="chip">G</span>
+                  <span class="chip">PG-13</span>
+                  <span class="chip selected">R</span>
+                  <span class="chip soft-accent">NC-17</span>
+                </div>
+              </div>
+
+              <div class="filter-group">
+                <span class="filter-label">Размер</span>
+                <div class="filter-list">
+                  <div class="filter-item">
+                    <strong>Мини</strong>
+                    <span>до 20к слов</span>
+                  </div>
+                  <div class="filter-item">
+                    <strong>Миди</strong>
+                    <span>20-80к слов</span>
+                  </div>
+                  <div class="filter-item">
+                    <strong>Макси</strong>
+                    <span>80к+ слов</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="filter-group">
+                <span class="filter-label">Метки</span>
+                <div class="chip-grid">
+                  <span class="chip soft-berry">Slow burn</span>
+                  <span class="chip">Canon divergence</span>
+                  <span class="chip">Enemies to lovers</span>
+                  <span class="chip">hurt/comfort</span>
+                  <span class="chip">AU</span>
+                  <span class="chip">юмор</span>
+                  <span class="chip">ангст</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <section class="content">
+            <div class="hero">
+              <div class="hero-top">
+                <span class="eyebrow">Каталог Plotty</span>
+                <span class="badge badge-gold">Сначала истории, потом AI</span>
+              </div>
+              <h2>Площадка для фанфиков, где AI помогает автору как внимательный бета-ридер.</h2>
+              <p>
+                Читатель сразу попадает в каталог: ищет истории, сортирует по фандомам и меткам, читает
+                главы, ставит лайки, добавляет в закладки и открывает краткую сводку по работе. Автор
+                получает проверки на OOC, канон, логику, непонятные места и ритм текста.
+              </p>
+              <div class="metric-row">
+                <div class="metric">
+                  <span>Историй в каталоге</span>
+                  <strong>138 420</strong>
+                </div>
+                <div class="metric">
+                  <span>Фандомов</span>
+                  <strong>1 274</strong>
+                </div>
+                <div class="metric">
+                  <span>AI-сводок сегодня</span>
+                  <strong>9 812</strong>
+                </div>
+                <div class="metric">
+                  <span>Новых глав за сутки</span>
+                  <strong>2 481</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <div class="tabs">
+                <span class="tab active">Обновления</span>
+                <span class="tab">Популярное</span>
+                <span class="tab">Рекомендации</span>
+                <span class="tab">Обсуждаемые</span>
+                <span class="tab">С подписками</span>
+              </div>
+              <div class="controls">
+                <span class="badge badge-olive">2 934 результата</span>
+                <span class="tab">Карточки</span>
+                <span class="tab">Список</span>
+              </div>
+            </div>
+
+            <div class="catalog-list">
+              <article class="story-card">
+                <div class="cover cover-1">
+                  <div class="cover-title">После полуночи горят архивы</div>
+                </div>
+                <div>
+                  <div class="story-head">
+                    <div class="story-meta">
+                      <h3>После полуночи горят архивы</h3>
+                      <p>
+                        Фандом: Гарри Поттер. Пейринг: Гермиона / Драко. AU о Министерстве магии,
+                        секретных протоколах и лжи, которая тянется сквозь семь лет.
+                      </p>
+                    </div>
+                    <span class="badge badge-accent">Сводка главы</span>
+                  </div>
+                  <div class="stats">
+                    <span class="stat-pill">R</span>
+                    <span class="stat-pill">В процессе</span>
+                    <span class="stat-pill">23 главы</span>
+                    <span class="stat-pill">148k слов</span>
+                    <span class="stat-pill">1 294 лайка</span>
+                    <span class="stat-pill">412 комментариев</span>
+                    <span class="stat-pill">2 031 закладка</span>
+                  </div>
+                  <div class="chip-grid">
+                    <span class="chip soft-berry">slow burn</span>
+                    <span class="chip">canon divergence</span>
+                    <span class="chip">политические интриги</span>
+                    <span class="chip">hurt/comfort</span>
+                  </div>
+                  <div class="summary-box" style="margin-top: 14px;">
+                    <div>
+                      <strong>Plotty summary</strong>
+                      <p>
+                        Герои находят документы, которые меняют их взгляд на войну. Новая глава держится
+                        на скрытых мотивах Драко и недосказанности между героями.
+                      </p>
+                    </div>
+                    <span class="compact-button">Кратко</span>
+                  </div>
+                  <div class="story-footer">
+                    <div class="actions">
+                      <span class="action">Читать</span>
+                      <span class="action">В закладки</span>
+                      <span class="action">Обсудить</span>
+                    </div>
+                    <span class="badge badge-gold">обновлено 28 минут назад</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="story-card">
+                <div class="cover cover-2">
+                  <div class="cover-title">Лист молчания</div>
+                </div>
+                <div>
+                  <div class="story-head">
+                    <div class="story-meta">
+                      <h3>Лист молчания</h3>
+                      <p>
+                        Фандом: Наруто. Персонажи: Какаши, Сакура, Наруто. Постканонная история о
+                        миссии, где прошлое возвращается в виде недописанного отчёта.
+                      </p>
+                    </div>
+                    <span class="badge badge-olive">Выбор редакции</span>
+                  </div>
+                  <div class="stats">
+                    <span class="stat-pill">PG-13</span>
+                    <span class="stat-pill">Завершён</span>
+                    <span class="stat-pill">9 глав</span>
+                    <span class="stat-pill">42k слов</span>
+                    <span class="stat-pill">846 лайков</span>
+                    <span class="stat-pill">167 комментариев</span>
+                    <span class="stat-pill">911 закладок</span>
+                  </div>
+                  <div class="chip-grid">
+                    <span class="chip">драма</span>
+                    <span class="chip">постканон</span>
+                    <span class="chip">командная динамика</span>
+                    <span class="chip">рефлексия</span>
+                  </div>
+                  <div class="summary-box" style="margin-top: 14px;">
+                    <div>
+                      <strong>Plotty summary</strong>
+                      <p>
+                        История о том, как старые решения отражаются на новой команде. В финале герои не
+                        побеждают прошлое, а учатся жить рядом с ним.
+                      </p>
+                    </div>
+                    <span class="compact-button">Кратко</span>
+                  </div>
+                  <div class="story-footer">
+                    <div class="actions">
+                      <span class="action">Читать</span>
+                      <span class="action">Нравится</span>
+                      <span class="action">Комментарии</span>
+                    </div>
+                    <span class="badge badge-gold">завершённая работа</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="story-card">
+                <div class="cover cover-3">
+                  <div class="cover-title">Седьмой дубль сцены</div>
+                </div>
+                <div>
+                  <div class="story-head">
+                    <div class="story-meta">
+                      <h3>Седьмой дубль сцены</h3>
+                      <p>
+                        Фандом: BTS. Пейринг: Чимин / Юнги. История о туре, усталости, контрактных
+                        ожиданиях и чувствах, которые прорываются сквозь тщательно собранный образ.
+                      </p>
+                    </div>
+                    <span class="badge badge-accent">Тренд недели</span>
+                  </div>
+                  <div class="stats">
+                    <span class="stat-pill">NC-17</span>
+                    <span class="stat-pill">В процессе</span>
+                    <span class="stat-pill">17 глав</span>
+                    <span class="stat-pill">96k слов</span>
+                    <span class="stat-pill">2 311 лайков</span>
+                    <span class="stat-pill">612 комментариев</span>
+                    <span class="stat-pill">3 084 закладки</span>
+                  </div>
+                  <div class="chip-grid">
+                    <span class="chip soft-berry">hurt/comfort</span>
+                    <span class="chip">show business</span>
+                    <span class="chip">slow burn</span>
+                    <span class="chip">сцены ревности</span>
+                  </div>
+                  <div class="summary-box" style="margin-top: 14px;">
+                    <div>
+                      <strong>Plotty summary</strong>
+                      <p>
+                        Конфликт идёт не от внешнего врага, а от невозможности честно говорить друг с
+                        другом. Сильнее всего работают диалоги после концертов и в моменты тишины.
+                      </p>
+                    </div>
+                    <span class="compact-button">Кратко</span>
+                  </div>
+                  <div class="story-footer">
+                    <div class="actions">
+                      <span class="action">Читать</span>
+                      <span class="action">В подборку</span>
+                      <span class="action">Обсудить</span>
+                    </div>
+                    <span class="badge badge-gold">горячая работа</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="story-card">
+                <div class="cover cover-4">
+                  <div class="cover-title">Белая охота</div>
+                </div>
+                <div>
+                  <div class="story-head">
+                    <div class="story-meta">
+                      <h3>Белая охота</h3>
+                      <p>
+                        Фандом: Ведьмак. Персонажи: Цири, Геральт, Йеннифэр. Путешествие по северным
+                        королевствам, где каждый найденный след ведёт к неправильной легенде.
+                      </p>
+                    </div>
+                    <span class="badge badge-olive">Новая глава</span>
+                  </div>
+                  <div class="stats">
+                    <span class="stat-pill">R</span>
+                    <span class="stat-pill">В процессе</span>
+                    <span class="stat-pill">31 глава</span>
+                    <span class="stat-pill">211k слов</span>
+                    <span class="stat-pill">1 022 лайка</span>
+                    <span class="stat-pill">251 комментарий</span>
+                    <span class="stat-pill">1 486 закладки</span>
+                  </div>
+                  <div class="chip-grid">
+                    <span class="chip">приключение</span>
+                    <span class="chip">семья</span>
+                    <span class="chip">монстры</span>
+                    <span class="chip">канонные персонажи</span>
+                  </div>
+                  <div class="summary-box" style="margin-top: 14px;">
+                    <div>
+                      <strong>Plotty summary</strong>
+                      <p>
+                        Глава строится вокруг ложных следов и слухов. Сводка помогает читателю быстро
+                        вспомнить, кто уже преследовал Цири и почему очередной след подозрителен.
+                      </p>
+                    </div>
+                    <span class="compact-button">Кратко</span>
+                  </div>
+                  <div class="story-footer">
+                    <div class="actions">
+                      <span class="action">Читать</span>
+                      <span class="action">Нравится</span>
+                      <span class="action">Главы</span>
+                    </div>
+                    <span class="badge badge-gold">обновлено 2 часа назад</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="story-card">
+                <div class="cover cover-5">
+                  <div class="cover-title">Соль на старой карте</div>
+                </div>
+                <div>
+                  <div class="story-head">
+                    <div class="story-meta">
+                      <h3>Соль на старой карте</h3>
+                      <p>
+                        Фандом: Ориджиналы. Пейринг: F/F. Морской город, семейный архив и роман,
+                        который раскрывается через череду пропущенных писем.
+                      </p>
+                    </div>
+                    <span class="badge badge-gold">Рекомендуем</span>
+                  </div>
+                  <div class="stats">
+                    <span class="stat-pill">PG-13</span>
+                    <span class="stat-pill">Завершён</span>
+                    <span class="stat-pill">12 глав</span>
+                    <span class="stat-pill">54k слов</span>
+                    <span class="stat-pill">692 лайка</span>
+                    <span class="stat-pill">123 комментария</span>
+                    <span class="stat-pill">741 закладки</span>
+                  </div>
+                  <div class="chip-grid">
+                    <span class="chip">романтика</span>
+                    <span class="chip">семейные тайны</span>
+                    <span class="chip">исторический вайб</span>
+                    <span class="chip">comfort read</span>
+                  </div>
+                  <div class="summary-box" style="margin-top: 14px;">
+                    <div>
+                      <strong>Plotty summary</strong>
+                      <p>
+                        История держится на памяти и найденных письмах. Сводка быстро связывает
+                        временные скачки, чтобы не терять эмоциональный нерв между главами.
+                      </p>
+                    </div>
+                    <span class="compact-button">Кратко</span>
+                  </div>
+                  <div class="story-footer">
+                    <div class="actions">
+                      <span class="action">Читать</span>
+                      <span class="action">В закладки</span>
+                      <span class="action">Поделиться</span>
+                    </div>
+                    <span class="badge badge-gold">тихая рекомендация</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="story-card">
+                <div class="cover cover-6">
+                  <div class="cover-title">Тень, которая знает твоё имя</div>
+                </div>
+                <div>
+                  <div class="story-head">
+                    <div class="story-meta">
+                      <h3>Тень, которая знает твоё имя</h3>
+                      <p>
+                        Фандом: Genshin Impact. Персонажи: Сяо, Итэр, Венти. История о долге,
+                        чужой памяти и странствиях, в которых опаснее всего не монстры, а недосказанность.
+                      </p>
+                    </div>
+                    <span class="badge badge-accent">Читают сейчас</span>
+                  </div>
+                  <div class="stats">
+                    <span class="stat-pill">R</span>
+                    <span class="stat-pill">В процессе</span>
+                    <span class="stat-pill">14 глав</span>
+                    <span class="stat-pill">88k слов</span>
+                    <span class="stat-pill">1 732 лайка</span>
+                    <span class="stat-pill">487 комментариев</span>
+                    <span class="stat-pill">2 209 закладки</span>
+                  </div>
+                  <div class="chip-grid">
+                    <span class="chip">road story</span>
+                    <span class="chip soft-berry">angst</span>
+                    <span class="chip">тайны прошлого</span>
+                    <span class="chip">slow reveal</span>
+                  </div>
+                  <div class="summary-box" style="margin-top: 14px;">
+                    <div>
+                      <strong>Plotty summary</strong>
+                      <p>
+                        В последних главах раскрывается, что герой помнит не своё прошлое полностью.
+                        Сводка помогает удержать нити между пророчеством, снами и реальными событиями.
+                      </p>
+                    </div>
+                    <span class="compact-button">Кратко</span>
+                  </div>
+                  <div class="story-footer">
+                    <div class="actions">
+                      <span class="action">Читать</span>
+                      <span class="action">Комментарии</span>
+                      <span class="action">Подписаться</span>
+                    </div>
+                    <span class="badge badge-gold">обсуждают 96 читателей</span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <aside class="sidebar">
+            <div class="panel ai-block">
+              <strong>Plotty AI: бета-ридер, не соавтор</strong>
+              <p>
+                AI-инструменты встроены в платформу так, чтобы поддерживать автора, а не заменять его
+                голос. На главной они заметны, но не ломают сценарий чтения.
+              </p>
+              <div class="checklist">
+                <div class="check">
+                  <div class="check-mark"></div>
+                  <span>Проверка OOC персонажей и выхода за пределы образа</span>
+                </div>
+                <div class="check">
+                  <div class="check-mark"></div>
+                  <span>Поиск противоречий с каноном и по прошлым главам</span>
+                </div>
+                <div class="check">
+                  <div class="check-mark"></div>
+                  <span>Фразы и сцены, которые могут быть непонятны читателю</span>
+                </div>
+                <div class="check">
+                  <div class="check-mark"></div>
+                  <span>Подсказки по диалогам, ритму и насыщенности описаний</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel side-card">
+              <strong>Популярные фандомы</strong>
+              <div class="list" style="margin-top: 14px;">
+                <div class="list-item"><span>Гарри Поттер</span><span>24 110</span></div>
+                <div class="list-item"><span>Наруто</span><span>13 902</span></div>
+                <div class="list-item"><span>Ведьмак</span><span>8 443</span></div>
+                <div class="list-item"><span>BTS</span><span>18 070</span></div>
+                <div class="list-item"><span>Ориджиналы</span><span>29 511</span></div>
+                <div class="list-item"><span>Genshin Impact</span><span>9 267</span></div>
+              </div>
+            </div>
+
+            <div class="panel side-card">
+              <strong>Мои закладки</strong>
+              <p>3 главы обновились за ночь, 11 историй ждут продолжения.</p>
+              <div class="cta-stack">
+                <div class="cta-row">
+                  <span>Пыль на короне</span>
+                  <span class="badge badge-olive">+1 глава</span>
+                </div>
+                <div class="cta-row">
+                  <span>Если звёзды врут</span>
+                  <span class="badge badge-gold">сводка</span>
+                </div>
+                <div class="cta-row">
+                  <span>Жёлтый коридор</span>
+                  <span class="badge badge-accent">12 комментариев</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel author-entry">
+              <strong>Для автора</strong>
+              <p>
+                Быстрый вход в редактор, сохранённые черновики и AI-проверки по последней главе.
+              </p>
+              <div class="cta-stack">
+                <div class="cta-row">
+                  <span>Продолжить главу</span>
+                  <span class="compact-button">Редактор</span>
+                </div>
+                <div class="cta-row">
+                  <span>Сводка прошлых глав</span>
+                  <span class="compact-button">Открыть</span>
+                </div>
+                <div class="cta-row">
+                  <span>Сгенерировать обложку</span>
+                  <span class="compact-button">AI image</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="app-frame editor-frame">
+        <div class="editor-grid">
+          <div class="editor-card">
+            <span class="eyebrow">Черновик автора</span>
+            <h2 style="margin: 18px 0 8px; font-size: 30px; max-width: 520px;">
+              Редактор Plotty рядом с публикацией: черновик, главы и AI-проверки в одном потоке.
+            </h2>
+            <p style="margin: 0; color: #615d58; line-height: 1.7; max-width: 610px;">
+              После входа автор быстро попадает в рабочую область: пишет новую главу, запускает
+              проверку орфографии, проверку на канон и на логику, смотрит сводку предыдущих глав и
+              открывает подсказки по диалогам и ритму.
+            </p>
+            <div class="editor-toolbar">
+              <span class="chip selected">Глава 18</span>
+              <span class="chip">Автосохранение</span>
+              <span class="chip soft-accent">Проверить орфографию</span>
+              <span class="chip soft-berry">Проверить канон</span>
+              <span class="chip">Понять, что неясно читателю</span>
+            </div>
+            <div class="editor-line"></div>
+            <div class="editor-line"></div>
+            <div class="editor-line short"></div>
+            <div class="footer-note">Секция ниже нужна как второй опорный фрейм в Figma для будущего экрана редактора.</div>
+          </div>
+
+          <div class="editor-card">
+            <span class="section-title">AI-заметки к главе</span>
+            <div class="editor-notes">
+              <div class="editor-note">
+                <strong>OOC warning</strong>
+                <p>В сцене на крыше герой говорит слишком прямолинейно для установленного образа.</p>
+              </div>
+              <div class="editor-note olive">
+                <strong>Canon check</strong>
+                <p>Дата турнира расходится с канонной хронологией на две недели.</p>
+              </div>
+              <div class="editor-note">
+                <strong>Reader clarity</strong>
+                <p>Мотивация второстепенного персонажа читается слабо, возможно, нужен мостик между сценами.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
