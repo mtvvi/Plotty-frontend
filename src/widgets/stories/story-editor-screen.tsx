@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   aiJobQueryOptions,
@@ -10,13 +10,12 @@ import {
   deleteChapter,
   deleteStory,
   chapterDetailsQueryOptions,
-  startImageGeneration,
   startSpellcheck,
   storyKeys,
   updateChapter,
   updateStory,
 } from "@/entities/story/api/stories-api";
-import type { GeneratedImage, ImageGenerationResult, SpellcheckResult } from "@/entities/story/model/types";
+import type { SpellcheckResult } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
 import { EmptyState } from "@/shared/ui/empty-state";
 
@@ -30,7 +29,6 @@ const emptyValues: StoryEditorValues = {
   selectedTagSlugs: [],
   chapterTitle: "",
   chapterContent: "",
-  imagePrompt: "",
 };
 
 export function StoryEditorScreen({
@@ -45,22 +43,20 @@ export function StoryEditorScreen({
   const chapterQuery = useQuery(chapterDetailsQueryOptions(chapterId));
   const [values, setValues] = useState<StoryEditorValues>(emptyValues);
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
-  const [imageJobId, setImageJobId] = useState("");
 
   useEffect(() => {
     if (!chapterQuery.data) {
       return;
     }
 
-    setValues((current) => ({
+    setValues({
       storyTitle: chapterQuery.data.storyTitle,
       storyDescription: chapterQuery.data.storyDescription,
       storyExcerpt: chapterQuery.data.storyExcerpt,
       selectedTagSlugs: chapterQuery.data.storyTags.map((tag) => tag.slug),
       chapterTitle: chapterQuery.data.title,
       chapterContent: chapterQuery.data.content,
-      imagePrompt: current.imagePrompt,
-    }));
+    });
   }, [chapterQuery.data]);
 
   const updateStoryMutation = useMutation({
@@ -92,9 +88,6 @@ export function StoryEditorScreen({
   const spellcheckMutation = useMutation({
     mutationFn: startSpellcheck,
   });
-  const imageMutation = useMutation({
-    mutationFn: startImageGeneration,
-  });
 
   const spellcheckJobQuery = useQuery({
     ...aiJobQueryOptions<SpellcheckResult>(spellcheckJobId),
@@ -104,39 +97,6 @@ export function StoryEditorScreen({
       return status === "completed" || status === "failed" ? false : 250;
     },
   });
-
-  const imageJobQuery = useQuery({
-    ...aiJobQueryOptions<ImageGenerationResult>(imageJobId),
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-
-      return status === "completed" || status === "failed" ? false : 250;
-    },
-  });
-
-  useEffect(() => {
-    if (imageJobQuery.data?.status === "completed") {
-      void queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
-    }
-  }, [chapterId, imageJobQuery.data?.status, queryClient]);
-
-  const generatedImage = useMemo<GeneratedImage | undefined>(() => {
-    const fromJob = imageJobQuery.data?.result?.images[0];
-
-    if (fromJob) {
-      return fromJob;
-    }
-
-    if (chapterQuery.data?.imageUrl) {
-      return {
-        id: "existing-image",
-        imageUrl: chapterQuery.data.imageUrl,
-        prompt: values.imagePrompt,
-      };
-    }
-
-    return undefined;
-  }, [chapterQuery.data?.imageUrl, imageJobQuery.data?.result, values.imagePrompt]);
 
   async function handleSave() {
     await updateStoryMutation.mutateAsync({
@@ -196,16 +156,6 @@ export function StoryEditorScreen({
     setSpellcheckJobId(accepted.jobId);
   }
 
-  async function handleGenerateImage() {
-    const accepted = await imageMutation.mutateAsync({
-      chapterId,
-      content: values.chapterContent,
-      prompt: values.imagePrompt,
-    });
-
-    setImageJobId(accepted.jobId);
-  }
-
   if (chapterQuery.isLoading) {
     return (
       <PlottyShell title="Редактор загружается" description="Подтягиваем историю и нужную главу.">
@@ -223,9 +173,9 @@ export function StoryEditorScreen({
   }
 
   const aiStatusLabel =
-    imageJobQuery.data?.status === "processing" || spellcheckJobQuery.data?.status === "processing"
-      ? "AI сейчас обрабатывает запрос."
-      : "AI-результаты подтягиваются отдельными job-ами.";
+    spellcheckJobQuery.data?.status === "processing" || spellcheckJobQuery.data?.status === "queued"
+      ? "Нейронка сейчас проверяет главу."
+      : "После сохранения главу можно отправить на орфографическую проверку.";
 
   return (
     <PlottyShell
@@ -241,18 +191,15 @@ export function StoryEditorScreen({
         chapterNumber={chapterQuery.data.number}
         chapters={chapterQuery.data.storyChapters}
         spellcheckResult={spellcheckJobQuery.data?.result}
-        generatedImage={generatedImage}
         aiStatusLabel={aiStatusLabel}
         isSaving={updateStoryMutation.isPending || updateChapterMutation.isPending}
         isSpellchecking={spellcheckMutation.isPending || spellcheckJobQuery.data?.status === "queued"}
-        isGeneratingImage={imageMutation.isPending || imageJobQuery.data?.status === "queued"}
         onChange={setValues}
         onSave={handleSave}
         onCreateNextChapter={handleCreateNextChapter}
         onDeleteChapter={handleDeleteChapter}
         onDeleteStory={handleDeleteStory}
         onSpellcheck={handleSpellcheck}
-        onGenerateImage={handleGenerateImage}
       />
     </PlottyShell>
   );

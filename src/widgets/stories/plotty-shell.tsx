@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { routes } from "@/shared/config/routes";
-import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 
@@ -35,12 +34,9 @@ export function PlottyShell({
 
           <div className="grid gap-4 px-7 py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Link href={routes.home} className="plotty-serif text-[34px] font-bold tracking-[-0.04em]">
-                  Plotty
-                </Link>
-                <Badge tone="accent">chapter lab</Badge>
-              </div>
+              <Link href={routes.home} className="plotty-serif inline-block text-[34px] font-bold tracking-[-0.04em]">
+                Plotty
+              </Link>
               <div className="space-y-3">
                 <h1 className="plotty-serif max-w-[760px] text-4xl font-semibold tracking-[-0.04em] md:text-5xl">
                   {title}

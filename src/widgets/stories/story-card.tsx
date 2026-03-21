@@ -2,47 +2,61 @@ import Link from "next/link";
 
 import type { StoryListItem } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
-import { Card } from "@/shared/ui/card";
-
-import { StoryTagChip } from "./story-tag-chip";
-
-function formatUpdate(updatedAt: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-  }).format(new Date(updatedAt));
-}
 
 export function StoryCard({ story }: { story: StoryListItem }) {
   return (
-    <Card className="grid gap-4 border-[var(--plotty-line-strong)] p-4 md:grid-cols-[minmax(0,1fr)_220px]">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Link href={routes.story(story.slug)} className="inline-block">
-            <h3 className="plotty-serif text-3xl font-semibold tracking-[-0.03em] hover:text-[var(--plotty-accent)]">
-              {story.title}
-            </h3>
-          </Link>
-          <p className="text-sm leading-7 text-[var(--plotty-muted)]">{story.excerpt}</p>
+    <Link
+      href={routes.story(story.slug)}
+      className="block space-y-4 rounded-[20px] border border-[rgba(35,33,30,0.08)] bg-[rgba(255,255,255,0.84)] p-[18px] shadow-none transition-transform transition-shadow hover:-translate-y-[1px] hover:shadow-[var(--plotty-shadow-soft)]"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-[6px]">
+          <h2 className="text-[22px] font-bold leading-none tracking-[-0.03em]">{story.title}</h2>
+          <div className="flex flex-wrap gap-x-[10px] gap-y-1 text-[13px] text-[var(--plotty-muted)]">
+            {story.fandom ? <span>{story.fandom}</span> : null}
+            {story.pairing ? <span>{story.pairing}</span> : null}
+            {story.tags.slice(0, 2).map((tag) => (
+              <span key={tag.id}>{tag.name}</span>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {story.tags.map((tag) => (
-            <StoryTagChip key={tag.id} tag={tag} />
-          ))}
-        </div>
+        {story.aiHint ? (
+          <div className="rounded-[12px] bg-[rgba(54,81,63,0.08)] px-[10px] py-[8px] text-[13px] font-bold text-[var(--plotty-olive)]">
+            {story.aiHint}
+          </div>
+        ) : null}
       </div>
 
-      <div className="space-y-3 rounded-[20px] bg-[var(--plotty-panel)] p-4">
-        <div className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--plotty-muted)]">
-          {story.status === "published" ? "Опубликовано" : "Черновик"}
-        </div>
-        <div className="text-sm leading-6 text-[var(--plotty-muted)]">{story.description}</div>
-        <div className="text-sm text-[var(--plotty-muted)]">
-          {story.chaptersCount} {story.chaptersCount === 1 ? "глава" : "глав"}
-        </div>
-        <div className="text-sm text-[var(--plotty-muted)]">Обновлено {formatUpdate(story.updatedAt)}</div>
+      <div className="flex flex-wrap gap-3">
+        {story.ratingLabel ? <CatalogMetaChip>{story.ratingLabel}</CatalogMetaChip> : null}
+        {story.statusLabel ? <CatalogMetaChip>{story.statusLabel}</CatalogMetaChip> : null}
+        <CatalogMetaChip>{story.chaptersCount} глав</CatalogMetaChip>
+        {story.sizeLabel ? <CatalogMetaChip>{story.sizeLabel}</CatalogMetaChip> : null}
       </div>
-    </Card>
+
+      <p className="text-[14px] leading-[1.6] text-[var(--plotty-muted)]">{story.excerpt}</p>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-[10px]">
+          <CatalogMiniStat>❤️ {story.likesCount?.toLocaleString("ru-RU") ?? 0}</CatalogMiniStat>
+          <CatalogMiniStat>💬 {story.commentsCount?.toLocaleString("ru-RU") ?? 0}</CatalogMiniStat>
+          <CatalogMiniStat>🔖 {story.bookmarksCount?.toLocaleString("ru-RU") ?? 0}</CatalogMiniStat>
+          {story.updatedLabel ? <CatalogMiniStat>{story.updatedLabel}</CatalogMiniStat> : null}
+        </div>
+
+        <span className="inline-flex h-[38px] items-center justify-center rounded-[12px] bg-[var(--plotty-gold-soft)] px-[14px] text-[13px] font-extrabold text-[#6b4d15]">
+          Сводка для читателя
+        </span>
+      </div>
+    </Link>
   );
+}
+
+function CatalogMetaChip({ children }: { children: React.ReactNode }) {
+  return <span className="rounded-full bg-[var(--plotty-panel)] px-3 py-2 text-[13px] font-bold">{children}</span>;
+}
+
+function CatalogMiniStat({ children }: { children: React.ReactNode }) {
+  return <span className="rounded-[12px] bg-[var(--plotty-paper)] px-[11px] py-[8px] text-[13px] font-bold">{children}</span>;
 }

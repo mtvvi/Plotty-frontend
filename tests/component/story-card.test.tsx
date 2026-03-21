@@ -13,6 +13,6 @@ describe("StoryCard", () => {
 
     expect(screen.getByRole("heading", { name: story.title })).toBeInTheDocument();
     expect(screen.getByText(story.tags[0].name)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: story.title })).toHaveAttribute("href", `/stories/${story.slug}`);
+    expect(screen.getByRole("link")).toHaveAttribute("href", `/stories/${story.slug}`);
   });
 });

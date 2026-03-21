@@ -18,6 +18,18 @@ export interface StoryListItem {
   tags: StoryTag[];
   chaptersCount: number;
   updatedAt: string;
+  fandom?: string;
+  pairing?: string;
+  ratingLabel?: string;
+  statusLabel?: string;
+  sizeLabel?: string;
+  likesCount?: number;
+  commentsCount?: number;
+  bookmarksCount?: number;
+  aiHint?: string;
+  summaryLabel?: string;
+  readLabel?: string;
+  updatedLabel?: string;
 }
 
 export interface ChapterListItem {
@@ -62,6 +74,10 @@ export interface ChapterDetails {
 
 export interface StoriesQuery {
   tags: string[];
+  fandom: string;
+  rating: string;
+  status: string;
+  size: string;
   page: number;
   pageSize: number;
 }

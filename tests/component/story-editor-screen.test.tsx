@@ -61,21 +61,6 @@ describe("StoryEditorScreen", () => {
     expect(screen.getByText(/нечаянно/i)).toBeInTheDocument();
   });
 
-  it("runs image generation and renders the preview image", async () => {
-    const user = userEvent.setup();
-
-    renderEditor();
-
-    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
-
-    const prompt = screen.getByPlaceholderText("Ночной замок в снегу, кинематографично");
-    await user.type(prompt, "Ледяная лестница и архив");
-    await user.click(screen.getByRole("button", { name: "Сгенерировать картинку" }));
-
-    await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(1));
-    expect(screen.getByRole("img")).toHaveAttribute("alt", "Ледяная лестница и архив");
-  });
-
   it("deletes the current chapter and navigates back to the story page", async () => {
     const user = userEvent.setup();
 

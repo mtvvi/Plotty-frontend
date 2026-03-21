@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 
 import type {
   ChapterListItem,
-  GeneratedImage,
   SpellcheckResult,
   StoryTag,
 } from "@/entities/story/model/types";
@@ -26,7 +24,6 @@ export interface StoryEditorValues {
   selectedTagSlugs: string[];
   chapterTitle: string;
   chapterContent: string;
-  imagePrompt: string;
 }
 
 export interface StoryEditorFormProps {
@@ -38,19 +35,16 @@ export interface StoryEditorFormProps {
   chapterNumber?: number;
   chapters?: ChapterListItem[];
   spellcheckResult?: SpellcheckResult;
-  generatedImage?: GeneratedImage;
   aiStatusLabel?: string;
   saveLabel?: string;
   isSaving?: boolean;
   isSpellchecking?: boolean;
-  isGeneratingImage?: boolean;
   onChange: (next: StoryEditorValues) => void;
   onSave: () => void;
   onCreateNextChapter?: () => void;
   onDeleteChapter?: () => void;
   onDeleteStory?: () => void;
   onSpellcheck: () => void;
-  onGenerateImage: () => void;
 }
 
 export function StoryEditorForm({
@@ -62,19 +56,16 @@ export function StoryEditorForm({
   chapterNumber,
   chapters = [],
   spellcheckResult,
-  generatedImage,
   aiStatusLabel,
   saveLabel = "Сохранить",
   isSaving,
   isSpellchecking,
-  isGeneratingImage,
   onChange,
   onSave,
   onCreateNextChapter,
   onDeleteChapter,
   onDeleteStory,
   onSpellcheck,
-  onGenerateImage,
 }: StoryEditorFormProps) {
   const [draftValues, setDraftValues] = useState(values);
 
@@ -95,6 +86,11 @@ export function StoryEditorForm({
 
     update("selectedTagSlugs", nextTags);
   }
+
+  const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
+  const previousChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : undefined;
+  const nextChapter =
+    currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1 ? chapters[currentChapterIndex + 1] : undefined;
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -148,9 +144,24 @@ export function StoryEditorForm({
 
         <ShellCard
           title={mode === "create" ? "Первая глава" : `Глава ${chapterNumber ?? "—"}`}
-          description="Обычный текстовый редактор v1 с отправкой текста в AI-сервисы."
+          description="Базовый редактор главы с отдельной отправкой текста на орфографическую проверку."
         >
           <div className="grid gap-4">
+            {mode === "edit" && storyId ? (
+              <div className="flex flex-wrap gap-3">
+                {previousChapter ? (
+                  <Link href={routes.chapterEditor(storyId, previousChapter.id)}>
+                    <Button variant="secondary">Предыдущая глава</Button>
+                  </Link>
+                ) : null}
+                {nextChapter ? (
+                  <Link href={routes.chapterEditor(storyId, nextChapter.id)}>
+                    <Button variant="secondary">Следующая глава</Button>
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+
             <label className="space-y-2">
               <span className="text-sm font-semibold">Название главы</span>
               <Input
@@ -174,12 +185,14 @@ export function StoryEditorForm({
               <Button variant="primary" onClick={onSave} disabled={isSaving}>
                 {isSaving ? "Сохраняем..." : saveLabel}
               </Button>
-              <Button
-                onClick={onSpellcheck}
-                disabled={!chapterId || isSpellchecking || !draftValues.chapterContent.trim()}
-              >
-                {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
-              </Button>
+              {mode === "edit" ? (
+                <Button
+                  onClick={onSpellcheck}
+                  disabled={!chapterId || isSpellchecking || !draftValues.chapterContent.trim()}
+                >
+                  {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
+                </Button>
+              ) : null}
               {mode === "edit" ? (
                 <Button
                   variant="soft"
@@ -195,72 +208,42 @@ export function StoryEditorForm({
       </div>
 
       <div className="space-y-5">
-        <ShellCard title="AI для главы" description={aiStatusLabel ?? "Запускайте проверки после сохранения текста."}>
-          <div className="space-y-4">
-            <label className="space-y-2">
-              <span className="text-sm font-semibold">Промпт для картинки</span>
-              <Textarea
-                value={draftValues.imagePrompt}
-                onChange={(event) => update("imagePrompt", event.target.value)}
-                placeholder="Ночной замок в снегу, кинематографично"
-                className="min-h-28"
-              />
-            </label>
-
-            <Button
-              onClick={onGenerateImage}
-              disabled={
-                !chapterId ||
-                isGeneratingImage ||
-                !draftValues.chapterContent.trim() ||
-                !draftValues.imagePrompt.trim()
-              }
-            >
-              {isGeneratingImage ? "Генерируем..." : "Сгенерировать картинку"}
-            </Button>
-
-            {generatedImage ? (
+        {mode === "edit" ? (
+          <ShellCard title="Орфография" description={aiStatusLabel ?? "Проверка запускается вручную после сохранения текста."}>
+            {spellcheckResult ? (
               <div className="space-y-3">
-                <Image
-                  src={generatedImage.imageUrl}
-                  alt={generatedImage.prompt}
-                  width={960}
-                  height={540}
-                  unoptimized
-                  className="w-full rounded-[20px] border border-[var(--plotty-line)] object-cover"
-                />
-                <p className="text-sm leading-6 text-[var(--plotty-muted)]">{generatedImage.prompt}</p>
-              </div>
-            ) : null}
-          </div>
-        </ShellCard>
-
-        <ShellCard title="Орфография" description="Результат приходит списком замечаний без автозамены.">
-          {spellcheckResult ? (
-            <div className="space-y-3">
-              <p className="text-sm leading-6 text-[var(--plotty-muted)]">{spellcheckResult.summary}</p>
-              <div className="space-y-2">
-                {spellcheckResult.items.length ? (
-                  spellcheckResult.items.map((issue) => (
-                    <div key={`${issue.startOffset}-${issue.endOffset}`} className="rounded-[18px] bg-[var(--plotty-panel)] p-3">
-                      <div className="text-sm font-semibold">{issue.fragmentText}</div>
-                      <div className="text-sm leading-6 text-[var(--plotty-muted)]">{issue.message}</div>
-                      <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+                <p className="text-sm leading-6 text-[var(--plotty-muted)]">{spellcheckResult.summary}</p>
+                <div className="space-y-2">
+                  {spellcheckResult.items.length ? (
+                    spellcheckResult.items.map((issue) => (
+                      <div key={`${issue.startOffset}-${issue.endOffset}`} className="rounded-[18px] bg-[var(--plotty-panel)] p-3">
+                        <div className="text-sm font-semibold">{issue.fragmentText}</div>
+                        <div className="text-sm leading-6 text-[var(--plotty-muted)]">{issue.message}</div>
+                        <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[18px] bg-[var(--plotty-panel)] p-3 text-sm text-[var(--plotty-muted)]">
+                      Ошибок не найдено.
                     </div>
-                  ))
-                ) : (
-                  <div className="rounded-[18px] bg-[var(--plotty-panel)] p-3 text-sm text-[var(--plotty-muted)]">
-                    Ошибок не найдено.
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
+            ) : (
+              <p className="text-sm leading-6 text-[var(--plotty-muted)]">
+                Отправьте главу на проверку, и здесь появится список замечаний.
+              </p>
+            )}
+          </ShellCard>
+        ) : (
+          <ShellCard title="Что будет дальше" description="После создания истории вы сразу попадёте в редактор первой главы.">
+            <div className="space-y-3 text-sm leading-6 text-[var(--plotty-muted)]">
+              <p>Сначала создается карточка истории с описанием и выбранными тегами.</p>
+              <p>Затем автоматически создается первая глава и открывается маршрут редактирования.</p>
+              <p>Орфографическую проверку можно запускать уже внутри редактора конкретной главы.</p>
             </div>
-          ) : (
-            <p className="text-sm leading-6 text-[var(--plotty-muted)]">
-              Отправьте главу на проверку, и здесь появится список замечаний.
-            </p>
-          )}
-        </ShellCard>
+          </ShellCard>
+        )}
 
         {mode === "edit" ? (
           <ShellCard title="Навигация по истории" description="Переход по главам и destructive actions.">

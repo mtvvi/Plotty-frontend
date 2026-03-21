@@ -2,7 +2,18 @@ import { describe, expect, it } from "vitest";
 
 describe("stories mock handlers", () => {
   it("filters stories by multiple tags using AND logic", async () => {
-    const response = await fetch("http://localhost/stories?tag=slow-burn&tag=angst");
+    const response = await fetch("http://localhost/stories?tag=drama&tag=ooc");
+    const data = (await response.json()) as { pagination: { total: number }; items: Array<{ slug: string }> };
+
+    expect(response.ok).toBe(true);
+    expect(data.pagination.total).toBe(1);
+    expect(data.items[0]?.slug).toBe("after-midnight-the-snow-does-not-melt");
+  });
+
+  it("filters stories by fandom, rating, status and size", async () => {
+    const response = await fetch(
+      "http://localhost/stories?fandom=%D0%93%D0%B0%D1%80%D1%80%D0%B8+%D0%9F%D0%BE%D1%82%D1%82%D0%B5%D1%80&rating=R&status=%D0%B2+%D0%BF%D1%80%D0%BE%D1%86%D0%B5%D1%81%D1%81%D0%B5&size=%D0%BC%D0%B8%D0%B4%D0%B8",
+    );
     const data = (await response.json()) as { pagination: { total: number }; items: Array<{ slug: string }> };
 
     expect(response.ok).toBe(true);
@@ -18,7 +29,7 @@ describe("stories mock handlers", () => {
         title: "Midnight Draft",
         description: "Описание истории",
         excerpt: "Короткий тизер",
-        tags: ["slow-burn", "mystery"],
+        tags: ["drama", "mysticism"],
       }),
     });
     const story = (await storyResponse.json()) as { id: string; slug: string };

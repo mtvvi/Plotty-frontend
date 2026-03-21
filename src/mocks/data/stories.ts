@@ -34,6 +34,18 @@ interface StoryRecord {
   tagSlugs: string[];
   createdAt: string;
   updatedAt: string;
+  fandom: string;
+  pairing: string;
+  ratingLabel: string;
+  statusLabel: string;
+  sizeLabel: string;
+  likesCount: number;
+  commentsCount: number;
+  bookmarksCount: number;
+  aiHint: string;
+  summaryLabel: string;
+  readLabel: string;
+  updatedLabel: string;
 }
 
 interface ChapterRecord {
@@ -82,37 +94,123 @@ function createInitialDb(): MockStoriesDb {
         description:
           "Гермиона пытается пережить восьмой курс, пока архив старого факультета вскрывает неудобные связи между прошлым и настоящим.",
         excerpt:
-          "Восьмой курс начинается как вынужденное перемирие, но найденный архив меняет правила игры и личные границы.",
+          "Восьмой курс начинается как вынужденное перемирие, но каждое письмо из архива Хогвартса поднимает старые долги. История тянется медленно, через библиотеку, снег и слишком внятные паузы в диалогах.",
         status: "published",
-        tagSlugs: ["slow-burn", "canon-divergence", "angst"],
+        tagSlugs: ["drama", "fantasy", "ooc"],
         createdAt: "2026-03-19T18:00:00.000Z",
         updatedAt: "2026-03-21T10:10:00.000Z",
+        fandom: "Гарри Поттер",
+        pairing: "Гермиона / Драко",
+        ratingLabel: "R",
+        statusLabel: "в процессе",
+        sizeLabel: "миди",
+        likesCount: 3482,
+        commentsCount: 412,
+        bookmarksCount: 1096,
+        aiHint: "AI автора: 2 замечания по канону",
+        summaryLabel: "Сводка для читателя",
+        readLabel: "Читать",
+        updatedLabel: "обновлено 2 часа назад",
       },
       {
         id: "story-2",
         slug: "ashes-and-salt",
-        title: "Пепел и соль",
+        title: "Пепел для Белого Волка",
         description:
           "Йеннифэр и Геральт снова идут по следу пропавшей карты, которая ведет к старому долгу и новым решениям.",
         excerpt:
-          "Новая охота начинается с пропавшей карты, а заканчивается там, где у героев давно не осталось честных ответов.",
+          "После охоты на стрыгу Геральт едет не туда, куда собирался, и весь маршрут превращается в спор о том, кто кому семья, если никто не умеет это произносить вслух.",
         status: "published",
-        tagSlugs: ["post-canon", "romance", "mystery"],
+        tagSlugs: ["adventure", "humor", "violence"],
         createdAt: "2026-03-18T14:00:00.000Z",
         updatedAt: "2026-03-20T11:45:00.000Z",
+        fandom: "Ведьмак",
+        pairing: "Геральт, Цири, Лютик",
+        ratingLabel: "PG-13",
+        statusLabel: "завершён",
+        sizeLabel: "мини",
+        likesCount: 1904,
+        commentsCount: 188,
+        bookmarksCount: 703,
+        aiHint: "AI автора: читателю неясен переход сцены 4",
+        summaryLabel: "Кратко по сюжету",
+        readLabel: "Открыть",
+        updatedLabel: "AI-сводка готова",
       },
       {
         id: "story-3",
-        slug: "yellow-corridor",
-        title: "Жёлтый коридор",
+        slug: "seventh-lantern-on-shadow-street",
+        title: "Седьмой фонарь на Тенистой улице",
         description:
-          "История о маленькой гостинице, старом письме и странном коридоре, где каждое решение будто уже было принято.",
+          "Детективная линия в Средиземье, где почти каждый разговор одновременно допрос и попытка защитить близкого человека.",
         excerpt:
-          "Одна гостиница, одно письмо и коридор, в котором прошлое разговаривает слишком убедительно.",
-        status: "draft",
-        tagSlugs: ["hurt-comfort", "mystery"],
+          "Минас-Тирит, утро, протокол, разбитые витрины. Следствие тянется через коридоры власти, где любой неверный шаг звучит громче меча.",
+        status: "published",
+        tagSlugs: ["mysticism", "fantasy", "character-death"],
         createdAt: "2026-03-20T09:30:00.000Z",
         updatedAt: "2026-03-21T08:25:00.000Z",
+        fandom: "Властелин Колец",
+        pairing: "ОЖП / Фарамир",
+        ratingLabel: "R",
+        statusLabel: "в процессе",
+        sizeLabel: "макси",
+        likesCount: 4122,
+        commentsCount: 531,
+        bookmarksCount: 1544,
+        aiHint: "AI автора: диалог можно сделать жёстче",
+        summaryLabel: "Сводка по арке",
+        readLabel: "Читать",
+        updatedLabel: "обновлено вчера",
+      },
+      {
+        id: "story-4",
+        slug: "letters-without-an-owl-address",
+        title: "Письма без адреса обратной совы",
+        description:
+          "Эпистолярная история о доверии, памяти и аккуратно спрятанных чувствах в мире Гарри Поттера.",
+        excerpt:
+          "Текст держится на письмах, в которых важнее не сказанное, а то, как меняется тон между строками. Автор явно работает на длинную дистанцию и аккуратно собирает доверие из мелочей.",
+        status: "published",
+        tagSlugs: ["drama", "slice-of-life", "profanity"],
+        createdAt: "2026-03-17T14:20:00.000Z",
+        updatedAt: "2026-03-20T09:14:00.000Z",
+        fandom: "Гарри Поттер",
+        pairing: "Северус Снейп / OC",
+        ratingLabel: "PG-13",
+        statusLabel: "в процессе",
+        sizeLabel: "макси",
+        likesCount: 2116,
+        commentsCount: 276,
+        bookmarksCount: 930,
+        aiHint: "AI автора: сводка прошлых глав обновлена",
+        summaryLabel: "Что было раньше",
+        readLabel: "Читать",
+        updatedLabel: "сегодня, 09:14",
+      },
+      {
+        id: "story-5",
+        slug: "warmth-under-the-crystal-dome",
+        title: "Тепло под кристальным куполом",
+        description:
+          "История о деревне скрытого листа, где официальные поручения и личная верность постоянно ломают друг друга.",
+        excerpt:
+          "Каждая миссия выглядит как формальность, пока не становится ясно, что приказ и привязанность ведут героев в разные стороны.",
+        status: "published",
+        tagSlugs: ["adventure", "fantasy", "violence"],
+        createdAt: "2026-03-16T14:20:00.000Z",
+        updatedAt: "2026-03-19T21:10:00.000Z",
+        fandom: "Наруто",
+        pairing: "Какаши / ОЖП",
+        ratingLabel: "R",
+        statusLabel: "завершён",
+        sizeLabel: "миди",
+        likesCount: 5003,
+        commentsCount: 624,
+        bookmarksCount: 1982,
+        aiHint: "AI автора: OOC не найден",
+        summaryLabel: "Сюжет за минуту",
+        readLabel: "Открыть",
+        updatedLabel: "AI-сводка для читателя",
       },
     ],
     chapters: [
@@ -153,17 +251,37 @@ function createInitialDb(): MockStoriesDb {
         id: "chapter-4",
         storyId: "story-3",
         number: 1,
-        title: "Глава 1. Номер без вида",
+        title: "Глава 1. Протокол и стекло",
         content:
-          "В гостинице не было окон на север, но сквозняк все равно шел именно оттуда. Хозяйка сказала, что это привычка дома, как будто дома тоже бывают упрямыми.",
+          "Разбитые фонари еще пахли гарью, когда Фарамир разложил протоколы на столе. За сухими рапортами слишком явно проступало то, чего никто не решался вписать в официальный ход дела.",
         createdAt: "2026-03-20T10:00:00.000Z",
         updatedAt: "2026-03-21T08:25:00.000Z",
+      },
+      {
+        id: "chapter-5",
+        storyId: "story-4",
+        number: 1,
+        title: "Глава 1. Без обратного адреса",
+        content:
+          "Первое письмо пришло слишком аккуратно сложенным. Северус понял это раньше, чем прочитал хотя бы строку: пишущий слишком старался казаться спокойным.",
+        createdAt: "2026-03-17T14:10:00.000Z",
+        updatedAt: "2026-03-20T09:14:00.000Z",
+      },
+      {
+        id: "chapter-6",
+        storyId: "story-5",
+        number: 1,
+        title: "Глава 1. Купол давления",
+        content:
+          "Коноха любила говорить языком приказов, но Какаши слишком давно жил среди этих формул, чтобы не слышать момент, когда забота начинает звучать как давление.",
+        createdAt: "2026-03-16T14:10:00.000Z",
+        updatedAt: "2026-03-19T21:10:00.000Z",
       },
     ],
     aiJobs: [],
     jobSeed: 1,
-    storySeed: 4,
-    chapterSeed: 5,
+    storySeed: 6,
+    chapterSeed: 7,
     imageSeed: 1,
   };
 }
@@ -209,6 +327,18 @@ function toStoryListItem(story: StoryRecord): StoryListItem {
     tags: resolveTags(story.tagSlugs),
     chaptersCount: getChaptersForStory(story.id).length,
     updatedAt: story.updatedAt,
+    fandom: story.fandom,
+    pairing: story.pairing,
+    ratingLabel: story.ratingLabel,
+    statusLabel: story.statusLabel,
+    sizeLabel: story.sizeLabel,
+    likesCount: story.likesCount,
+    commentsCount: story.commentsCount,
+    bookmarksCount: story.bookmarksCount,
+    aiHint: story.aiHint,
+    summaryLabel: story.summaryLabel,
+    readLabel: story.readLabel,
+    updatedLabel: story.updatedLabel,
   };
 }
 
@@ -281,6 +411,10 @@ function countWords(content: string) {
 function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
   const filtered = db.stories
     .filter((story) => query.tags.every((tag) => story.tagSlugs.includes(tag)))
+    .filter((story) => (query.fandom ? story.fandom === query.fandom : true))
+    .filter((story) => (query.rating ? story.ratingLabel === query.rating : true))
+    .filter((story) => (query.status ? story.statusLabel === query.status : true))
+    .filter((story) => (query.size ? story.sizeLabel === query.size : true))
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 
   const start = (query.page - 1) * query.pageSize;
@@ -324,6 +458,18 @@ export function createStoryRecord(payload: CreateStoryPayload) {
     tagSlugs: payload.tags,
     createdAt: timestamp,
     updatedAt: timestamp,
+    fandom: "Гарри Поттер",
+    pairing: "Не указан",
+    ratingLabel: "PG-13",
+    statusLabel: "в процессе",
+    sizeLabel: "мини",
+    likesCount: 0,
+    commentsCount: 0,
+    bookmarksCount: 0,
+    aiHint: "AI автора: орфография ещё не запускалась",
+    summaryLabel: "Кратко по сюжету",
+    readLabel: "Открыть",
+    updatedLabel: "только что создано",
   };
 
   db.storySeed += 1;
@@ -345,6 +491,7 @@ export function updateStoryRecord(storyId: string, payload: UpdateStoryPayload) 
   story.tagSlugs = payload.tags;
   story.slug = uniqueStorySlug(payload.title, story.id);
   story.updatedAt = nowIso();
+  story.updatedLabel = "обновлено только что";
 
   return toStoryDetails(story);
 }
@@ -358,11 +505,7 @@ export function deleteStoryRecord(storyId: string) {
 
   db.stories.splice(storyIndex, 1);
   db.chapters = db.chapters.filter((chapter) => chapter.storyId !== storyId);
-  db.aiJobs = db.aiJobs.filter((job) => {
-    const chapter = db.chapters.find((item) => item.id === job.chapterId);
-
-    return Boolean(chapter);
-  });
+  db.aiJobs = db.aiJobs.filter((job) => db.chapters.some((chapter) => chapter.id === job.chapterId));
 
   return true;
 }
@@ -389,6 +532,7 @@ export function createChapterRecord(storyId: string, payload: CreateChapterPaylo
   db.chapterSeed += 1;
   db.chapters.push(chapter);
   story.updatedAt = timestamp;
+  story.updatedLabel = "обновлено только что";
 
   return toChapterDetails(chapter);
 }
@@ -408,6 +552,7 @@ export function updateChapterRecord(chapterId: string, payload: UpdateChapterPay
 
   if (story) {
     story.updatedAt = chapter.updatedAt;
+    story.updatedLabel = "обновлено только что";
   }
 
   return toChapterDetails(chapter);
@@ -429,6 +574,7 @@ export function deleteChapterRecord(chapterId: string) {
 
   if (story) {
     story.updatedAt = nowIso();
+    story.updatedLabel = "обновлено только что";
   }
 
   return true;
@@ -497,6 +643,7 @@ function createImageResult(payload: ImageGenerationPayload): ImageGenerationResu
 
   if (story) {
     story.updatedAt = chapter.updatedAt;
+    story.updatedLabel = "обновлено только что";
   }
 
   return { images: [image] };
