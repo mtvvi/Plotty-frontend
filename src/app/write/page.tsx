@@ -1,10 +1,5 @@
-import { PlaceholderPage } from "@/widgets/placeholder-page";
+import { StoryCreateScreen } from "@/widgets/stories/story-create-screen";
 
 export default function WritePage() {
-  return (
-    <PlaceholderPage
-      title="Писать"
-      description="Редактор ещё не реализован. На первом этапе здесь остаётся только route-заглушка и teaser нижнего author-блока на главной."
-    />
-  );
+  return <StoryCreateScreen />;
 }

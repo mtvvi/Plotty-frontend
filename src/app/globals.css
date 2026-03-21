@@ -49,6 +49,21 @@ a {
   text-decoration: none;
 }
 
+a[href],
+button,
+[role="button"],
+label[for],
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
 button,
 input,
 textarea,
@@ -105,4 +120,3 @@ select {
     padding-top: 1rem;
   }
 }
-

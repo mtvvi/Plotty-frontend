@@ -1,6 +1,5 @@
-import { CatalogShell } from "@/widgets/catalog/catalog-shell";
+import { StoriesCatalogShell } from "@/widgets/stories/stories-catalog-shell";
 
 export default function HomePage() {
-  return <CatalogShell />;
+  return <StoriesCatalogShell />;
 }
-
