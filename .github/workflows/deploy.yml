@@ -25,6 +25,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ghcr.io/andrey57x/plotty-frontend:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.plotty-stories.duckdns.org
 
   deploy:
     needs: build-and-push
