@@ -8,3 +8,5 @@ vitest.workspace.ts
 .DS_Store
 .env.local
 backend
+*.sh
+*.txt

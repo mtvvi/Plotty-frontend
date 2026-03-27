@@ -9,7 +9,10 @@ function resolveApiInput(input: string) {
 }
 
 export async function fetchJson<T>(input: string, init?: RequestInit) {
-  const response = await fetch(resolveApiInput(input), {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const url = input.startsWith("/") ? `${baseUrl}${input}` : input;
+
+  const response = await fetch(url, {
     cache: "no-store",
     ...init,
     headers: {
