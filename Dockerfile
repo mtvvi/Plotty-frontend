@@ -11,7 +11,9 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ARG BACKEND_URL
 ARG NEXT_PUBLIC_API_URL
+ENV BACKEND_URL=$BACKEND_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_MOCKING=disabled
 RUN npm run build
@@ -19,7 +21,9 @@ RUN npm run build
 # Продакшен образ
 FROM base AS runner
 WORKDIR /app
+ARG BACKEND_URL
 ENV NODE_ENV=production
+ENV BACKEND_URL=$BACKEND_URL
 ENV NEXT_PUBLIC_API_MOCKING=disabled
 
 COPY --from=builder /app/public ./public

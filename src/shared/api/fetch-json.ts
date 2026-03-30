@@ -1,16 +1,25 @@
-function resolveApiInput(input: string) {
+function stripTrailingSlash(value: string) {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+export function resolveApiInput(input: string, directApiUrl = process.env.NEXT_PUBLIC_API_URL || "") {
   if (/^https?:\/\//.test(input)) {
     return input;
   }
 
   const path = input.startsWith("/") ? input : `/${input}`;
+  const proxiedPath = path === "/api" ? path : path.startsWith("/api/") ? path : `/api${path}`;
+  const backendPath = path === "/api" ? "/" : path.startsWith("/api/") ? path.slice(4) : path;
 
-  return path.startsWith("/api/") ? path : `/api${path}`;
+  if (directApiUrl) {
+    return `${stripTrailingSlash(directApiUrl)}${backendPath}`;
+  }
+
+  return proxiedPath;
 }
 
 export async function fetchJson<T>(input: string, init?: RequestInit) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  const url = input.startsWith("/") ? `${baseUrl}${input}` : input;
+  const url = resolveApiInput(input);
 
   const response = await fetch(url, {
     cache: "no-store",
