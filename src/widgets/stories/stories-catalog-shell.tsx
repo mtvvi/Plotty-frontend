@@ -1,217 +1,539 @@
 "use client";
 
-import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { storiesQueryOptions, storyTagsQueryOptions } from "@/entities/story/api/stories-api";
-import { defaultStoriesQuery, parseStoriesQuery, serializeStoriesQuery } from "@/entities/story/model/story-query";
-import { routes } from "@/shared/config/routes";
-import { getStoryTagCategoryLabel, groupStoryTags } from "@/shared/config/story-tags";
-import { Badge } from "@/shared/ui/badge";
+import { parseStoriesQuery, serializeStoriesQuery } from "@/entities/story/model/story-query";
+import type { StoriesQuery, StoryTag } from "@/entities/story/model/types";
+import { cn } from "@/shared/lib/utils";
+import { getStoryTagCategoryLabel, groupStoryTags, storyTagCategoryOrder } from "@/shared/config/story-tags";
 import { Button } from "@/shared/ui/button";
-import { Card } from "@/shared/ui/card";
+import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Input } from "@/shared/ui/input";
+import { Select } from "@/shared/ui/select";
+import {
+  PlottyAppMenu,
+  PlottyMobileSheet,
+  PlottyPageShell,
+  PlottySectionCard,
+} from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCard } from "./story-card";
 import { StoryTagChip } from "./story-tag-chip";
+
+const multiSelectCategories = new Set(["rating", "completion", "size"]);
+const singleSelectCategories = new Set(["directionality"]);
+const searchDebounceMs = 300;
+const pollIntervalMs = 45_000;
 
 export function StoriesCatalogShell() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const query = parseStoriesQuery(new URLSearchParams(searchParams));
-  const storiesQuery = useQuery(storiesQueryOptions(query));
+  const [isRouting, startTransition] = useTransition();
+  const searchParamsString = searchParams.toString();
+  const appliedQuery = useMemo(() => parseStoriesQuery(new URLSearchParams(searchParamsString)), [searchParamsString]);
+  const [searchDraft, setSearchDraft] = useState(appliedQuery.q);
+  const [mobileDraftQuery, setMobileDraftQuery] = useState(appliedQuery);
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const lastRequestedSearchRef = useRef(appliedQuery.q);
+
+  const navigateToQuery = useCallback(
+    (nextQuery: StoriesQuery) => {
+      const params = serializeStoriesQuery(nextQuery);
+      const href = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+
+      startTransition(() => {
+        router.replace(href, { scroll: false });
+      });
+    },
+    [pathname, router],
+  );
+
+  useEffect(() => {
+    if (appliedQuery.q === lastRequestedSearchRef.current) {
+      return;
+    }
+
+    setSearchDraft(appliedQuery.q);
+    lastRequestedSearchRef.current = appliedQuery.q;
+  }, [appliedQuery.q]);
+
+  useEffect(() => {
+    if (isMobileFiltersOpen) {
+      return;
+    }
+
+    setMobileDraftQuery(appliedQuery);
+  }, [appliedQuery, isMobileFiltersOpen]);
+
+  const normalizedSearchDraft = searchDraft.trim();
+  const isSearchDirty = normalizedSearchDraft !== appliedQuery.q;
+
+  useEffect(() => {
+    if (!isSearchDirty) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      lastRequestedSearchRef.current = normalizedSearchDraft;
+      navigateToQuery({
+        ...appliedQuery,
+        q: normalizedSearchDraft,
+        page: 1,
+      });
+    }, searchDebounceMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [appliedQuery, isSearchDirty, navigateToQuery, normalizedSearchDraft]);
+
+  const shouldPausePolling = isSearchDirty || isMobileFiltersOpen || isMobileMenuOpen;
+  const storiesQuery = useQuery({
+    ...storiesQueryOptions(appliedQuery),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: shouldPausePolling ? false : pollIntervalMs,
+  });
   const tagsQuery = useQuery(storyTagsQueryOptions());
   const stories = storiesQuery.data?.items ?? [];
-  const groupedTags = groupStoryTags(tagsQuery.data?.items ?? []);
-  const activeTags = (tagsQuery.data?.items ?? []).filter((tag) => query.tags.includes(tag.slug));
+  const groupedTags = useMemo(() => groupStoryTags(tagsQuery.data?.items ?? []), [tagsQuery.data?.items]);
+  const orderedGroups = storyTagCategoryOrder
+    .map((category) => [category, groupedTags[category] ?? []] as const)
+    .filter(([, tags]) => tags.length);
+  const activeTags = (tagsQuery.data?.items ?? []).filter((tag) => appliedQuery.tags.includes(tag.slug));
+  const totalStories = (storiesQuery.data?.pagination.total ?? 0).toLocaleString("ru-RU");
+  const hasInitialLoading = storiesQuery.isLoading && !storiesQuery.data;
+  const isResultsRefreshing = storiesQuery.isFetching && Boolean(storiesQuery.data);
 
-  function updateQuery(next: Partial<typeof query>) {
-    const params = serializeStoriesQuery({ ...query, ...next, page: 1 });
-    const href = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-
-    router.replace(href, { scroll: false });
+  function updateAppliedQuery(next: Partial<StoriesQuery>) {
+    navigateToQuery({
+      ...appliedQuery,
+      ...next,
+      page: 1,
+    });
   }
 
-  function toggleTag(tagSlug: string) {
-    const nextTags = query.tags.includes(tagSlug)
-      ? query.tags.filter((tag) => tag !== tagSlug)
-      : [...query.tags, tagSlug];
-
-    updateQuery({ tags: nextTags });
+  function updateAppliedTags(nextTags: string[]) {
+    updateAppliedQuery({ tags: nextTags });
   }
 
-  function clearFilters() {
-    const params = serializeStoriesQuery(defaultStoriesQuery);
-    const href = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+  function updateMobileDraft(next: Partial<StoriesQuery>) {
+    setMobileDraftQuery((current) => ({
+      ...current,
+      ...next,
+      page: 1,
+    }));
+  }
 
-    router.replace(href, { scroll: false });
+  function clearAppliedFilters() {
+    updateAppliedQuery({ tags: [] });
+  }
+
+  function clearMobileFilters() {
+    setMobileDraftQuery((current) => ({
+      ...current,
+      tags: [],
+      page: 1,
+    }));
+  }
+
+  function setSingleSelectTag(currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) {
+    return replaceCategoryTags(currentTags, categoryTags, tagSlug ? [tagSlug] : []);
+  }
+
+  function toggleMultiSelectTag(currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) {
+    const selectedInCategory = getSelectedCategoryTags(currentTags, categoryTags);
+    const nextSelected = selectedInCategory.includes(tagSlug)
+      ? selectedInCategory.filter((slug) => slug !== tagSlug)
+      : [...selectedInCategory, tagSlug];
+
+    return replaceCategoryTags(currentTags, categoryTags, nextSelected);
+  }
+
+  function toggleGenericTag(currentTags: string[], tagSlug: string) {
+    return currentTags.includes(tagSlug)
+      ? currentTags.filter((tag) => tag !== tagSlug)
+      : [...currentTags, tagSlug];
+  }
+
+  function applyMobileFilters() {
+    setIsMobileFiltersOpen(false);
+
+    if (serializeStoriesQuery(mobileDraftQuery).toString() === serializeStoriesQuery(appliedQuery).toString()) {
+      return;
+    }
+
+    navigateToQuery(mobileDraftQuery);
   }
 
   return (
-    <div className="plotty-page-shell">
-      <section className="plotty-frame">
-        <h1 className="sr-only">Каталог Plotty</h1>
-
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--plotty-line)] bg-white/35 px-7 py-3 text-[13px] text-[var(--plotty-muted)]">
-          <div className="flex flex-wrap items-center gap-3">
-            
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-[16px] font-bold text-[var(--plotty-ink)]">
-            <span>Всего историй: {(storiesQuery.data?.pagination.total ?? 0).toLocaleString("ru-RU")}</span>
-          </div>
+    <PlottyPageShell
+      suppressPageIntro
+      onMenuOpenChange={setIsMobileMenuOpen}
+      menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
+      desktopHeaderCenter={
+        <div className="mx-auto w-full max-w-[44rem] xl:max-w-[48rem]">
+          <CatalogSearchField value={searchDraft} onChange={setSearchDraft} />
         </div>
-
-        <div className="space-y-7 px-7 py-6">
-          <div className="grid gap-[18px] lg:grid-cols-[240px_minmax(0,1fr)_auto] lg:items-center">
-            <Link href={routes.home} className="plotty-serif text-[50px] font-bold leading-none tracking-[-0.04em]">
-              Plotty
-            </Link>
-
-            <div className="grid h-[58px] grid-cols-[auto_1fr] items-center gap-3 rounded-[16px] border border-[rgba(35,33,30,0.08)] bg-white/82 px-4">
-              <span className="text-[16px]">⌕</span>
-              <Input
-                value={query.q}
-                onChange={(event) => updateQuery({ q: event.target.value })}
-                placeholder="поиск по названию истории"
-                className="h-auto border-0 bg-transparent px-0 shadow-none focus:border-transparent"
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Link href={routes.write}>
-                <Button variant="primary" className="text-[16px]">
-                  Начать писать
-                </Button>
-              </Link>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-2">
-            <nav className="flex flex-wrap items-center gap-2">
-              <Link href={routes.home} className="rounded-[12px] bg-black/7 px-[14px] py-[10px] text-[16px] font-bold">
-                Каталог
-              </Link>
-              <Link href={routes.fandoms} className="rounded-[12px] px-[14px] py-[10px] text-[16px] font-bold text-[var(--plotty-muted)]">
-                Фандомы
-              </Link>
-              <Link href={routes.authors} className="rounded-[12px] px-[14px] py-[10px] text-[16px] font-bold text-[var(--plotty-muted)]">
-                Авторы
-              </Link>
-              <Link
-                href={routes.recommendations}
-                className="rounded-[12px] px-[14px] py-[10px] text-[16px] font-bold text-[var(--plotty-muted)]"
-              >
-                Рекомендации
-              </Link>
-              <Link href={routes.write} className="rounded-[12px] px-[14px] py-[10px] text-[16px] font-bold text-[var(--plotty-muted)]">
-                Написать
-              </Link>
-            </nav>
-
-            <div className="flex flex-wrap items-center gap-2">
-              
-            </div>
-          </div>
-
-          <div className="plotty-shell-grid">
-            <Card className="space-y-4 bg-[rgba(240,232,219,0.7)] p-[18px] shadow-none">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[18px] font-bold">Фильтры</h2>
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--plotty-muted)]"
-                >
-                  Сбросить
-                </button>
+      }
+      mobileToolbar={
+        <div className="grid gap-2">
+          <CatalogSearchField value={searchDraft} onChange={setSearchDraft} compact />
+          <Button
+            type="button"
+            variant="secondary"
+            aria-label="Открыть фильтры"
+            className="w-full justify-center"
+            onClick={() => setIsMobileFiltersOpen(true)}
+          >
+            Фильтр
+            {activeTags.length ? (
+              <span className="ml-2 rounded-full bg-[var(--plotty-accent-soft)] px-2 py-0.5 text-xs text-[var(--plotty-accent)]">
+                {activeTags.length}
+              </span>
+            ) : null}
+          </Button>
+        </div>
+      }
+      contentClassName="pt-4 lg:pt-5"
+      className="!px-3 sm:!px-4 lg:!px-6 lg:!pt-8"
+    >
+      <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
+        <aside className="hidden lg:block">
+          <PlottySectionCard className="space-y-6 bg-[rgba(240,232,219,0.78)] shadow-none lg:space-y-7">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <h2 className="plotty-section-title">Фильтры</h2>
               </div>
+              <button
+                type="button"
+                onClick={clearAppliedFilters}
+                className="plotty-meta text-xs font-bold uppercase tracking-[0.08em] transition-colors hover:text-[var(--plotty-ink)]"
+              >
+                Сбросить
+              </button>
+            </div>
 
-              {Object.entries(groupedTags).map(([category, tags]) => (
-                <CatalogFilterGroup key={category} title={getStoryTagCategoryLabel(category)}>
+            {orderedGroups.map(([category, tags]) => {
+              const selectedSlugs = getSelectedCategoryTags(appliedQuery.tags, tags);
+
+              if (singleSelectCategories.has(category)) {
+                return (
+                  <label key={category} className="grid gap-3">
+                    <span className="plotty-meta text-xs font-bold uppercase tracking-[0.08em]">
+                      {getStoryTagCategoryLabel(category)}
+                    </span>
+                    <Select
+                      className="min-h-[3.25rem]"
+                      aria-label={getStoryTagCategoryLabel(category)}
+                      value={selectedSlugs[0] ?? ""}
+                      onChange={(event) =>
+                        updateAppliedTags(setSingleSelectTag(appliedQuery.tags, event.target.value, tags))
+                      }
+                    >
+                      <option value="">Любой вариант</option>
+                      {tags.map((tag) => (
+                        <option key={tag.id} value={tag.slug}>
+                          {tag.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                );
+              }
+
+              if (multiSelectCategories.has(category)) {
+                return (
+                  <CatalogToggleGroup
+                    key={category}
+                    title={getStoryTagCategoryLabel(category)}
+                    canClear={selectedSlugs.length > 0}
+                    onClear={() => updateAppliedTags(replaceCategoryTags(appliedQuery.tags, tags, []))}
+                  >
+                    {tags.map((tag) => (
+                      <CatalogTogglePill
+                        key={tag.id}
+                        label={tag.name}
+                        active={selectedSlugs.includes(tag.slug)}
+                        onClick={() => updateAppliedTags(toggleMultiSelectTag(appliedQuery.tags, tag.slug, tags))}
+                      />
+                    ))}
+                  </CatalogToggleGroup>
+                );
+              }
+
+              return (
+                <CatalogToggleGroup key={category} title={getStoryTagCategoryLabel(category)}>
                   {tags.map((tag) => (
                     <StoryTagChip
                       key={tag.id}
                       tag={tag}
-                      active={query.tags.includes(tag.slug)}
-                      onClick={() => toggleTag(tag.slug)}
+                      active={appliedQuery.tags.includes(tag.slug)}
+                      onClick={() => updateAppliedTags(toggleGenericTag(appliedQuery.tags, tag.slug))}
                     />
                   ))}
-                </CatalogFilterGroup>
-              ))}
-            </Card>
+                </CatalogToggleGroup>
+              );
+            })}
+          </PlottySectionCard>
+        </aside>
 
-            <div className="space-y-[14px]">
-              <Card className="border-[rgba(35,33,30,0.07)] bg-[rgba(240,232,219,0.88)] p-4 shadow-none">
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2 text-[14px] font-bold">
-                    <span className="rounded-[12px] bg-white/92 px-3 py-[9px]">Актуальный каталог</span>
-                    <span className="text-[var(--plotty-muted)]">Фильтрация по тегам и названию</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--plotty-muted)]">
-                    <span>{(storiesQuery.data?.pagination.total ?? 0).toLocaleString("ru-RU")} результатов</span>
-                    <span className="rounded-[10px] bg-[var(--plotty-panel)] px-[10px] py-[6px] normal-case tracking-normal">
-                      page {storiesQuery.data?.pagination.page ?? 1}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-
-              {activeTags.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {activeTags.map((tag) => (
-                    <StoryTagChip key={tag.id} tag={tag} active onClick={() => toggleTag(tag.slug)} />
-                  ))}
-                </div>
+        <div className="space-y-4 lg:space-y-5">
+          <PlottySectionCard className="border-[rgba(35,33,30,0.07)] bg-[rgba(240,232,219,0.86)] p-3.5 shadow-none sm:p-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="rounded-full bg-white/90 px-3 py-2 font-semibold text-[var(--plotty-ink)]">
+                Найдено {totalStories}
+              </span>
+              {appliedQuery.q ? (
+                <span className="rounded-full bg-[var(--plotty-accent-soft)] px-3 py-2 font-semibold text-[var(--plotty-accent)]">
+                  Поиск: {appliedQuery.q}
+                </span>
               ) : null}
-
-              {storiesQuery.isLoading ? (
-                <Card className="space-y-3 p-4 shadow-none">
-                  <div className="h-40 rounded-[20px] bg-white/50" />
-                  <div className="h-40 rounded-[20px] bg-white/50" />
-                </Card>
-              ) : storiesQuery.isError ? (
-                <EmptyState
-                  title="Не удалось загрузить истории"
-                  description="Проверьте доступность API proxy /api и настройки BACKEND_URL."
-                  actionLabel="Сбросить фильтры"
-                  onAction={clearFilters}
-                />
-              ) : stories.length ? (
-                <div className="space-y-4">
-                  {stories.map((story) => (
-                    <StoryCard key={story.id} story={story} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  title="Ничего не найдено"
-                  description="Попробуйте снять часть тегов или изменить поисковый запрос."
-                  actionLabel="Сбросить фильтры"
-                  onAction={clearFilters}
-                />
-              )}
+              {activeTags.length ? (
+                <span className="rounded-full bg-white/90 px-3 py-2 font-semibold text-[var(--plotty-muted)]">
+                  Фильтров: {activeTags.length}
+                </span>
+              ) : null}
+              {isResultsRefreshing ? (
+                <span className="rounded-full bg-[var(--plotty-accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--plotty-accent)]">
+                  Обновляем...
+                </span>
+              ) : null}
+              {(appliedQuery.q || activeTags.length) && !hasInitialLoading ? (
+                <Button variant="ghost" className="min-h-10 px-3 text-sm" onClick={() => {
+                  setSearchDraft("");
+                  lastRequestedSearchRef.current = "";
+                  navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
+                }}>
+                  Очистить всё
+                </Button>
+              ) : null}
             </div>
-          </div>
+          </PlottySectionCard>
+
+          {activeTags.length ? (
+            <div className="flex flex-wrap gap-2">
+              {activeTags.map((tag) => (
+                <StoryTagChip
+                  key={tag.id}
+                  tag={tag}
+                  active
+                  onClick={() => updateAppliedTags(appliedQuery.tags.filter((slug) => slug !== tag.slug))}
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {hasInitialLoading ? (
+            <PlottySectionCard className="space-y-3 shadow-none">
+              <div className="h-52 rounded-[20px] bg-white/50" />
+              <div className="h-52 rounded-[20px] bg-white/50" />
+            </PlottySectionCard>
+          ) : storiesQuery.isError ? (
+            <EmptyState
+              title="Не удалось загрузить истории"
+              description="Проверьте доступность API proxy /api и настройки BACKEND_URL."
+              actionLabel="Сбросить фильтры"
+              onAction={clearAppliedFilters}
+            />
+          ) : stories.length ? (
+            <div className="space-y-3 sm:space-y-4" aria-live="polite">
+              {stories.map((story) => (
+                <StoryCard key={story.id} story={story} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="Ничего не найдено"
+              description="Попробуйте изменить поисковый запрос или снять часть фильтров."
+              actionLabel="Сбросить фильтры"
+              onAction={clearAppliedFilters}
+            />
+          )}
         </div>
-      </section>
+      </div>
+
+      <PlottyMobileSheet open={isMobileFiltersOpen} title="Фильтры" onClose={() => setIsMobileFiltersOpen(false)}>
+        <div className="space-y-6">
+          {orderedGroups.map(([category, tags]) => {
+            const selectedSlugs = getSelectedCategoryTags(mobileDraftQuery.tags, tags);
+
+            if (singleSelectCategories.has(category)) {
+              return (
+                <label key={category} className="grid gap-3">
+                  <span className="plotty-meta text-xs font-bold uppercase tracking-[0.08em]">
+                    {getStoryTagCategoryLabel(category)}
+                  </span>
+                  <Select
+                    className="min-h-[3.25rem]"
+                    aria-label={getStoryTagCategoryLabel(category)}
+                    value={selectedSlugs[0] ?? ""}
+                    onChange={(event) =>
+                      updateMobileDraft({
+                        tags: setSingleSelectTag(mobileDraftQuery.tags, event.target.value, tags),
+                      })
+                    }
+                  >
+                    <option value="">Любой вариант</option>
+                    {tags.map((tag) => (
+                      <option key={tag.id} value={tag.slug}>
+                        {tag.name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              );
+            }
+
+            if (multiSelectCategories.has(category)) {
+              return (
+                <CatalogToggleGroup
+                  key={category}
+                  title={getStoryTagCategoryLabel(category)}
+                  canClear={selectedSlugs.length > 0}
+                  onClear={() => updateMobileDraft({ tags: replaceCategoryTags(mobileDraftQuery.tags, tags, []) })}
+                >
+                  {tags.map((tag) => (
+                    <CatalogTogglePill
+                      key={tag.id}
+                      label={tag.name}
+                      active={selectedSlugs.includes(tag.slug)}
+                      onClick={() =>
+                        updateMobileDraft({
+                          tags: toggleMultiSelectTag(mobileDraftQuery.tags, tag.slug, tags),
+                        })
+                      }
+                    />
+                  ))}
+                </CatalogToggleGroup>
+              );
+            }
+
+            return (
+              <CatalogToggleGroup key={category} title={getStoryTagCategoryLabel(category)}>
+                {tags.map((tag) => (
+                  <StoryTagChip
+                    key={tag.id}
+                    tag={tag}
+                    active={mobileDraftQuery.tags.includes(tag.slug)}
+                    onClick={() => updateMobileDraft({ tags: toggleGenericTag(mobileDraftQuery.tags, tag.slug) })}
+                  />
+                ))}
+              </CatalogToggleGroup>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <Button variant="secondary" onClick={clearMobileFilters}>
+            Сбросить
+          </Button>
+          <Button variant="primary" onClick={applyMobileFilters}>
+            Применить
+          </Button>
+        </div>
+      </PlottyMobileSheet>
+      {isRouting ? <span className="sr-only">Каталог обновляется</span> : null}
+    </PlottyPageShell>
+  );
+}
+
+function CatalogSearchField({
+  value,
+  onChange,
+  compact = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid items-center gap-3 rounded-[18px] border border-[rgba(35,33,30,0.08)] bg-white/84 px-4 shadow-none",
+        compact ? "grid-cols-[auto_1fr] py-1" : "grid-cols-[auto_1fr] py-2",
+      )}
+    >
+      <span className="text-base text-[var(--plotty-muted)]" aria-hidden="true">
+        ⌕
+      </span>
+      <Input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label="Поиск по названию истории"
+        placeholder="Поиск по названию истории"
+        className="min-h-11 border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+      />
     </div>
   );
 }
 
-function CatalogFilterGroup({
+function CatalogToggleGroup({
   title,
+  canClear,
+  onClear,
   children,
 }: {
   title: string;
+  canClear?: boolean;
+  onClear?: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
-      <h3 className="text-sm font-extrabold uppercase tracking-[0.08em] text-[var(--plotty-muted)]">{title}</h3>
-      <div className="flex flex-wrap gap-2">{children}</div>
+    <section className="space-y-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="plotty-meta text-xs font-bold uppercase tracking-[0.08em]">{title}</h3>
+        {canClear && onClear ? (
+          <button
+            type="button"
+            onClick={onClear}
+            className="plotty-meta text-xs font-bold uppercase tracking-[0.08em] transition-colors hover:text-[var(--plotty-ink)]"
+          >
+            Очистить
+          </button>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-2.5">{children}</div>
     </section>
   );
+}
+
+function CatalogTogglePill({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Chip selected={active} onClick={onClick}>
+      {label}
+    </Chip>
+  );
+}
+
+function getSelectedCategoryTags(currentTags: string[], categoryTags: StoryTag[]) {
+  const categoryTagSet = new Set(categoryTags.map((tag) => tag.slug));
+
+  return currentTags.filter((tagSlug) => categoryTagSet.has(tagSlug));
+}
+
+function replaceCategoryTags(currentTags: string[], categoryTags: StoryTag[], nextCategoryTags: string[]) {
+  const categoryTagSet = new Set(categoryTags.map((tag) => tag.slug));
+  const filteredTags = currentTags.filter((tagSlug) => !categoryTagSet.has(tagSlug));
+
+  nextCategoryTags.forEach((tagSlug) => {
+    if (!filteredTags.includes(tagSlug)) {
+      filteredTags.push(tagSlug);
+    }
+  });
+
+  return filteredTags;
 }

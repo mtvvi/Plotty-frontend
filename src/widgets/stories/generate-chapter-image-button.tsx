@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -9,7 +9,7 @@ import {
   startImageGeneration,
   storyKeys,
 } from "@/entities/story/api/stories-api";
-import { setGeneratedImageUrl } from "@/entities/story/model/generated-image-cache";
+import * as generatedImageCache from "@/entities/story/model/generated-image-cache";
 import type { ImageGenerationResult } from "@/entities/story/model/types";
 import { Button } from "@/shared/ui/button";
 
@@ -26,6 +26,7 @@ export function GenerateChapterImageButton({
 }) {
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState("");
+  const shouldPromoteAsStoryCoverRef = useRef(false);
 
   const imageMutation = useMutation({
     mutationFn: startImageGeneration,
@@ -36,7 +37,7 @@ export function GenerateChapterImageButton({
     refetchInterval: (query) => {
       const status = query.state.data?.status;
 
-      return status === "completed" || status === "failed" ? false : 250;
+      return status === "completed" || status === "failed" ? false : 2_000;
     },
   });
 
@@ -47,13 +48,20 @@ export function GenerateChapterImageButton({
       return;
     }
 
-    setGeneratedImageUrl(chapterId, imageUrl);
-    void queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
-    void queryClient.invalidateQueries({ queryKey: storyKeys.details(storySlug) });
+    generatedImageCache.setGeneratedImageUrl(chapterId, imageUrl);
+    if (shouldPromoteAsStoryCoverRef.current) {
+      setStoryCoverInCache(storySlug, imageUrl);
+    }
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) }),
+      queryClient.invalidateQueries({ queryKey: storyKeys.details(storySlug) }),
+      queryClient.invalidateQueries({ queryKey: storyKeys.all }),
+    ]);
   }, [chapterId, jobQuery.data?.result?.images, queryClient, storySlug]);
 
   async function handleGenerate() {
     const chapter = await queryClient.fetchQuery(chapterDetailsQueryOptions(chapterId));
+    shouldPromoteAsStoryCoverRef.current = chapter.number === 1;
     const accepted = await imageMutation.mutateAsync({
       chapterId,
       content: chapter.content,
@@ -65,10 +73,17 @@ export function GenerateChapterImageButton({
 
   const isGenerating =
     imageMutation.isPending || jobQuery.data?.status === "queued" || jobQuery.data?.status === "processing";
+  const hasImage = Boolean(generatedImageCache.getGeneratedImageUrl(chapterId));
 
   return (
     <Button variant="secondary" onClick={handleGenerate} disabled={isGenerating}>
-      {isGenerating ? "Генерируем..." : "Сгенерировать картинку"}
+      {isGenerating ? "Генерируем..." : hasImage ? "Обновить иллюстрацию" : "Сгенерировать картинку"}
     </Button>
   );
+}
+
+function setStoryCoverInCache(storySlug: string, imageUrl: string) {
+  if (typeof generatedImageCache.setGeneratedStoryCoverUrl === "function") {
+    generatedImageCache.setGeneratedStoryCoverUrl(storySlug, imageUrl);
+  }
 }

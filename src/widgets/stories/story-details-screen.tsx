@@ -1,159 +1,178 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import { createChapter, deleteStory, storyDetailsQueryOptions, storyKeys } from "@/entities/story/api/stories-api";
+import { storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
+import * as generatedImageCache from "@/entities/story/model/generated-image-cache";
+import { getStoryTextOverride } from "@/entities/story/model/story-text-cache";
 import { routes } from "@/shared/config/routes";
-import { Button } from "@/shared/ui/button";
+import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
+import {
+  PlottyAppMenu,
+  PlottyPageShell,
+  PlottySectionCard,
+} from "@/widgets/layout/plotty-page-shell";
 
-import { GenerateChapterImageButton } from "./generate-chapter-image-button";
-import { PlottyShell, ShellCard } from "./plotty-shell";
+import { StoryCoverPreview } from "./story-cover-preview";
 import { StoryTagChip } from "./story-tag-chip";
 
-const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
-
 export function StoryDetailsScreen({ slug }: { slug: string }) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
-  const createChapterMutation = useMutation({
-    mutationFn: ({ storyId, nextNumber }: { storyId: string; nextNumber: number }) =>
-      createChapter(storyId, { title: `Глава ${nextNumber}`, content: emptyChapterDraft }),
-  });
-  const deleteStoryMutation = useMutation({
-    mutationFn: deleteStory,
-  });
+  const [activeSection, setActiveSection] = useState<"description" | "chapters">("description");
+  const storySlug = storyQuery.data?.slug ?? "";
+  const hasExplicitCover = Boolean(storyQuery.data?.coverImageUrl);
+  const firstChapter = storyQuery.data?.chapters[0] ?? null;
+  const displayCoverImage =
+    storyQuery.data?.coverImageUrl ??
+    (storySlug ? getStoryCoverFromCache(storySlug) : undefined) ??
+    (firstChapter ? generatedImageCache.getGeneratedImageUrl(firstChapter.id) : undefined);
 
-  async function handleNewChapter() {
-    if (!storyQuery.data) {
-      return;
+  useEffect(() => {
+    if (storySlug && !hasExplicitCover && displayCoverImage) {
+      setStoryCoverInCache(storySlug, displayCoverImage);
     }
-
-    const nextNumber = (storyQuery.data.chapters.at(-1)?.number ?? 0) + 1;
-    const chapter = await createChapterMutation.mutateAsync({
-      storyId: storyQuery.data.id,
-      nextNumber,
-    });
-
-    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-    await queryClient.invalidateQueries({ queryKey: storyKeys.details(slug) });
-    router.push(routes.chapterEditor(storyQuery.data.id, chapter.id));
-  }
-
-  async function handleDeleteStory() {
-    if (!storyQuery.data || !window.confirm("Удалить историю целиком?")) {
-      return;
-    }
-
-    await deleteStoryMutation.mutateAsync(storyQuery.data.id);
-    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-    router.push(routes.home);
-  }
+  }, [displayCoverImage, hasExplicitCover, storySlug]);
 
   if (storyQuery.isLoading) {
     return (
-      <PlottyShell title="История загружается" description="Собираем метаданные истории и список глав.">
+      <PlottyPageShell
+        pageTitle="История загружается"
+        pageDescription="Собираем метаданные истории и список глав."
+        menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
+      >
         <div className="h-72 rounded-[24px] bg-white/40" />
-      </PlottyShell>
+      </PlottyPageShell>
     );
   }
 
   if (storyQuery.isError || !storyQuery.data) {
     return (
-      <PlottyShell title="История не найдена" description="Либо slug неверный, либо бэкенд не отдал данные.">
+      <PlottyPageShell
+        pageTitle="История не найдена"
+        pageDescription="Либо slug неверный, либо бэкенд не отдал данные."
+        menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
+      >
         <EmptyState title="История не найдена" description="Вернитесь в каталог и выберите другую историю." />
-      </PlottyShell>
+      </PlottyPageShell>
     );
   }
 
-  const latestChapter = storyQuery.data.chapters.at(-1);
+  const textOverride = getStoryTextOverride(storyQuery.data.id);
+  const storyDescription =
+    textOverride?.description ??
+    storyQuery.data.description ??
+    storyQuery.data.excerpt ??
+    "Описание истории пока не заполнено.";
 
   return (
-    <PlottyShell
-      title={storyQuery.data.title}
-      description={`История обновлена ${new Date(storyQuery.data.updatedAt).toLocaleString("ru-RU")}`}
-      actions={
-        latestChapter ? (
-          <Link href={routes.chapterEditor(storyQuery.data.id, latestChapter.id)}>
-            <Button variant="secondary">Редактировать историю</Button>
-          </Link>
-        ) : null
-      }
-    >
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="space-y-5">
-          <ShellCard title="Теги" description="Это весь набор метаданных, который сейчас поддерживает бэкенд истории.">
-            {storyQuery.data.tags.length ? (
+    <PlottyPageShell suppressPageIntro menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
+      <div className="space-y-5 lg:space-y-6">
+        <PlottySectionCard className="overflow-hidden p-0">
+          <div className="grid gap-0 lg:grid-cols-[320px_minmax(0,1fr)]">
+            <StoryCoverPreview
+              title={storyQuery.data.title}
+              imageUrl={displayCoverImage}
+              className="rounded-none border-0 border-b border-[rgba(35,33,30,0.08)] lg:border-b-0 lg:border-r"
+              imageClassName="aspect-[4/5] lg:aspect-[4/5]"
+            />
+
+            <div className="space-y-5 p-5 lg:p-6">
+              <div className="space-y-2">
+                <div className="plotty-meta text-xs font-bold uppercase tracking-[0.12em]">История</div>
+                <h1 className="plotty-page-title text-[2.35rem] leading-[0.95] sm:text-[3.1rem]">
+                  {storyQuery.data.title}
+                </h1>
+                <p className="plotty-meta">
+                  Обновлена {new Date(storyQuery.data.updatedAt).toLocaleString("ru-RU")}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {firstChapter ? (
+                  <ButtonLink href={routes.chapter(storyQuery.data.slug, firstChapter.number ?? 1)} variant="primary">
+                    Читать
+                  </ButtonLink>
+                ) : null}
+              </div>
+
               <div className="flex flex-wrap gap-2">
                 {storyQuery.data.tags.map((tag) => (
                   <StoryTagChip key={tag.id} tag={tag} />
                 ))}
               </div>
-            ) : (
-              <p className="text-sm leading-6 text-[var(--plotty-muted)]">У истории пока нет тегов.</p>
-            )}
-          </ShellCard>
+            </div>
+          </div>
+        </PlottySectionCard>
 
-          <ShellCard title="Главы" description="Переход в чтение и редактирование работает через реальные chapter endpoint'ы.">
-            {storyQuery.data.chapters.length ? (
-              <div className="space-y-3">
-                {storyQuery.data.chapters.map((chapter) => (
-                  <div
-                    key={chapter.id}
-                    className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-[var(--plotty-line)] bg-white/70 px-4 py-4"
-                  >
-                    <div>
-                      <div className="text-sm font-semibold">
-                        Глава {chapter.number}. {chapter.title}
-                      </div>
-                      <div className="text-sm text-[var(--plotty-muted)]">
-                        Обновлена {new Date(chapter.updatedAt).toLocaleString("ru-RU")}
-                      </div>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            type="button"
+            variant={activeSection === "description" ? "primary" : "secondary"}
+            onClick={() => setActiveSection("description")}
+          >
+            Описание
+          </Button>
+          <Button
+            type="button"
+            variant={activeSection === "chapters" ? "primary" : "secondary"}
+            onClick={() => setActiveSection("chapters")}
+          >
+            Главы
+          </Button>
+        </div>
+
+        <PlottySectionCard id="story-content">
+          {activeSection === "description" ? (
+            <div className="space-y-4">
+              <p className="plotty-body max-w-4xl text-[16px] leading-8 text-[var(--plotty-ink)] lg:text-[17px]">
+                {storyDescription}
+              </p>
+            </div>
+          ) : storyQuery.data.chapters.length ? (
+            <div className="space-y-3">
+              {storyQuery.data.chapters.map((chapter) => (
+                <div
+                  key={chapter.id}
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-[var(--plotty-line)] bg-white/72 px-4 py-4"
+                >
+                  <div className="space-y-1">
+                    <div className="plotty-card-title text-[1.125rem] leading-7">
+                      Глава {chapter.number}. {chapter.title}
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                      <GenerateChapterImageButton
-                        chapterId={chapter.id}
-                        chapterTitle={chapter.title}
-                        storySlug={storyQuery.data.slug}
-                        storyTitle={storyQuery.data.title}
-                      />
-                      <Link href={routes.chapter(storyQuery.data.slug, chapter.number ?? 1)}>
-                        <Button variant="secondary">Читать</Button>
-                      </Link>
-                      <Link href={routes.chapterEditor(storyQuery.data.id, chapter.id)}>
-                        <Button>Редактировать</Button>
-                      </Link>
+                    <div className="plotty-meta text-sm">
+                      Обновлена {new Date(chapter.updatedAt).toLocaleString("ru-RU")}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState title="У истории пока нет глав" description="Создайте первую главу, чтобы продолжить работу." />
-            )}
-          </ShellCard>
-        </div>
-
-        <div className="space-y-5">
-          <ShellCard title="Действия" description="Быстрые сценарии для автора.">
-            <div className="flex flex-col gap-3">
-              <Button variant="primary" onClick={handleNewChapter} disabled={createChapterMutation.isPending}>
-                {createChapterMutation.isPending ? "Создаем..." : "Новая глава"}
-              </Button>
-              {latestChapter ? (
-                <Link href={routes.chapterEditor(storyQuery.data.id, latestChapter.id)}>
-                  <Button className="w-full">Редактировать историю</Button>
-                </Link>
-              ) : null}
-              <Button variant="ghost" onClick={handleDeleteStory} disabled={deleteStoryMutation.isPending}>
-                Удалить историю
-              </Button>
+                  <div className="flex flex-wrap gap-3">
+                    <ButtonLink href={routes.chapter(storyQuery.data.slug, chapter.number ?? 1)} variant="primary">
+                      Читать
+                    </ButtonLink>
+                  </div>
+                </div>
+              ))}
             </div>
-          </ShellCard>
-        </div>
+          ) : (
+            <EmptyState
+              title="У истории пока нет глав"
+              description="Загляните позже или выберите другую историю из каталога."
+            />
+          )}
+        </PlottySectionCard>
       </div>
-    </PlottyShell>
+    </PlottyPageShell>
   );
+}
+
+function getStoryCoverFromCache(storySlug: string) {
+  return typeof generatedImageCache.getGeneratedStoryCoverUrl === "function"
+    ? generatedImageCache.getGeneratedStoryCoverUrl(storySlug)
+    : undefined;
+}
+
+function setStoryCoverInCache(storySlug: string, imageUrl: string) {
+  if (typeof generatedImageCache.setGeneratedStoryCoverUrl === "function") {
+    generatedImageCache.setGeneratedStoryCoverUrl(storySlug, imageUrl);
+  }
 }

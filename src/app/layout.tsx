@@ -15,8 +15,8 @@ const literata = Literata({
 });
 
 export const metadata: Metadata = {
-  title: "Plotty Catalog",
-  description: "Plotty catalog shell with mock data and AI beta-reader teaser.",
+  title: "Plotty",
+  description: "Каталог историй Plotty с чтением, авторскими сценариями и AI-инструментами.",
 };
 
 export default function RootLayout({
@@ -32,4 +32,3 @@ export default function RootLayout({
     </html>
   );
 }
-

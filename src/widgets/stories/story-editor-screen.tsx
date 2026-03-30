@@ -9,14 +9,12 @@ import {
   chapterEditorDetailsQueryOptions,
   createChapter,
   deleteChapter,
-  deleteStory,
   startSpellcheck,
   storyKeys,
-  storyTagsQueryOptions,
   updateChapter,
-  updateStory,
 } from "@/entities/story/api/stories-api";
 import type { SpellcheckResult } from "@/entities/story/model/types";
+import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { EmptyState } from "@/shared/ui/empty-state";
 
@@ -24,8 +22,6 @@ import { PlottyShell } from "./plotty-shell";
 import { StoryEditorForm, type StoryEditorValues } from "./story-editor-form";
 
 const emptyValues: StoryEditorValues = {
-  storyTitle: "",
-  selectedTagIds: [],
   chapterTitle: "",
   chapterContent: "",
 };
@@ -42,7 +38,6 @@ export function StoryEditorScreen({
   const router = useRouter();
   const queryClient = useQueryClient();
   const chapterQuery = useQuery(chapterEditorDetailsQueryOptions(storyId, chapterId));
-  const tagsQuery = useQuery(storyTagsQueryOptions());
   const [values, setValues] = useState<StoryEditorValues>(emptyValues);
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
 
@@ -52,20 +47,11 @@ export function StoryEditorScreen({
     }
 
     setValues({
-      storyTitle: chapterQuery.data.storyTitle ?? "",
-      selectedTagIds: chapterQuery.data.storyTags?.map((tag) => tag.id) ?? [],
       chapterTitle: chapterQuery.data.title,
       chapterContent: chapterQuery.data.content,
     });
   }, [chapterQuery.data]);
 
-  const updateStoryMutation = useMutation({
-    mutationFn: ({ targetStoryId, targetPayload }: { targetStoryId: string; targetPayload: StoryEditorValues }) =>
-      updateStory(targetStoryId, {
-        title: targetPayload.storyTitle.trim(),
-        tagIds: targetPayload.selectedTagIds,
-      }),
-  });
   const updateChapterMutation = useMutation({
     mutationFn: ({ targetChapterId, targetPayload }: { targetChapterId: string; targetPayload: StoryEditorValues }) =>
       updateChapter(targetChapterId, {
@@ -80,9 +66,6 @@ export function StoryEditorScreen({
   const deleteChapterMutation = useMutation({
     mutationFn: deleteChapter,
   });
-  const deleteStoryMutation = useMutation({
-    mutationFn: deleteStory,
-  });
   const spellcheckMutation = useMutation({
     mutationFn: startSpellcheck,
   });
@@ -92,26 +75,28 @@ export function StoryEditorScreen({
     refetchInterval: (query) => {
       const status = query.state.data?.status;
 
-      return status === "completed" || status === "failed" ? false : 250;
+      return status === "completed" || status === "failed" ? false : 2_000;
     },
   });
 
   async function handleSave() {
-    await updateStoryMutation.mutateAsync({
-      targetStoryId: storyId,
-      targetPayload: values,
-    });
-    await updateChapterMutation.mutateAsync({
-      targetChapterId: chapterId,
-      targetPayload: values,
-    });
+    try {
+      await updateChapterMutation.mutateAsync({
+        targetChapterId: chapterId,
+        targetPayload: values,
+      });
 
-    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-    await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
-    await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
 
-    if (chapterQuery.data?.storySlug) {
-      await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      if (chapterQuery.data?.storySlug) {
+        await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      }
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
     }
   }
 
@@ -120,17 +105,23 @@ export function StoryEditorScreen({
       return;
     }
 
-    const nextNumber = (chapterQuery.data.storyChapters?.at(-1)?.number ?? 0) + 1;
-    const chapter = await createChapterMutation.mutateAsync({
-      nextStoryId: storyId,
-      nextTitle: `Глава ${nextNumber}`,
-    });
+    try {
+      const nextNumber = (chapterQuery.data.storyChapters?.at(-1)?.number ?? 0) + 1;
+      const chapter = await createChapterMutation.mutateAsync({
+        nextStoryId: storyId,
+        nextTitle: `Глава ${nextNumber}`,
+      });
 
-    if (chapterQuery.data.storySlug) {
-      await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      if (chapterQuery.data.storySlug) {
+        await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      }
+
+      router.push(routes.chapterEditor(storyId, chapter.id));
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
     }
-
-    router.push(routes.chapterEditor(storyId, chapter.id));
   }
 
   async function handleDeleteChapter() {
@@ -138,7 +129,14 @@ export function StoryEditorScreen({
       return;
     }
 
-    await deleteChapterMutation.mutateAsync(chapterId);
+    try {
+      await deleteChapterMutation.mutateAsync(chapterId);
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
+      return;
+    }
 
     if (chapterQuery.data?.storySlug) {
       router.push(routes.story(chapterQuery.data.storySlug));
@@ -146,16 +144,6 @@ export function StoryEditorScreen({
     }
 
     router.push(routes.write);
-  }
-
-  async function handleDeleteStory() {
-    if (!window.confirm("Удалить историю целиком?")) {
-      return;
-    }
-
-    await deleteStoryMutation.mutateAsync(storyId);
-    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-    router.push(routes.home);
   }
 
   async function handleSpellcheck() {
@@ -190,13 +178,11 @@ export function StoryEditorScreen({
 
   return (
     <PlottyShell
-      title={`Редактор: ${chapterQuery.data.storyTitle ?? "История"}`}
-      description={`Глава ${chapterQuery.data.number ?? "—"}. ${chapterQuery.data.title}`}
+      title={chapterQuery.data.title}
+      description={`Глава ${chapterQuery.data.number ?? "—"} истории ${chapterQuery.data.storyTitle ?? "без названия"}`}
     >
       <StoryEditorForm
-        mode="edit"
         values={values}
-        availableTags={tagsQuery.data?.items ?? chapterQuery.data.storyTags ?? []}
         storyId={storyId}
         storySlug={chapterQuery.data.storySlug}
         chapterId={chapterId}
@@ -204,13 +190,12 @@ export function StoryEditorScreen({
         chapters={chapterQuery.data.storyChapters}
         spellcheckResult={spellcheckJobQuery.data?.result}
         aiStatusLabel={aiStatusLabel}
-        isSaving={updateStoryMutation.isPending || updateChapterMutation.isPending}
+        isSaving={updateChapterMutation.isPending}
         isSpellchecking={spellcheckMutation.isPending || spellcheckJobQuery.data?.status === "queued"}
         onChange={setValues}
         onSave={handleSave}
         onCreateNextChapter={handleCreateNextChapter}
         onDeleteChapter={handleDeleteChapter}
-        onDeleteStory={handleDeleteStory}
         onSpellcheck={handleSpellcheck}
       />
     </PlottyShell>
