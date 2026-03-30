@@ -13,6 +13,8 @@ export interface StoryListItem {
   id: string;
   slug: string;
   title: string;
+  coverImageUrl?: string;
+  firstChapterId?: string;
   tags: StoryTag[];
   chaptersCount: number;
   createdAt: string;
@@ -48,6 +50,7 @@ export interface StoryDetails {
   id: string;
   slug: string;
   title: string;
+  coverImageUrl?: string;
   tags: StoryTag[];
   chapters: ChapterListItem[];
   createdAt: string;
@@ -77,10 +80,6 @@ export interface ChapterDetails {
 export interface StoriesQuery {
   tags: string[];
   q: string;
-  fandom: string;
-  rating: string;
-  status: string;
-  size: string;
   page: number;
   pageSize: number;
 }

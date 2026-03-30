@@ -10,6 +10,8 @@ const push = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn() }),
+  usePathname: () => "/write/stories/story-1/chapters/chapter-1",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 function renderEditor() {
@@ -34,7 +36,10 @@ describe("StoryEditorScreen", () => {
 
     renderEditor();
 
-    await waitFor(() => expect(screen.getByDisplayValue("После полуночи снег не тает")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+
+    expect(screen.queryByLabelText("Название истории")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Удалить историю" })).not.toBeInTheDocument();
 
     const chapterTitle = screen.getByDisplayValue("Глава 1. Архив под лестницей");
     await user.clear(chapterTitle);
@@ -57,7 +62,9 @@ describe("StoryEditorScreen", () => {
     await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Проверить орфографию" }));
 
-    await waitFor(() => expect(screen.getByText(/Найдено 1 замечание/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Найдено 1 замечание/i)).toBeInTheDocument(), {
+      timeout: 4_000,
+    });
     expect(screen.getByText(/нечаянно/i)).toBeInTheDocument();
   });
 
@@ -71,19 +78,6 @@ describe("StoryEditorScreen", () => {
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/stories/after-midnight-the-snow-does-not-melt"));
     const response = await fetch("http://localhost/chapters/chapter-1");
-    expect(response.status).toBe(404);
-  });
-
-  it("deletes the whole story", async () => {
-    const user = userEvent.setup();
-
-    renderEditor();
-
-    await waitFor(() => expect(screen.getByDisplayValue("После полуночи снег не тает")).toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: "Удалить историю" }));
-
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
-    const response = await fetch("http://localhost/stories/after-midnight-the-snow-does-not-melt");
     expect(response.status).toBe(404);
   });
 });

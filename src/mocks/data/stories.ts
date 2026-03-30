@@ -28,6 +28,7 @@ interface StoryRecord {
   id: string;
   slug: string;
   title: string;
+  coverImageUrl?: string;
   description: string;
   excerpt: string;
   status: StoryStatus;
@@ -83,6 +84,12 @@ interface MockStoriesDb {
 }
 
 const tagMap = new Map(storyTags.map((tag) => [tag.slug, tag]));
+const multiMatchAnyCategories = new Set(["rating", "completion", "size"]);
+const storyTagCategoryBySlug = new Map(storyTags.map((tag) => [tag.slug, tag.category ?? "other"]));
+
+function normalizeTagLabel(value: string) {
+  return value.trim().toLowerCase();
+}
 
 function resolveTagSlugsFromPayload(payload: { tags?: string[]; tagIds?: string[] }) {
   if (payload.tags?.length) {
@@ -318,6 +325,10 @@ function getChaptersForStory(storyId: string): ChapterRecord[] {
   return db.chapters.filter((chapter) => chapter.storyId === storyId).sort((a, b) => a.number - b.number);
 }
 
+function getStoryCoverImage(story: StoryRecord) {
+  return story.coverImageUrl ?? getChaptersForStory(story.id).find((chapter) => chapter.imageUrl)?.imageUrl;
+}
+
 function toChapterListItem(chapter: ChapterRecord): ChapterListItem {
   return {
     id: chapter.id,
@@ -331,10 +342,14 @@ function toChapterListItem(chapter: ChapterRecord): ChapterListItem {
 }
 
 function toStoryListItem(story: StoryRecord): StoryListItem {
+  const firstChapter = getChaptersForStory(story.id)[0];
+
   return {
     id: story.id,
     slug: story.slug,
     title: story.title,
+    coverImageUrl: getStoryCoverImage(story),
+    firstChapterId: firstChapter?.id,
     createdAt: story.createdAt,
     description: story.description,
     excerpt: story.excerpt,
@@ -426,11 +441,7 @@ function countWords(content: string) {
 function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
   const filtered = db.stories
     .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
-    .filter((story) => query.tags.every((tag) => story.tagSlugs.includes(tag)))
-    .filter((story) => (query.fandom ? story.fandom === query.fandom : true))
-    .filter((story) => (query.rating ? story.ratingLabel === query.rating : true))
-    .filter((story) => (query.status ? story.statusLabel === query.status : true))
-    .filter((story) => (query.size ? story.sizeLabel === query.size : true))
+    .filter((story) => matchesStoryTags(story, query.tags))
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 
   const start = (query.page - 1) * query.pageSize;
@@ -448,6 +459,54 @@ function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
 
 export function listStories(query: StoriesQuery) {
   return buildStoriesQueryResult(query);
+}
+
+function matchesStoryTags(story: StoryRecord, selectedTags: string[]) {
+  const requiredTags: string[] = [];
+  const groupedAnyTags = new Map<string, string[]>();
+
+  selectedTags.forEach((tagSlug) => {
+    const category = storyTagCategoryBySlug.get(tagSlug);
+
+    if (category && multiMatchAnyCategories.has(category)) {
+      const current = groupedAnyTags.get(category) ?? [];
+      current.push(tagSlug);
+      groupedAnyTags.set(category, current);
+      return;
+    }
+
+    requiredTags.push(tagSlug);
+  });
+
+  return (
+    requiredTags.every((tagSlug) => storyMatchesTag(story, tagSlug)) &&
+    [...groupedAnyTags.values()].every((tagGroup) => tagGroup.some((tagSlug) => storyMatchesTag(story, tagSlug)))
+  );
+}
+
+function storyMatchesTag(story: StoryRecord, tagSlug: string) {
+  if (story.tagSlugs.includes(tagSlug)) {
+    return true;
+  }
+
+  const tag = tagMap.get(tagSlug);
+
+  if (!tag) {
+    return false;
+  }
+
+  switch (tag.category) {
+    case "directionality":
+      return normalizeTagLabel(story.fandom) === normalizeTagLabel(tag.name);
+    case "rating":
+      return normalizeTagLabel(story.ratingLabel) === normalizeTagLabel(tag.name);
+    case "completion":
+      return normalizeTagLabel(story.statusLabel) === normalizeTagLabel(tag.name);
+    case "size":
+      return normalizeTagLabel(story.sizeLabel) === normalizeTagLabel(tag.name);
+    default:
+      return false;
+  }
 }
 
 export function listTags() {
@@ -507,7 +566,7 @@ export function updateStoryRecord(storyId: string, payload: UpdateStoryPayload) 
     return null;
   }
 
-  if (payload.title) {
+  if (payload.title && payload.title !== story.title) {
     story.title = payload.title;
     story.slug = uniqueStorySlug(payload.title, story.id);
   }

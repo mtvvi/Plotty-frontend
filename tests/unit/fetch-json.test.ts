@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { resolveApiInput } from "@/shared/api/fetch-json";
+import { ApiError, fetchJson, resolveApiInput } from "@/shared/api/fetch-json";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("fetchJson URL resolution", () => {
   it("uses the Next API proxy for relative paths by default", () => {
@@ -20,6 +24,33 @@ describe("fetchJson URL resolution", () => {
     );
     expect(resolveApiInput("/api/tags", "https://api.plotty-stories.duckdns.org")).toBe(
       "https://api.plotty-stories.duckdns.org/tags",
+    );
+  });
+
+  it("sends cookies with API requests", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+
+    await fetchJson<{ ok: boolean }>("/session");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/session",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("throws typed ApiError objects for failed requests", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: "invalid session" }), { status: 401 }),
+    );
+
+    await expect(fetchJson("/session")).rejects.toEqual(
+      expect.objectContaining<ApiError>({
+        name: "ApiError",
+        status: 401,
+        message: "invalid session",
+      }),
     );
   });
 });

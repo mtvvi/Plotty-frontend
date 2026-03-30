@@ -35,14 +35,24 @@ interface BackendStory {
 interface BackendStoryListItem extends BackendStory {
   tags: StoryTag[];
   chaptersCount: number;
+  coverImageUrl?: string;
+  firstChapterId?: string;
+  description?: string;
+  excerpt?: string;
+  status?: StoryDetails["status"];
 }
 
 interface BackendStoryDetails extends BackendStory {
   tags: StoryTag[];
+  coverImageUrl?: string;
+  description?: string;
+  excerpt?: string;
+  status?: StoryDetails["status"];
   chapters: Array<{
     id: string;
     title: string;
     updatedAt: string;
+    imageUrl?: string;
   }>;
 }
 
@@ -52,6 +62,10 @@ interface BackendChapterDetails {
   title: string;
   content: string;
   updatedAt: string;
+  number?: number;
+  imageUrl?: string;
+  storySlug?: string;
+  storyTitle?: string;
 }
 
 interface BackendStoriesResponse {
@@ -89,10 +103,15 @@ function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
     id: item.id,
     slug: item.slug,
     title: item.title,
+    coverImageUrl: item.coverImageUrl,
+    firstChapterId: item.firstChapterId,
     tags: item.tags,
     chaptersCount: item.chaptersCount,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+    description: item.description,
+    excerpt: item.excerpt,
+    status: item.status,
     fandom: getTagName(item.tags, "directionality"),
     ratingLabel: getTagName(item.tags, "rating"),
     statusLabel: getTagName(item.tags, "completion"),
@@ -106,16 +125,22 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     number: index + 1,
     title: chapter.title,
     updatedAt: chapter.updatedAt,
+    imageUrl: chapter.imageUrl,
+    hasImage: Boolean(chapter.imageUrl),
   }));
 
   return {
     id: item.id,
     slug: item.slug,
     title: item.title,
+    coverImageUrl: item.coverImageUrl ?? item.chapters.find((chapter) => chapter.imageUrl)?.imageUrl,
     tags: item.tags,
     chapters,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+    description: item.description,
+    excerpt: item.excerpt,
+    status: item.status,
   };
 }
 
@@ -126,6 +151,10 @@ function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
     title: item.title,
     content: item.content,
     updatedAt: item.updatedAt,
+    number: item.number,
+    imageUrl: item.imageUrl,
+    storySlug: item.storySlug,
+    storyTitle: item.storyTitle,
     wordCount: countWords(item.content),
   };
 }
@@ -144,10 +173,10 @@ function enrichChapterDetails(chapter: BackendChapterDetails, story: StoryDetail
   };
 }
 
-async function fetchStoriesPage(query: StoriesQuery) {
+async function fetchStoriesPage(query: StoriesQuery, signal?: AbortSignal) {
   const params = serializeStoriesQuery(query);
 
-  return fetchJson<BackendStoriesResponse>(`/stories?${params.toString()}`);
+  return fetchJson<BackendStoriesResponse>(`/stories?${params.toString()}`, { signal });
 }
 
 async function fetchStoryDetails(slug: string) {
@@ -164,10 +193,6 @@ async function fetchStoryDetailsById(storyId: string) {
     const response = await fetchStoriesPage({
       tags: [],
       q: "",
-      fandom: "",
-      rating: "",
-      status: "",
-      size: "",
       page,
       pageSize: STORY_LOOKUP_PAGE_SIZE,
     });
@@ -195,8 +220,8 @@ export function storyTagsQueryOptions() {
 export function storiesQueryOptions(query: StoriesQuery) {
   return queryOptions({
     queryKey: storyKeys.list(query),
-    queryFn: async (): Promise<StoriesResponse> => {
-      const response = await fetchStoriesPage(query);
+    queryFn: async ({ signal }): Promise<StoriesResponse> => {
+      const response = await fetchStoriesPage(query, signal);
 
       return {
         items: response.items.map(mapStoryListItem),
@@ -264,6 +289,8 @@ export function createStory(payload: CreateStoryPayload) {
     method: "POST",
     body: JSON.stringify({
       title: payload.title,
+      description: payload.description,
+      excerpt: payload.excerpt,
       tagIds: payload.tagIds ?? [],
     }),
   });
@@ -274,6 +301,8 @@ export function updateStory(storyId: string, payload: UpdateStoryPayload) {
     method: "PATCH",
     body: JSON.stringify({
       title: payload.title,
+      description: payload.description,
+      excerpt: payload.excerpt,
       tagIds: payload.tagIds,
     }),
   });

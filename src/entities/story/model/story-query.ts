@@ -1,28 +1,52 @@
+import { storyTags } from "@/shared/config/story-tags";
+
 import type { StoriesQuery } from "./types";
 
 export const defaultStoriesQuery: StoriesQuery = {
   tags: [],
   q: "",
-  fandom: "",
-  rating: "",
-  status: "",
-  size: "",
   page: 1,
   pageSize: 20,
 };
+
+const legacyQueryCategories = {
+  fandom: "directionality",
+  rating: "rating",
+  status: "completion",
+  size: "size",
+} as const;
+
+function normalizeTagValue(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function resolveLegacyTagSlug(category: string, value: string) {
+  const normalizedValue = normalizeTagValue(value);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return (
+    storyTags.find(
+      (tag) =>
+        tag.category === category &&
+        (normalizeTagValue(tag.slug) === normalizedValue || normalizeTagValue(tag.name) === normalizedValue),
+    )?.slug ?? null
+  );
+}
 
 export function parseStoriesQuery(searchParams: URLSearchParams): StoriesQuery {
   const rawTags = searchParams.getAll("tag");
   const rawPage = Number(searchParams.get("page") ?? defaultStoriesQuery.page);
   const rawPageSize = Number(searchParams.get("pageSize") ?? defaultStoriesQuery.pageSize);
+  const legacyTags = Object.entries(legacyQueryCategories)
+    .map(([param, category]) => resolveLegacyTagSlug(category, searchParams.get(param) ?? ""))
+    .filter((tagSlug): tagSlug is string => Boolean(tagSlug));
 
   return {
-    tags: rawTags.filter((tag, index) => tag.trim() && rawTags.indexOf(tag) === index),
+    tags: [...rawTags, ...legacyTags].filter((tag, index, items) => tag.trim() && items.indexOf(tag) === index),
     q: searchParams.get("q")?.trim() ?? "",
-    fandom: searchParams.get("fandom")?.trim() ?? "",
-    rating: searchParams.get("rating")?.trim() ?? "",
-    status: searchParams.get("status")?.trim() ?? "",
-    size: searchParams.get("size")?.trim() ?? "",
     page: Number.isFinite(rawPage) && rawPage > 0 ? rawPage : defaultStoriesQuery.page,
     pageSize: Number.isFinite(rawPageSize) && rawPageSize > 0 ? rawPageSize : defaultStoriesQuery.pageSize,
   };
@@ -35,22 +59,6 @@ export function serializeStoriesQuery(query: StoriesQuery) {
 
   if (query.q) {
     params.set("q", query.q);
-  }
-
-  if (query.fandom) {
-    params.set("fandom", query.fandom);
-  }
-
-  if (query.rating) {
-    params.set("rating", query.rating);
-  }
-
-  if (query.status) {
-    params.set("status", query.status);
-  }
-
-  if (query.size) {
-    params.set("size", query.size);
   }
 
   if (query.page !== defaultStoriesQuery.page) {

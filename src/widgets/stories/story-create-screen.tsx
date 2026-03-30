@@ -1,9 +1,8 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 
 import {
   createChapter,
@@ -13,21 +12,33 @@ import {
   storyKeys,
   storyTagsQueryOptions,
 } from "@/entities/story/api/stories-api";
+import * as generatedImageCache from "@/entities/story/model/generated-image-cache";
 import { defaultStoriesQuery } from "@/entities/story/model/story-query";
+import { getStoryTextOverride } from "@/entities/story/model/story-text-cache";
+import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
-import { Button } from "@/shared/ui/button";
+import { Button, ButtonLink } from "@/shared/ui/button";
+import { Field, FieldLabel } from "@/shared/ui/field";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 
 import { GenerateChapterImageButton } from "./generate-chapter-image-button";
 import { PlottyShell, ShellCard } from "./plotty-shell";
-import { StoryEditorForm, type StoryEditorValues } from "./story-editor-form";
+import { StoryCoverPreview } from "./story-cover-preview";
+import { StorySettingsFields, type StorySettingsValues } from "./story-settings-fields";
 import { StoryTagChip } from "./story-tag-chip";
 
-const initialValues: StoryEditorValues = {
-  storyTitle: "",
+const initialStoryValues: StorySettingsValues = {
+  title: "",
+  description: "",
+  excerpt: "",
   selectedTagIds: [],
-  chapterTitle: "",
-  chapterContent: "",
+};
+
+const initialChapterValues = {
+  title: "",
+  content: "",
 };
 
 const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
@@ -37,7 +48,8 @@ export function StoryCreateScreen() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<"library" | "create">("library");
   const [selectedStorySlug, setSelectedStorySlug] = useState("");
-  const [values, setValues] = useState(initialValues);
+  const [storyValues, setStoryValues] = useState(initialStoryValues);
+  const [chapterValues, setChapterValues] = useState(initialChapterValues);
   const storiesQuery = useQuery(storiesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }));
   const tagsQuery = useQuery(storyTagsQueryOptions());
   const selectedStoryQuery = useQuery({
@@ -65,20 +77,49 @@ export function StoryCreateScreen() {
     }
   }, [selectedStorySlug, storiesQuery.data?.items]);
 
-  async function handleSave() {
-    const story = await createStoryMutation.mutateAsync({
-      title: values.storyTitle.trim(),
-      tagIds: values.selectedTagIds,
-    });
+  const selectedStorySlugValue = selectedStoryQuery.data?.slug ?? "";
+  const selectedStoryHasExplicitCover = Boolean(selectedStoryQuery.data?.coverImageUrl);
+  const selectedStoryDisplayCover =
+    selectedStoryQuery.data?.coverImageUrl ??
+    (selectedStorySlugValue ? getStoryCoverFromCache(selectedStorySlugValue) : undefined) ??
+    (selectedStoryQuery.data?.chapters[0]
+      ? generatedImageCache.getGeneratedImageUrl(selectedStoryQuery.data.chapters[0].id)
+      : undefined);
+  const selectedStoryTextOverride = selectedStoryQuery.data ? getStoryTextOverride(selectedStoryQuery.data.id) : undefined;
+  const selectedStoryDescription =
+    selectedStoryTextOverride?.description ??
+    selectedStoryQuery.data?.description ??
+    selectedStoryQuery.data?.excerpt ??
+    "Описание истории пока не заполнено.";
 
-    const chapter = await createChapterMutation.mutateAsync({
-      storyId: story.id,
-      title: values.chapterTitle.trim() || "Глава 1",
-      content: values.chapterContent.trim() || emptyChapterDraft,
-    });
+  useEffect(() => {
+    if (selectedStorySlugValue && !selectedStoryHasExplicitCover && selectedStoryDisplayCover) {
+      setStoryCoverInCache(selectedStorySlugValue, selectedStoryDisplayCover);
+    }
+  }, [selectedStoryDisplayCover, selectedStoryHasExplicitCover, selectedStorySlugValue]);
 
-    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-    router.push(routes.chapterEditor(story.id, chapter.id));
+  async function handleCreateStory() {
+    try {
+      const story = await createStoryMutation.mutateAsync({
+        title: storyValues.title.trim(),
+        description: storyValues.description.trim(),
+        excerpt: storyValues.excerpt.trim(),
+        tagIds: storyValues.selectedTagIds,
+      });
+
+      const chapter = await createChapterMutation.mutateAsync({
+        storyId: story.id,
+        title: chapterValues.title.trim() || "Глава 1",
+        content: chapterValues.content.trim() || emptyChapterDraft,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+      router.push(routes.chapterEditor(story.id, chapter.id));
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.write }));
+      }
+    }
   }
 
   async function handleCreateNextChapter() {
@@ -86,21 +127,27 @@ export function StoryCreateScreen() {
       return;
     }
 
-    const nextNumber = (selectedStoryQuery.data.chapters.at(-1)?.number ?? 0) + 1;
-    const chapter = await createChapterMutation.mutateAsync({
-      storyId: selectedStoryQuery.data.id,
-      title: `Глава ${nextNumber}`,
-      content: emptyChapterDraft,
-    });
+    try {
+      const nextNumber = (selectedStoryQuery.data.chapters.at(-1)?.number ?? 0) + 1;
+      const chapter = await createChapterMutation.mutateAsync({
+        storyId: selectedStoryQuery.data.id,
+        title: `Глава ${nextNumber}`,
+        content: emptyChapterDraft,
+      });
 
-    await queryClient.invalidateQueries({ queryKey: storyKeys.details(selectedStoryQuery.data.slug) });
-    router.push(routes.chapterEditor(selectedStoryQuery.data.id, chapter.id));
+      await queryClient.invalidateQueries({ queryKey: storyKeys.details(selectedStoryQuery.data.slug) });
+      router.push(routes.chapterEditor(selectedStoryQuery.data.id, chapter.id));
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.write }));
+      }
+    }
   }
 
   return (
     <PlottyShell
       title="Авторская мастерская"
-      description="Фронтенд теперь работает с реальным бэкендом: история хранит название и теги, а текст живет на уровне главы."
+      description="Главный хаб автора: выбирайте истории, управляйте главами и открывайте настройки истории отдельно."
     >
       <div className="space-y-5">
         <div className="flex flex-wrap gap-3">
@@ -113,40 +160,92 @@ export function StoryCreateScreen() {
         </div>
 
         {mode === "create" ? (
-          <StoryEditorForm
-            mode="create"
-            values={values}
-            availableTags={tagsQuery.data?.items ?? []}
-            onChange={setValues}
-            onSave={handleSave}
-            onSpellcheck={() => {}}
-            isSaving={createStoryMutation.isPending || createChapterMutation.isPending}
-            saveLabel="Создать историю и первую главу"
-          />
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <ShellCard title="Новая история" description="Сначала задайте общие параметры истории. Главы и их текст останутся отдельной сущностью.">
+              <StorySettingsFields values={storyValues} availableTags={tagsQuery.data?.items ?? []} onChange={setStoryValues} />
+            </ShellCard>
+
+            <div className="space-y-5">
+              <ShellCard title="Первая глава" description="После создания истории вы сразу перейдёте в редактор первой главы.">
+                <div className="grid gap-4">
+                  <Field>
+                    <FieldLabel htmlFor="new-chapter-title">Название главы</FieldLabel>
+                    <Input
+                      id="new-chapter-title"
+                      value={chapterValues.title}
+                      onChange={(event) => setChapterValues((current) => ({ ...current, title: event.target.value }))}
+                      placeholder="Глава 1"
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="new-chapter-content">Черновик первой главы</FieldLabel>
+                    <Textarea
+                      id="new-chapter-content"
+                      value={chapterValues.content}
+                      onChange={(event) => setChapterValues((current) => ({ ...current, content: event.target.value }))}
+                      placeholder="Начните писать первую главу"
+                      className="min-h-52"
+                    />
+                  </Field>
+
+                  <Button variant="primary" onClick={handleCreateStory} disabled={createStoryMutation.isPending || createChapterMutation.isPending}>
+                    {createStoryMutation.isPending || createChapterMutation.isPending
+                      ? "Создаем..."
+                      : "Создать историю и открыть редактор"}
+                  </Button>
+                </div>
+              </ShellCard>
+
+              <ShellCard title="Как это работает" description="Story settings и chapter editor разделены, чтобы роли экранов не смешивались.">
+                <div className="space-y-3 text-sm leading-6 text-[var(--plotty-muted)]">
+                  <p>Сначала создаётся история с основными параметрами и тегами.</p>
+                  <p>Затем создаётся первая глава и открывается chapter editor только для неё.</p>
+                  <p>Позже story-level параметры редактируются с отдельного экрана настроек истории.</p>
+                </div>
+              </ShellCard>
+            </div>
+          </div>
         ) : (
           <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-            <ShellCard title="Мои истории" description="Выберите историю, чтобы посмотреть теги и перейти к её главам.">
+            <ShellCard title="Мои истории" description="Выберите историю, чтобы управлять главами, открыть страницу истории или перейти к настройкам.">
               {storiesQuery.isLoading ? (
                 <div className="space-y-3">
-                  <div className="h-20 rounded-[18px] bg-white/40" />
-                  <div className="h-20 rounded-[18px] bg-white/40" />
+                  <div className="h-24 rounded-[18px] bg-white/40" />
+                  <div className="h-24 rounded-[18px] bg-white/40" />
                 </div>
               ) : storiesQuery.data?.items.length ? (
                 <div className="space-y-3">
                   {storiesQuery.data.items.map((story) => (
-                    <button
+                    <div
                       key={story.id}
-                      type="button"
-                      onClick={() => setSelectedStorySlug(story.slug)}
-                      className={`w-full rounded-[20px] border px-4 py-4 text-left transition-colors ${
+                      className={`rounded-[20px] border px-4 py-4 transition-colors ${
                         selectedStorySlug === story.slug
-                          ? "border-[var(--plotty-accent)] bg-[var(--plotty-accent-soft)]"
+                          ? "border-transparent bg-[var(--plotty-accent)] text-white"
                           : "border-[var(--plotty-line)] bg-white/72 hover:bg-white/90"
                       }`}
                     >
-                      <div className="text-base font-semibold">{story.title}</div>
-                      <div className="mt-1 text-sm text-[var(--plotty-muted)]">{story.chaptersCount} глав</div>
-                    </button>
+                      <div className="flex items-start justify-between gap-3">
+                        <button type="button" onClick={() => setSelectedStorySlug(story.slug)} className="flex-1 text-left">
+                          <div className="text-base font-semibold">{story.title}</div>
+                          <div
+                            className={`mt-1 text-sm ${
+                              selectedStorySlug === story.slug ? "text-white/80" : "text-[var(--plotty-muted)]"
+                            }`}
+                          >
+                            {story.chaptersCount} глав
+                          </div>
+                        </button>
+                        <ButtonLink
+                          href={routes.storySettings(story.id)}
+                          variant={selectedStorySlug === story.slug ? "secondary" : "ghost"}
+                          className={`min-h-10 px-3 text-lg leading-none ${selectedStorySlug === story.slug ? "border-white/20 bg-white/12 text-white hover:bg-white/18" : ""}`}
+                          aria-label={`Настройки истории ${story.title}`}
+                        >
+                          ...
+                        </ButtonLink>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -158,7 +257,7 @@ export function StoryCreateScreen() {
               title={selectedStoryQuery.data?.title ?? "Выберите историю"}
               description={
                 selectedStoryQuery.data
-                  ? "Список глав и теги истории. Новую главу можно создать прямо отсюда."
+                  ? "Мастерская остаётся главным хабом: здесь главы, быстрые действия и вход в story settings."
                   : "Слева появится список ваших историй. Выберите любую, чтобы продолжить работу."
               }
             >
@@ -169,25 +268,41 @@ export function StoryCreateScreen() {
                 </div>
               ) : selectedStoryQuery.data ? (
                 <div className="space-y-6">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      {selectedStoryQuery.data.tags.map((tag) => (
-                        <StoryTagChip key={tag.id} tag={tag} />
-                      ))}
+                  <div className="grid gap-4 lg:grid-cols-[200px_minmax(0,1fr)]">
+                    <StoryCoverPreview
+                      title={selectedStoryQuery.data.title}
+                      imageUrl={selectedStoryDisplayCover}
+                      compact
+                    />
+                    <div className="space-y-4">
+                      <p className="plotty-body text-[var(--plotty-muted)]">{selectedStoryDescription}</p>
+
+                      <div className="flex flex-wrap gap-2">
+                        {selectedStoryQuery.data.tags.map((tag) => (
+                          <StoryTagChip key={tag.id} tag={tag} />
+                        ))}
+                      </div>
+
+                      <div className="flex flex-wrap gap-3">
+                        <ButtonLink href={routes.story(selectedStoryQuery.data.slug)} variant="secondary">
+                          Открыть страницу истории
+                        </ButtonLink>
+                        <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary">
+                          Настройки истории
+                        </ButtonLink>
+                        <Button variant="primary" onClick={handleCreateNextChapter} disabled={createChapterMutation.isPending}>
+                          {createChapterMutation.isPending ? "Создаем..." : "Создать новую главу"}
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h2 className="text-lg font-semibold">Главы</h2>
-                      <div className="flex flex-wrap gap-3">
-                        <Link href={routes.story(selectedStoryQuery.data.slug)}>
-                          <Button variant="secondary">Открыть страницу истории</Button>
-                        </Link>
-                        <Button variant="primary" onClick={handleCreateNextChapter} disabled={createChapterMutation.isPending}>
-                          {createChapterMutation.isPending ? "Создаем..." : "Создать новую главу"}
-                        </Button>
-                      </div>
+                      <h2 className="plotty-section-title">Главы</h2>
+                      <span className="plotty-meta">
+                        {selectedStoryQuery.data.chapters.length} {selectedStoryQuery.data.chapters.length === 1 ? "глава" : "глав"}
+                      </span>
                     </div>
 
                     {selectedStoryQuery.data.chapters.length ? (
@@ -212,12 +327,12 @@ export function StoryCreateScreen() {
                                 storySlug={selectedStoryQuery.data.slug}
                                 storyTitle={selectedStoryQuery.data.title}
                               />
-                              <Link href={routes.chapter(selectedStoryQuery.data.slug, chapter.number ?? 1)}>
-                                <Button variant="secondary">Читать</Button>
-                              </Link>
-                              <Link href={routes.chapterEditor(selectedStoryQuery.data.id, chapter.id)}>
-                                <Button>Редактировать</Button>
-                              </Link>
+                              <ButtonLink href={routes.chapter(selectedStoryQuery.data.slug, chapter.number ?? 1)} variant="secondary">
+                                Читать
+                              </ButtonLink>
+                              <ButtonLink href={routes.chapterEditor(selectedStoryQuery.data.id, chapter.id)} variant="primary">
+                                Редактировать
+                              </ButtonLink>
                             </div>
                           </div>
                         ))}
@@ -233,7 +348,7 @@ export function StoryCreateScreen() {
                   </div>
                 </div>
               ) : (
-                <EmptyState title="Выберите историю" description="Список историй слева откроет её главы и рабочие действия." />
+                <EmptyState title="Выберите историю" description="Список историй слева откроет её главы и author actions." />
               )}
             </ShellCard>
           </div>
@@ -241,4 +356,16 @@ export function StoryCreateScreen() {
       </div>
     </PlottyShell>
   );
+}
+
+function getStoryCoverFromCache(storySlug: string) {
+  return typeof generatedImageCache.getGeneratedStoryCoverUrl === "function"
+    ? generatedImageCache.getGeneratedStoryCoverUrl(storySlug)
+    : undefined;
+}
+
+function setStoryCoverInCache(storySlug: string, imageUrl: string) {
+  if (typeof generatedImageCache.setGeneratedStoryCoverUrl === "function") {
+    generatedImageCache.setGeneratedStoryCoverUrl(storySlug, imageUrl);
+  }
 }

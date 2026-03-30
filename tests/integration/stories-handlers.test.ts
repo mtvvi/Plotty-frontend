@@ -3,16 +3,20 @@ import { describe, expect, it } from "vitest";
 describe("stories mock handlers", () => {
   it("filters stories by multiple tags using AND logic", async () => {
     const response = await fetch("http://localhost/stories?tag=drama&tag=ooc");
-    const data = (await response.json()) as { pagination: { total: number }; items: Array<{ slug: string }> };
+    const data = (await response.json()) as {
+      pagination: { total: number };
+      items: Array<{ slug: string; coverImageUrl?: string }>;
+    };
 
     expect(response.ok).toBe(true);
     expect(data.pagination.total).toBe(1);
     expect(data.items[0]?.slug).toBe("after-midnight-the-snow-does-not-melt");
+    expect(data.items[0]?.coverImageUrl).toContain("data:image/svg+xml");
   });
 
   it("filters stories by fandom, rating, status and size", async () => {
     const response = await fetch(
-      "http://localhost/stories?fandom=%D0%93%D0%B0%D1%80%D1%80%D0%B8+%D0%9F%D0%BE%D1%82%D1%82%D0%B5%D1%80&rating=R&status=%D0%B2+%D0%BF%D1%80%D0%BE%D1%86%D0%B5%D1%81%D1%81%D0%B5&size=%D0%BC%D0%B8%D0%B4%D0%B8",
+      "http://localhost/stories?tag=harry-potter&tag=r&tag=in-progress&tag=midi",
     );
     const data = (await response.json()) as { pagination: { total: number }; items: Array<{ slug: string }> };
 
@@ -57,6 +61,26 @@ describe("stories mock handlers", () => {
     const data = (await response.json()) as { items: Array<{ id: string }> };
 
     expect(data.items.some((item) => item.id === "story-3")).toBe(false);
+  });
+
+  it("updates story description and excerpt", async () => {
+    const patchResponse = await fetch("http://localhost/stories/story-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "После полуночи снег не тает",
+        description: "Новое описание истории",
+        excerpt: "Новый тизер истории",
+      }),
+    });
+
+    expect(patchResponse.ok).toBe(true);
+
+    const detailsResponse = await fetch("http://localhost/stories/after-midnight-the-snow-does-not-melt");
+    const details = (await detailsResponse.json()) as { description?: string; excerpt?: string };
+
+    expect(details.description).toBe("Новое описание истории");
+    expect(details.excerpt).toBe("Новый тизер истории");
   });
 
   it("deletes a chapter and removes it from story details", async () => {

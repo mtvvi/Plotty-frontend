@@ -28,30 +28,35 @@ describe("story query helpers", () => {
     expect(parseStoriesQuery(params)).toEqual({
       tags: ["drama", "wrong-tag", "ooc"],
       q: "архив",
-      fandom: "",
-      rating: "",
-      status: "",
-      size: "",
       page: 2,
       pageSize: 20,
     });
   });
 
-  it("serializes secondary filters", () => {
+  it("serializes normalized tag filters", () => {
     const params = serializeStoriesQuery({
       ...defaultStoriesQuery,
-      fandom: "Гарри Поттер",
-      rating: "R",
-      status: "в процессе",
-      size: "миди",
+      tags: ["harry-potter", "r", "in-progress", "midi"],
     });
 
-    expect(params.toString()).toBe(
-      "fandom=%D0%93%D0%B0%D1%80%D1%80%D0%B8+%D0%9F%D0%BE%D1%82%D1%82%D0%B5%D1%80&rating=R&status=%D0%B2+%D0%BF%D1%80%D0%BE%D1%86%D0%B5%D1%81%D1%81%D0%B5&size=%D0%BC%D0%B8%D0%B4%D0%B8",
-    );
+    expect(params.toString()).toBe("tag=harry-potter&tag=r&tag=in-progress&tag=midi");
   });
 
-  it("keeps arbitrary secondary filters when they are present in the URL", () => {
+  it("maps legacy secondary filters into normalized tags", () => {
+    const params = new URLSearchParams([
+      ["fandom", "Гарри Поттер"],
+      ["rating", "R"],
+      ["status", "в процессе"],
+      ["size", "миди"],
+    ]);
+
+    expect(parseStoriesQuery(params)).toEqual({
+      ...defaultStoriesQuery,
+      tags: ["harry-potter", "r", "in-progress", "midi"],
+    });
+  });
+
+  it("ignores unknown legacy secondary filters safely", () => {
     const params = new URLSearchParams([
       ["fandom", "Аркейн"],
       ["rating", "NC-99"],
@@ -61,10 +66,6 @@ describe("story query helpers", () => {
 
     expect(parseStoriesQuery(params)).toEqual({
       ...defaultStoriesQuery,
-      fandom: "Аркейн",
-      rating: "NC-99",
-      status: "Черновик",
-      size: "супер-макси",
     });
   });
 });

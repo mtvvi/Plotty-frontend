@@ -25,8 +25,52 @@ import {
   updateChapterRecord,
   updateStoryRecord,
 } from "./data/stories";
+import { getMockSession, loginMockUser, logoutMockUser, registerMockUser } from "./data/auth";
 
 export const handlers = [
+  http.get("*/session", () => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    return HttpResponse.json(session);
+  }),
+
+  http.post("*/login", async ({ request }) => {
+    const payload = (await request.json()) as { email: string; password: string };
+    const session = loginMockUser(payload);
+
+    if (!session) {
+      return HttpResponse.json({ error: "invalid email or password" }, { status: 401 });
+    }
+
+    return HttpResponse.json(session);
+  }),
+
+  http.post("*/register", async ({ request }) => {
+    const payload = (await request.json()) as { email: string; password: string; confirm_password: string };
+
+    if (payload.password !== payload.confirm_password) {
+      return HttpResponse.json({ error: "passwords do not match" }, { status: 400 });
+    }
+
+    const result = registerMockUser(payload);
+
+    if ("error" in result) {
+      return HttpResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    return HttpResponse.json(result, { status: 201 });
+  }),
+
+  http.post("*/logout", () => {
+    logoutMockUser();
+
+    return HttpResponse.json({ status: "logged out" });
+  }),
+
   http.get("*/tags", () => {
     return HttpResponse.json(listTags());
   }),

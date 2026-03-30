@@ -1,23 +1,23 @@
 import type { StoryTag } from "@/entities/story/model/types";
 
-export const storyFandoms = [
-  "Гарри Поттер",
-  "Ведьмак",
-  "Властелин Колец",
-  "Наруто",
-] as const;
-
 export const storyDirectionalityTags: StoryTag[] = [
   { id: "directionality-1", category: "directionality", slug: "harry-potter", name: "Гарри Поттер" },
   { id: "directionality-2", category: "directionality", slug: "witcher", name: "Ведьмак" },
-  { id: "directionality-3", category: "directionality", slug: "lord-of-the-rings", name: "Властелин Колец" },
+  { id: "directionality-3", category: "directionality", slug: "lord-of-the-rings", name: "Властелин колец" },
   { id: "directionality-4", category: "directionality", slug: "naruto", name: "Наруто" },
+  { id: "directionality-5", category: "directionality", slug: "marvel", name: "Марвел" },
+  { id: "directionality-6", category: "directionality", slug: "dc", name: "DC" },
+  { id: "directionality-7", category: "directionality", slug: "sherlock", name: "Шерлок" },
+  { id: "directionality-8", category: "directionality", slug: "star-wars", name: "Звёздные войны" },
+  { id: "directionality-9", category: "directionality", slug: "game-of-thrones", name: "Игра престолов" },
+  { id: "directionality-10", category: "directionality", slug: "attack-on-titan", name: "Атака титанов" },
+  { id: "directionality-11", category: "directionality", slug: "originals", name: "Ориджиналы" },
 ];
 
 export const storyGenres: StoryTag[] = [
   { id: "genre-1", category: "genre", slug: "drama", name: "Драма" },
   { id: "genre-2", category: "genre", slug: "humor", name: "Юмор" },
-  { id: "genre-3", category: "genre", slug: "mysticism", name: "Мистика" },
+  { id: "genre-3", category: "genre", slug: "mystery", name: "Мистика" },
   { id: "genre-4", category: "genre", slug: "slice-of-life", name: "Повседневность" },
   { id: "genre-5", category: "genre", slug: "fantasy", name: "Фэнтези" },
   { id: "genre-6", category: "genre", slug: "adventure", name: "Приключения" },
@@ -60,12 +60,6 @@ export const storyTags: StoryTag[] = [
   ...storyCompletionTags,
 ];
 
-export const storyRatings = ["G", "PG-13", "R", "NC-17", "NC-21"] as const;
-
-export const storySizes = ["драббл", "мини", "миди", "макси"] as const;
-
-export const storyStatuses = ["завершён", "в процессе", "заморожен"] as const;
-
 export const storyTagCategoryLabels: Record<string, string> = {
   directionality: "Фандом",
   genre: "Жанры",
@@ -74,6 +68,17 @@ export const storyTagCategoryLabels: Record<string, string> = {
   size: "Размер",
   completion: "Статус",
 };
+
+export const storyTagCategoryOrder = [
+  "directionality",
+  "rating",
+  "completion",
+  "size",
+  "genre",
+  "warning",
+] as const;
+
+export const singleSelectTagCategories = ["directionality", "rating", "completion", "size"] as const;
 
 export function getStoryTagCategoryLabel(category: string) {
   return storyTagCategoryLabels[category] ?? category;
