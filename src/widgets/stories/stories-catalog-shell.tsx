@@ -175,7 +175,7 @@ export function StoriesCatalogShell() {
               ) : storiesQuery.isError ? (
                 <EmptyState
                   title="Не удалось загрузить истории"
-                  description="Проверьте доступность backend API и переменную BACKEND_URL."
+                  description="Проверьте доступность API proxy /api и настройки BACKEND_URL."
                   actionLabel="Сбросить фильтры"
                   onAction={clearFilters}
                 />
