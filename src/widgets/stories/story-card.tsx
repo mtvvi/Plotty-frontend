@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 
+import { chapterDetailsQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
 import type { StoryListItem } from "@/entities/story/model/types";
-import * as generatedImageCache from "@/entities/story/model/generated-image-cache";
 import { getStoryTextOverride } from "@/entities/story/model/story-text-cache";
 import { routes } from "@/shared/config/routes";
 import { Chip } from "@/shared/ui/chip";
@@ -12,10 +13,23 @@ import { buttonClassName } from "@/shared/ui/button";
 import { StoryCoverPreview } from "./story-cover-preview";
 
 export function StoryCard({ story }: { story: StoryListItem }) {
+  const storyDetailsQuery = useQuery({
+    ...storyDetailsQueryOptions(story.slug),
+    enabled: !story.coverImageUrl && !story.firstChapterId,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const firstChapterId = story.firstChapterId ?? storyDetailsQuery.data?.chapters[0]?.id ?? "";
+  const firstChapterQuery = useQuery({
+    ...chapterDetailsQueryOptions(firstChapterId),
+    enabled: Boolean(firstChapterId) && !story.coverImageUrl,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
   const displayCoverImage =
     story.coverImageUrl ??
-    getStoryCoverFromCache(story.slug) ??
-    (story.firstChapterId ? generatedImageCache.getGeneratedImageUrl(story.firstChapterId) : undefined);
+    storyDetailsQuery.data?.coverImageUrl ??
+    firstChapterQuery.data?.imageUrl;
   const textOverride = getStoryTextOverride(story.id);
   const catalogTeaser = textOverride?.excerpt ?? story.excerpt ?? story.description;
 
@@ -83,12 +97,6 @@ export function StoryCard({ story }: { story: StoryListItem }) {
       </div>
     </Link>
   );
-}
-
-function getStoryCoverFromCache(storySlug: string) {
-  return typeof generatedImageCache.getGeneratedStoryCoverUrl === "function"
-    ? generatedImageCache.getGeneratedStoryCoverUrl(storySlug)
-    : undefined;
 }
 
 function CatalogMetaChip({ children }: { children: React.ReactNode }) {

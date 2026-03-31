@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import {
+  chapterDetailsQueryOptions,
   createChapter,
   createStory,
   storiesQueryOptions,
@@ -12,7 +13,6 @@ import {
   storyKeys,
   storyTagsQueryOptions,
 } from "@/entities/story/api/stories-api";
-import * as generatedImageCache from "@/entities/story/model/generated-image-cache";
 import { defaultStoriesQuery } from "@/entities/story/model/story-query";
 import { getStoryTextOverride } from "@/entities/story/model/story-text-cache";
 import { isAuthError } from "@/shared/api/fetch-json";
@@ -56,6 +56,12 @@ export function StoryCreateScreen() {
     ...storyDetailsQueryOptions(selectedStorySlug),
     enabled: Boolean(selectedStorySlug),
   });
+  const selectedStoryFirstChapterId = selectedStoryQuery.data?.chapters[0]?.id ?? "";
+  const selectedStoryFirstChapterQuery = useQuery({
+    ...chapterDetailsQueryOptions(selectedStoryFirstChapterId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
 
   const createStoryMutation = useMutation({
     mutationFn: createStory,
@@ -77,26 +83,15 @@ export function StoryCreateScreen() {
     }
   }, [selectedStorySlug, storiesQuery.data?.items]);
 
-  const selectedStorySlugValue = selectedStoryQuery.data?.slug ?? "";
-  const selectedStoryHasExplicitCover = Boolean(selectedStoryQuery.data?.coverImageUrl);
   const selectedStoryDisplayCover =
     selectedStoryQuery.data?.coverImageUrl ??
-    (selectedStorySlugValue ? getStoryCoverFromCache(selectedStorySlugValue) : undefined) ??
-    (selectedStoryQuery.data?.chapters[0]
-      ? generatedImageCache.getGeneratedImageUrl(selectedStoryQuery.data.chapters[0].id)
-      : undefined);
+    selectedStoryFirstChapterQuery.data?.imageUrl;
   const selectedStoryTextOverride = selectedStoryQuery.data ? getStoryTextOverride(selectedStoryQuery.data.id) : undefined;
   const selectedStoryDescription =
     selectedStoryTextOverride?.description ??
     selectedStoryQuery.data?.description ??
     selectedStoryQuery.data?.excerpt ??
     "Описание истории пока не заполнено.";
-
-  useEffect(() => {
-    if (selectedStorySlugValue && !selectedStoryHasExplicitCover && selectedStoryDisplayCover) {
-      setStoryCoverInCache(selectedStorySlugValue, selectedStoryDisplayCover);
-    }
-  }, [selectedStoryDisplayCover, selectedStoryHasExplicitCover, selectedStorySlugValue]);
 
   async function handleCreateStory() {
     try {
@@ -362,16 +357,4 @@ export function StoryCreateScreen() {
       </div>
     </PlottyShell>
   );
-}
-
-function getStoryCoverFromCache(storySlug: string) {
-  return typeof generatedImageCache.getGeneratedStoryCoverUrl === "function"
-    ? generatedImageCache.getGeneratedStoryCoverUrl(storySlug)
-    : undefined;
-}
-
-function setStoryCoverInCache(storySlug: string, imageUrl: string) {
-  if (typeof generatedImageCache.setGeneratedStoryCoverUrl === "function") {
-    generatedImageCache.setGeneratedStoryCoverUrl(storySlug, imageUrl);
-  }
 }

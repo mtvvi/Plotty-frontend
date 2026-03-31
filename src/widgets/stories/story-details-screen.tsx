@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
-import * as generatedImageCache from "@/entities/story/model/generated-image-cache";
+import { chapterDetailsQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
 import { getStoryTextOverride } from "@/entities/story/model/story-text-cache";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
@@ -21,19 +20,15 @@ import { StoryTagChip } from "./story-tag-chip";
 export function StoryDetailsScreen({ slug }: { slug: string }) {
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const [activeSection, setActiveSection] = useState<"description" | "chapters">("description");
-  const storySlug = storyQuery.data?.slug ?? "";
-  const hasExplicitCover = Boolean(storyQuery.data?.coverImageUrl);
   const firstChapter = storyQuery.data?.chapters[0] ?? null;
+  const firstChapterQuery = useQuery({
+    ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
   const displayCoverImage =
     storyQuery.data?.coverImageUrl ??
-    (storySlug ? getStoryCoverFromCache(storySlug) : undefined) ??
-    (firstChapter ? generatedImageCache.getGeneratedImageUrl(firstChapter.id) : undefined);
-
-  useEffect(() => {
-    if (storySlug && !hasExplicitCover && displayCoverImage) {
-      setStoryCoverInCache(storySlug, displayCoverImage);
-    }
-  }, [displayCoverImage, hasExplicitCover, storySlug]);
+    firstChapterQuery.data?.imageUrl;
 
   if (storyQuery.isLoading) {
     return (
@@ -163,16 +158,4 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
       </div>
     </PlottyPageShell>
   );
-}
-
-function getStoryCoverFromCache(storySlug: string) {
-  return typeof generatedImageCache.getGeneratedStoryCoverUrl === "function"
-    ? generatedImageCache.getGeneratedStoryCoverUrl(storySlug)
-    : undefined;
-}
-
-function setStoryCoverInCache(storySlug: string, imageUrl: string) {
-  if (typeof generatedImageCache.setGeneratedStoryCoverUrl === "function") {
-    generatedImageCache.setGeneratedStoryCoverUrl(storySlug, imageUrl);
-  }
 }
