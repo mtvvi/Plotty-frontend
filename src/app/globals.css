@@ -91,7 +91,7 @@ select {
 
 .plotty-frame {
   width: min(100%, var(--plotty-container));
-  margin: 0 auto 1.75rem;
+  margin: 0 auto 1.25rem;
   border-radius: var(--plotty-radius-xl);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(247, 242, 234, 0.95));
   border: 1px solid rgba(255, 255, 255, 0.65);
@@ -135,26 +135,26 @@ select {
 .plotty-section-title {
   font-size: 1.125rem;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: -0.02em;
 }
 
 .plotty-card-title {
-  font-size: 1.0625rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
   letter-spacing: -0.02em;
 }
 
 .plotty-body {
   font-size: 0.95rem;
-  line-height: 1.7;
+  line-height: 1.65;
 }
 
 .plotty-meta {
   font-size: 0.8125rem;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.45;
   letter-spacing: 0.01em;
   color: var(--plotty-muted);
 }
@@ -162,7 +162,7 @@ select {
 .plotty-label {
   font-size: 0.875rem;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .plotty-button-label {
@@ -182,5 +182,9 @@ select {
   .plotty-page-shell {
     padding-inline: 0.75rem;
     padding-top: 1rem;
+  }
+
+  .plotty-frame {
+    margin-bottom: 1rem;
   }
 }

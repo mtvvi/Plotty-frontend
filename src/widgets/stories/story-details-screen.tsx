@@ -68,7 +68,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
   return (
     <PlottyPageShell suppressPageIntro menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
-      <div className="space-y-5 lg:space-y-6">
+      <div className="space-y-4 lg:space-y-5">
         <PlottySectionCard className="overflow-hidden p-0">
           <div className="grid gap-0 lg:grid-cols-[320px_minmax(0,1fr)]">
             <StoryCoverPreview
@@ -78,8 +78,8 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
               imageClassName="aspect-[4/5] lg:aspect-[4/5]"
             />
 
-            <div className="space-y-5 p-5 lg:p-6">
-              <div className="space-y-2">
+            <div className="space-y-4 p-5 lg:p-6">
+              <div className="space-y-1.5">
                 <div className="plotty-meta text-xs font-bold uppercase tracking-[0.12em]">История</div>
                 <h1 className="plotty-page-title text-[2.35rem] leading-[0.95] sm:text-[3.1rem]">
                   {storyQuery.data.title}
@@ -106,7 +106,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
           </div>
         </PlottySectionCard>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2.5">
           <Button
             type="button"
             variant={activeSection === "description" ? "primary" : "secondary"}
@@ -125,7 +125,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
         <PlottySectionCard id="story-content">
           {activeSection === "description" ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <p className="plotty-body max-w-4xl text-[16px] leading-8 text-[var(--plotty-ink)] lg:text-[17px]">
                 {storyDescription}
               </p>
@@ -135,7 +135,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
               {storyQuery.data.chapters.map((chapter) => (
                 <div
                   key={chapter.id}
-                  className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-[var(--plotty-line)] bg-white/72 px-4 py-4"
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-[18px] border border-[var(--plotty-line)] bg-white/76 px-4 py-3.5"
                 >
                   <div className="space-y-1">
                     <div className="plotty-card-title text-[1.125rem] leading-7">

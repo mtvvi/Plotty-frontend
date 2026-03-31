@@ -61,11 +61,7 @@ export function ChapterReaderScreen({
     <PlottyShell
       title={`${storyQuery.data.title} • Глава ${chapterNumber}`}
       description={`Обновлена ${new Date(chapterQuery.data.updatedAt).toLocaleString("ru-RU")}`}
-      actions={
-        <ButtonLink href={routes.chapterEditor(chapterQuery.data.storyId, chapterQuery.data.id)} variant="secondary">
-          Редактировать главу
-        </ButtonLink>
-      }
+      
     >
       <div className="space-y-5">
         <ChapterImageFrame title={chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl ?? generatedImageUrl} />

@@ -68,7 +68,7 @@ export function PlottyPageShell({
     );
 
   return (
-      <div
+    <div
       className={cn(
         "plotty-page-shell !pt-0 lg:!pt-8",
         showBottomNav && menuContent ? "!pb-[calc(7rem+env(safe-area-inset-bottom))]" : "!pb-12",
@@ -78,12 +78,12 @@ export function PlottyPageShell({
       <section className="plotty-frame">
         <header className="sticky top-0 z-40 border-b border-[var(--plotty-line)] bg-[rgba(247,242,234,0.78)] backdrop-blur-xl">
           <div className="px-4 sm:px-6 lg:px-7">
-            <div className="flex min-h-16 items-center gap-3 lg:min-h-[72px]">
+            <div className="flex min-h-[62px] items-center gap-3 lg:min-h-[68px] lg:gap-4">
               <Link href={routes.home} className="plotty-logo transition-opacity hover:opacity-80">
                 Plotty
               </Link>
 
-              <nav className="ml-2 hidden items-center gap-2 lg:flex" aria-label="Основная навигация">
+              <nav className="ml-1 hidden items-center gap-1.5 lg:flex" aria-label="Основная навигация">
                 {plottyPrimaryNavItems.map((item) => {
                   const isActive = item.href === pathname;
 
@@ -106,7 +106,7 @@ export function PlottyPageShell({
 
               {mobileHeaderCenter ? <div className="min-w-0 flex-1 lg:hidden">{mobileHeaderCenter}</div> : null}
 
-              <div className={cn("hidden items-center gap-3 lg:flex", desktopHeaderCenter ? "ml-0" : "ml-auto")}>
+              <div className={cn("hidden items-center gap-2.5 lg:flex", desktopHeaderCenter ? "ml-0" : "ml-auto")}>
                 {desktopActions}
               </div>
 
@@ -121,11 +121,11 @@ export function PlottyPageShell({
           </div>
         </header>
 
-        <div className={cn("px-4 pb-6 pt-4 sm:px-6 lg:px-7 lg:pb-8 lg:pt-5", contentClassName)}>
+        <div className={cn("px-4 pb-6 pt-4 sm:px-6 lg:px-7 lg:pb-7 lg:pt-[18px]", contentClassName)}>
           {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
-            <div className="mb-5 space-y-4 lg:mb-6">
+            <div className="mb-5 space-y-3.5 lg:mb-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 space-y-2">
+                <div className="min-w-0 space-y-1.5">
                   {pageMeta ? <div className="flex flex-wrap items-center gap-2">{pageMeta}</div> : null}
                   {pageTitle ? <h1 className="plotty-page-title">{pageTitle}</h1> : null}
                   {pageDescription ? (
@@ -169,7 +169,7 @@ export function PlottySectionCard({
   headerClassName?: string;
 } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <Card className={cn("space-y-4 p-5 lg:p-6", className)} {...props}>
+    <Card className={cn("space-y-4 p-5 lg:p-[22px]", className)} {...props}>
       {title ? (
         <div className={cn("space-y-1.5", headerClassName)}>
           <div className="plotty-section-title">{title}</div>

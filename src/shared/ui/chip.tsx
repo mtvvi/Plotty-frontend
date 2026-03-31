@@ -4,10 +4,10 @@ import { cn } from "@/shared/lib/utils";
 
 export function chipClassName(selected = false, className?: string) {
   return cn(
-    "inline-flex min-h-10 items-center justify-center rounded-full border px-3.5 py-2 text-sm font-semibold leading-none transition-colors",
+    "inline-flex min-h-[40px] items-center justify-center rounded-full border px-3.5 py-2 text-sm font-semibold leading-none transition-[background-color,border-color,color,box-shadow] duration-150 ease-out",
     selected
-      ? "border-transparent bg-[var(--plotty-accent)] !text-white visited:!text-white hover:bg-[#a65434]"
-      : "border-[var(--plotty-line)] bg-white/84 text-[var(--plotty-muted)] hover:bg-white",
+      ? "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_8px_18px_rgba(188,95,61,0.14)] visited:!text-white hover:bg-[#a65434]"
+      : "border-[var(--plotty-line)] bg-white/84 text-[var(--plotty-muted)] hover:border-[var(--plotty-line-strong)] hover:bg-white hover:text-[var(--plotty-ink)]",
     className,
   );
 }

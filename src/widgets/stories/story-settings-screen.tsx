@@ -200,7 +200,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
           </ShellCard>
 
           <ShellCard title="Опасные действия" description="Удаление истории уберёт её из каталога и удалит главы.">
-            <Button variant="destructive" onClick={handleDeleteStory} disabled={deleteStoryMutation.isPending} className="w-full">
+            <Button variant="destructive" onClick={handleDeleteStory} disabled={deleteStoryMutation.isPending} className="w-full sm:w-auto">
               {deleteStoryMutation.isPending ? "Удаляем..." : "Удалить историю"}
             </Button>
           </ShellCard>

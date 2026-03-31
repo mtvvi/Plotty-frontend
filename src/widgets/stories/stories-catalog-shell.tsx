@@ -163,7 +163,7 @@ export function StoriesCatalogShell() {
       onMenuOpenChange={setIsMobileMenuOpen}
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       desktopHeaderCenter={
-        <div className="mx-auto w-full max-w-[34rem] xl:max-w-[38rem]">
+        <div className="mx-auto w-full max-w-[30rem] xl:max-w-[34rem]">
           <CatalogSearchField value={searchDraft} onChange={setSearchDraft} />
         </div>
       }
@@ -190,29 +190,27 @@ export function StoriesCatalogShell() {
           </Button>
         </div>
       }
-      contentClassName="pt-3 lg:pt-4"
+      contentClassName="pt-2 lg:pt-3"
       className="!px-3 sm:!px-4 lg:!px-6"
     >
-      <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
+      <div className="grid gap-3 lg:grid-cols-[272px_minmax(0,1fr)] lg:gap-5">
         <aside className="hidden lg:block">
-          <PlottySectionCard className="space-y-6 bg-[rgba(240,232,219,0.78)] shadow-none lg:space-y-7">
-            <div className="space-y-3">
-              <div className="space-y-1">
+          <PlottySectionCard className="space-y-5 bg-[rgba(240,232,219,0.7)] shadow-none lg:space-y-6">
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between gap-3">
                 <h2 className="plotty-section-title">Фильтры</h2>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary" className="min-h-10 w-full px-3 text-sm" onClick={clearDraftFilters}>
+                <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearDraftFilters}>
                   Очистить всё
                 </Button>
-                <Button
-                  variant="primary"
-                  className="min-h-10 w-full px-3 text-sm"
-                  onClick={applyDraftTags}
-                  disabled={!hasFilterDraftChanges || isRouting}
-                >
-                  Применить
-                </Button>
               </div>
+              <Button
+                variant="primary"
+                className="min-h-10 w-full justify-center px-3 text-sm"
+                onClick={applyDraftTags}
+                disabled={!hasFilterDraftChanges || isRouting}
+              >
+                Применить
+              </Button>
             </div>
 
             {orderedGroups.map(([category, tags]) => {
@@ -277,31 +275,29 @@ export function StoriesCatalogShell() {
           </PlottySectionCard>
         </aside>
 
-        <div className="space-y-4 lg:space-y-5">
-          <PlottySectionCard className="border-[rgba(35,33,30,0.07)] bg-[rgba(240,232,219,0.86)] p-3 shadow-none sm:p-3.5">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="rounded-full bg-white/90 px-3 py-2 font-semibold text-[var(--plotty-ink)]">
-                Найдено {totalStories}
+        <div className="space-y-3 lg:space-y-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-full bg-white/90 px-3 py-2 font-semibold text-[var(--plotty-ink)] shadow-[0_6px_16px_rgba(46,35,23,0.06)]">
+              Найдено {totalStories}
+            </span>
+            {appliedQuery.q ? (
+              <span className="rounded-full bg-[var(--plotty-accent-soft)] px-3 py-2 font-semibold text-[var(--plotty-accent)]">
+                Поиск: {appliedQuery.q}
               </span>
-              {appliedQuery.q ? (
-                <span className="rounded-full bg-[var(--plotty-accent-soft)] px-3 py-2 font-semibold text-[var(--plotty-accent)]">
-                  Поиск: {appliedQuery.q}
-                </span>
-              ) : null}
-              {(appliedQuery.q || appliedActiveTags.length) && !hasInitialLoading ? (
-                <Button
-                  variant="ghost"
-                  className="min-h-10 px-3 text-sm"
-                  onClick={() => {
-                    clearAllDraft();
-                    navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
-                  }}
-                >
-                  Очистить всё
-                </Button>
-              ) : null}
-            </div>
-          </PlottySectionCard>
+            ) : null}
+            {(appliedQuery.q || appliedActiveTags.length) && !hasInitialLoading ? (
+              <Button
+                variant="ghost"
+                className="min-h-9 px-2.5 text-sm"
+                onClick={() => {
+                  clearAllDraft();
+                  navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
+                }}
+              >
+                Очистить всё
+              </Button>
+            ) : null}
+          </div>
 
           {appliedActiveTags.length ? (
             <div className="flex flex-wrap gap-2">
@@ -324,8 +320,8 @@ export function StoriesCatalogShell() {
 
           {hasInitialLoading ? (
             <PlottySectionCard className="space-y-3 shadow-none">
-              <div className="h-52 rounded-[20px] bg-white/50" />
-              <div className="h-52 rounded-[20px] bg-white/50" />
+              <div className="h-48 rounded-[20px] bg-white/50" />
+              <div className="h-48 rounded-[20px] bg-white/50" />
             </PlottySectionCard>
           ) : storiesQuery.isError ? (
             <EmptyState
@@ -342,8 +338,8 @@ export function StoriesCatalogShell() {
             </div>
           ) : (
             <EmptyState
-              title="Ничего не найдено"
-              description="Попробуйте изменить поисковый запрос или снять часть фильтров."
+              title="Под этот запрос историй не нашлось"
+              description="Попробуйте ослабить фильтры или очистить поиск, чтобы вернуть больше историй в каталог."
               actionLabel="Очистить всё"
               onAction={clearAppliedFilters}
             />
@@ -440,8 +436,8 @@ function CatalogSearchField({
   return (
     <div
       className={cn(
-        "grid items-center gap-3 rounded-[18px] border border-[rgba(35,33,30,0.08)] bg-white/84 px-4 shadow-none",
-        compact ? "grid-cols-[auto_1fr] py-0.5" : "grid-cols-[auto_1fr] py-2",
+        "grid items-center gap-3 rounded-[16px] border border-[rgba(35,33,30,0.08)] bg-white/84 px-4 shadow-none transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]",
+        compact ? "grid-cols-[auto_1fr] py-0.5" : "grid-cols-[auto_1fr] py-1.5",
       )}
     >
       <span className="text-base text-[var(--plotty-muted)]" aria-hidden="true">
@@ -454,7 +450,7 @@ function CatalogSearchField({
         placeholder="Поиск по названию истории"
         className={cn(
           "border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
-          compact ? "min-h-10 text-sm" : "min-h-11",
+          compact ? "min-h-10 text-sm" : "min-h-[42px]",
         )}
       />
     </div>
@@ -473,7 +469,7 @@ function CatalogToggleGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3.5">
+    <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="plotty-meta text-xs font-bold uppercase tracking-[0.08em]">{title}</h3>
         {canClear && onClear ? (
@@ -486,7 +482,7 @@ function CatalogToggleGroup({
           </button>
         ) : null}
       </div>
-      <div className="flex flex-wrap gap-2.5">{children}</div>
+      <div className="flex flex-wrap gap-2">{children}</div>
     </section>
   );
 }
