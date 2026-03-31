@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { chapterDetailsQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
-import { getGeneratedImageUrl } from "@/entities/story/model/generated-image-cache";
 import { routes } from "@/shared/config/routes";
 import { ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
@@ -23,16 +21,6 @@ export function ChapterReaderScreen({
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const chapterId = storyQuery.data?.chapters.find((chapter) => chapter.number === chapterNumber)?.id ?? "";
   const chapterQuery = useQuery(chapterDetailsQueryOptions(chapterId));
-  const [generatedImageUrl, setGeneratedImage] = useState<string | undefined>();
-
-  useEffect(() => {
-    if (!chapterId) {
-      setGeneratedImage(undefined);
-      return;
-    }
-
-    setGeneratedImage(getGeneratedImageUrl(chapterId));
-  }, [chapterId, chapterQuery.data?.imageUrl]);
 
   if (storyQuery.isLoading || (chapterId && chapterQuery.isLoading)) {
     return (
@@ -64,7 +52,7 @@ export function ChapterReaderScreen({
       
     >
       <div className="space-y-5">
-        <ChapterImageFrame title={chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl ?? generatedImageUrl} />
+        <ChapterImageFrame title={chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl} />
 
         <ShellCard title={chapterQuery.data.title} description={`${chapterQuery.data.wordCount ?? 0} слов`}>
           <div className="space-y-4">
