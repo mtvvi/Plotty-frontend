@@ -23,6 +23,7 @@ export function PlottyPageShell({
   pageMeta,
   pageActions,
   desktopHeaderCenter,
+  mobileHeaderCenter,
   desktopHeaderActions,
   mobileHeaderActions,
   mobileToolbar,
@@ -39,6 +40,7 @@ export function PlottyPageShell({
   pageMeta?: ReactNode;
   pageActions?: ReactNode;
   desktopHeaderCenter?: ReactNode;
+  mobileHeaderCenter?: ReactNode;
   desktopHeaderActions?: ReactNode;
   mobileHeaderActions?: ReactNode;
   mobileToolbar?: ReactNode;
@@ -66,9 +68,9 @@ export function PlottyPageShell({
     );
 
   return (
-    <div
+      <div
       className={cn(
-        "plotty-page-shell !pt-0",
+        "plotty-page-shell !pt-0 lg:!pt-8",
         showBottomNav && menuContent ? "!pb-[calc(7rem+env(safe-area-inset-bottom))]" : "!pb-12",
         className,
       )}
@@ -102,11 +104,17 @@ export function PlottyPageShell({
 
               {desktopHeaderCenter ? <div className="hidden min-w-0 flex-1 lg:block">{desktopHeaderCenter}</div> : null}
 
+              {mobileHeaderCenter ? <div className="min-w-0 flex-1 lg:hidden">{mobileHeaderCenter}</div> : null}
+
               <div className={cn("hidden items-center gap-3 lg:flex", desktopHeaderCenter ? "ml-0" : "ml-auto")}>
                 {desktopActions}
               </div>
 
-              {mobileHeaderActions ? <div className="ml-auto flex items-center gap-2 lg:hidden">{mobileHeaderActions}</div> : null}
+              {mobileHeaderActions ? (
+                <div className={cn("flex items-center gap-2 lg:hidden", mobileHeaderCenter ? "" : "ml-auto")}>
+                  {mobileHeaderActions}
+                </div>
+              ) : null}
             </div>
 
             {mobileToolbar ? <div className="border-t border-[var(--plotty-line)] py-3 lg:hidden">{mobileToolbar}</div> : null}
