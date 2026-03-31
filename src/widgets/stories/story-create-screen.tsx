@@ -207,7 +207,7 @@ export function StoryCreateScreen() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
             <ShellCard title="Мои истории" description="Выберите историю, чтобы управлять главами, открыть страницу истории или перейти к настройкам.">
               {storiesQuery.isLoading ? (
                 <div className="space-y-3">
@@ -219,9 +219,9 @@ export function StoryCreateScreen() {
                   {storiesQuery.data.items.map((story) => (
                     <div
                       key={story.id}
-                      className={`rounded-[20px] border px-4 py-4 transition-colors ${
+                      className={`rounded-[20px] border px-4 py-4 transition-[background-color,border-color,color,box-shadow] duration-150 ${
                         selectedStorySlug === story.slug
-                          ? "border-transparent bg-[var(--plotty-accent)] text-white"
+                          ? "border-transparent bg-[var(--plotty-accent)] text-white shadow-[0_12px_28px_rgba(188,95,61,0.18)]"
                           : "border-[var(--plotty-line)] bg-white/72 hover:bg-white/90"
                       }`}
                     >
@@ -255,11 +255,7 @@ export function StoryCreateScreen() {
 
             <ShellCard
               title={selectedStoryQuery.data?.title ?? "Выберите историю"}
-              description={
-                selectedStoryQuery.data
-                  ? "Мастерская остаётся главным хабом: здесь главы, быстрые действия и вход в story settings."
-                  : "Слева появится список ваших историй. Выберите любую, чтобы продолжить работу."
-              }
+              
             >
               {selectedStoryQuery.isLoading ? (
                 <div className="space-y-3">
@@ -275,7 +271,17 @@ export function StoryCreateScreen() {
                       compact
                     />
                     <div className="space-y-4">
-                      <p className="plotty-body text-[var(--plotty-muted)]">{selectedStoryDescription}</p>
+                      <p
+                        className="plotty-body text-[var(--plotty-muted)]"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {selectedStoryDescription}
+                      </p>
 
                       <div className="flex flex-wrap gap-2">
                         {selectedStoryQuery.data.tags.map((tag) => (
@@ -310,7 +316,7 @@ export function StoryCreateScreen() {
                         {selectedStoryQuery.data.chapters.map((chapter) => (
                           <div
                             key={chapter.id}
-                            className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-[var(--plotty-line)] bg-white/72 px-4 py-4"
+                            className="flex flex-wrap items-center justify-between gap-4 rounded-[18px] border border-[var(--plotty-line)] bg-white/76 px-4 py-4"
                           >
                             <div>
                               <div className="text-base font-semibold">

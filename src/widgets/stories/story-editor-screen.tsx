@@ -173,8 +173,8 @@ export function StoryEditorScreen({
 
   const aiStatusLabel =
     spellcheckJobQuery.data?.status === "processing" || spellcheckJobQuery.data?.status === "queued"
-      ? "Нейронка сейчас проверяет главу."
-      : "После сохранения главу можно отправить на орфографическую проверку.";
+      ? "Наш бета-ридер работает над выявлением ошибок."
+      : "";
 
   return (
     <PlottyShell

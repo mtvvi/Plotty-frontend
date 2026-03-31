@@ -7,7 +7,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        fieldClassName("min-h-11"),
+        fieldClassName("min-h-[42px]"),
         className,
       )}
       {...props}

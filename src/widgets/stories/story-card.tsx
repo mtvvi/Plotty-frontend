@@ -22,7 +22,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
   return (
     <Link
       href={routes.story(story.slug)}
-      className="block overflow-hidden rounded-[24px] border border-[rgba(35,33,30,0.08)] bg-[rgba(255,255,255,0.84)] shadow-none transition-transform transition-shadow hover:-translate-y-[1px] hover:shadow-[var(--plotty-shadow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+      className="block overflow-hidden rounded-[24px] border border-[rgba(35,33,30,0.08)] bg-[rgba(255,255,255,0.84)] shadow-none transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-[1px] hover:border-[rgba(35,33,30,0.12)] hover:shadow-[var(--plotty-shadow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
     >
       <div className="grid gap-0 md:grid-cols-[220px_minmax(0,1fr)]">
         <StoryCoverPreview
@@ -30,9 +30,10 @@ export function StoryCard({ story }: { story: StoryListItem }) {
           imageUrl={displayCoverImage}
           compact
           className="rounded-none border-0 border-b border-[rgba(35,33,30,0.08)] md:border-b-0 md:border-r"
+          imageClassName="aspect-[4/5] md:aspect-[5/4]"
         />
 
-        <div className="space-y-4 p-4 sm:p-5">
+        <div className="flex min-h-full flex-col gap-4 p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <h2 className="plotty-card-title text-[20px] sm:text-[22px]">{story.title}</h2>
@@ -49,7 +50,17 @@ export function StoryCard({ story }: { story: StoryListItem }) {
           </div>
 
           {catalogTeaser ? (
-            <p className="plotty-body text-[14px] leading-6 text-[var(--plotty-muted)]">{catalogTeaser}</p>
+            <p
+              className="plotty-body text-[14px] leading-6 text-[var(--plotty-muted)]"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {catalogTeaser}
+            </p>
           ) : null}
 
           <div className="flex flex-wrap gap-2">
@@ -58,13 +69,13 @@ export function StoryCard({ story }: { story: StoryListItem }) {
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-1">
             <div className="flex flex-wrap gap-[10px]">
               <CatalogMiniStat>Создана {new Date(story.createdAt).toLocaleDateString("ru-RU")}</CatalogMiniStat>
               <CatalogMiniStat>Обновлена {new Date(story.updatedAt).toLocaleDateString("ru-RU")}</CatalogMiniStat>
             </div>
 
-            <span className={buttonClassName("primary", "min-h-10 px-[14px] text-[13px]")}>
+            <span className={buttonClassName("primary", "min-h-10 shrink-0 px-[14px] text-[13px]")}>
               Открыть историю
             </span>
           </div>

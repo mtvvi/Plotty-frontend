@@ -25,6 +25,7 @@ export function StoryCoverPreview({
   }, [imageUrl]);
 
   const hasCover = Boolean(imageUrl && !hasImageError);
+  const mediaClassName = cn("aspect-[16/10] h-full w-full", imageClassName);
 
   return (
     <div
@@ -41,10 +42,10 @@ export function StoryCoverPreview({
           height={540}
           unoptimized
           onError={() => setHasImageError(true)}
-          className={cn("aspect-[16/10] h-full w-full object-cover", imageClassName)}
+          className={cn(mediaClassName, "object-cover")}
         />
       ) : (
-        <div className={cn("flex aspect-[16/10] h-full w-full items-end p-5", compact ? "p-4" : "p-5")}>
+        <div className={cn("flex items-end", mediaClassName, compact ? "p-4" : "p-5")}>
           <div className="space-y-2">
             <div className="plotty-meta text-xs font-bold uppercase tracking-[0.12em]">Plotty story</div>
             <div className={cn("plotty-section-title text-[var(--plotty-ink)]", compact ? "max-w-[14rem]" : "max-w-[18rem]")}>

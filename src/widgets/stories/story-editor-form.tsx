@@ -84,7 +84,7 @@ export function StoryEditorForm({
                   </ButtonLink>
                 ) : null}
                 {storySlug ? (
-                  <ButtonLink href={routes.story(storySlug)} variant="ghost">
+                  <ButtonLink href={routes.story(storySlug)} variant="secondary">
                     К странице истории
                   </ButtonLink>
                 ) : null}
@@ -163,10 +163,10 @@ export function StoryEditorForm({
                   <Link
                     key={chapter.id}
                     href={routes.chapterEditor(storyId ?? "", chapter.id)}
-                    className={`block rounded-[18px] border px-3 py-3 text-sm ${
+                    className={`block rounded-[18px] border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,color] duration-150 ${
                       chapter.id === chapterId
                         ? "border-transparent bg-[var(--plotty-accent)] text-white"
-                        : "border-[var(--plotty-line)] bg-white/70 text-[var(--plotty-muted)]"
+                        : "border-[var(--plotty-line)] bg-white/70 text-[var(--plotty-muted)] hover:bg-white hover:text-[var(--plotty-ink)]"
                     }`}
                   >
                     Глава {chapter.number ?? "—"}. {chapter.title}

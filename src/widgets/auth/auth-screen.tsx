@@ -112,8 +112,8 @@ export function AuthScreen() {
   }
 
   return (
-    <PlottyPageShell showBottomNav={false} desktopHeaderActions={null} contentClassName="py-5 lg:py-8" suppressPageIntro>
-      <PlottySectionCard className="mx-auto max-w-[34rem] space-y-6 p-5 sm:p-7">
+    <PlottyPageShell showBottomNav={false} desktopHeaderActions={null} contentClassName="py-4 lg:py-7" suppressPageIntro>
+      <PlottySectionCard className="mx-auto max-w-[32rem] space-y-6 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <span className="plotty-meta text-xs font-bold uppercase tracking-[0.14em]">
             {mode === "register" ? "Регистрация" : "Вход"}
@@ -123,7 +123,7 @@ export function AuthScreen() {
           </Button>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <h1 className="plotty-page-title text-[2rem] sm:text-[2.4rem]">{pageCopy.title}</h1>
           <p className="plotty-body text-[var(--plotty-muted)]">{pageCopy.description}</p>
         </div>

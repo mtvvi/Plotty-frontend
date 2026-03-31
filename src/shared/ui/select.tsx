@@ -9,7 +9,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
       <select
         ref={ref}
         className={cn(
-          fieldClassName("min-h-11 pr-10"),
+          fieldClassName("min-h-[42px] pr-10"),
           className,
         )}
         {...props}
