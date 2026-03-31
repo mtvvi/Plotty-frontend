@@ -289,8 +289,6 @@ export function createStory(payload: CreateStoryPayload) {
     method: "POST",
     body: JSON.stringify({
       title: payload.title,
-      description: payload.description,
-      excerpt: payload.excerpt,
       tagIds: payload.tagIds ?? [],
     }),
   });

@@ -23,10 +23,12 @@ export function StorySettingsFields({
   values,
   availableTags,
   onChange,
+  includeSummaryFields = true,
 }: {
   values: StorySettingsValues;
   availableTags: StoryTag[];
   onChange: (next: StorySettingsValues) => void;
+  includeSummaryFields?: boolean;
 }) {
   const groupedTags = groupStoryTags(availableTags);
   const orderedGroups = storyTagCategoryOrder
@@ -63,27 +65,31 @@ export function StorySettingsFields({
         />
       </Field>
 
-      <Field>
-        <FieldLabel htmlFor="story-settings-description">Описание</FieldLabel>
-        <Textarea
-          id="story-settings-description"
-          value={values.description}
-          onChange={(event) => update("description", event.target.value)}
-          placeholder="Короткое описание истории"
-          className="min-h-32"
-        />
-      </Field>
+      {includeSummaryFields ? (
+        <>
+          <Field>
+            <FieldLabel htmlFor="story-settings-description">Описание</FieldLabel>
+            <Textarea
+              id="story-settings-description"
+              value={values.description}
+              onChange={(event) => update("description", event.target.value)}
+              placeholder="Короткое описание истории"
+              className="min-h-32"
+            />
+          </Field>
 
-      <Field>
-        <FieldLabel htmlFor="story-settings-excerpt">Тизер</FieldLabel>
-        <Textarea
-          id="story-settings-excerpt"
-          value={values.excerpt}
-          onChange={(event) => update("excerpt", event.target.value)}
-          placeholder="Короткий тизер для каталога и страницы истории"
-          className="min-h-28"
-        />
-      </Field>
+          <Field>
+            <FieldLabel htmlFor="story-settings-excerpt">Тизер</FieldLabel>
+            <Textarea
+              id="story-settings-excerpt"
+              value={values.excerpt}
+              onChange={(event) => update("excerpt", event.target.value)}
+              placeholder="Короткий тизер для каталога и страницы истории"
+              className="min-h-28"
+            />
+          </Field>
+        </>
+      ) : null}
 
       {orderedGroups.map(([category, tags]) => {
         const isSingle = singleSelectTagCategories.includes(category as (typeof singleSelectTagCategories)[number]);

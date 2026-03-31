@@ -92,13 +92,18 @@ export function StoryCreateScreen() {
     selectedStoryQuery.data?.description ??
     selectedStoryQuery.data?.excerpt ??
     "Описание истории пока не заполнено.";
+  const canCreateStory = Boolean(storyValues.title.trim());
 
   async function handleCreateStory() {
+    const title = storyValues.title.trim();
+
+    if (!title) {
+      return;
+    }
+
     try {
       const story = await createStoryMutation.mutateAsync({
-        title: storyValues.title.trim(),
-        description: storyValues.description.trim(),
-        excerpt: storyValues.excerpt.trim(),
+        title,
         tagIds: storyValues.selectedTagIds,
       });
 
@@ -157,7 +162,12 @@ export function StoryCreateScreen() {
         {mode === "create" ? (
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
             <ShellCard title="Новая история" description="Сначала задайте общие параметры истории. Главы и их текст останутся отдельной сущностью.">
-              <StorySettingsFields values={storyValues} availableTags={tagsQuery.data?.items ?? []} onChange={setStoryValues} />
+              <StorySettingsFields
+                values={storyValues}
+                availableTags={tagsQuery.data?.items ?? []}
+                onChange={setStoryValues}
+                includeSummaryFields={false}
+              />
             </ShellCard>
 
             <div className="space-y-5">
@@ -184,7 +194,11 @@ export function StoryCreateScreen() {
                     />
                   </Field>
 
-                  <Button variant="primary" onClick={handleCreateStory} disabled={createStoryMutation.isPending || createChapterMutation.isPending}>
+                  <Button
+                    variant="primary"
+                    onClick={handleCreateStory}
+                    disabled={!canCreateStory || createStoryMutation.isPending || createChapterMutation.isPending}
+                  >
                     {createStoryMutation.isPending || createChapterMutation.isPending
                       ? "Создаем..."
                       : "Создать историю и открыть редактор"}
