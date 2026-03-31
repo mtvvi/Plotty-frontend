@@ -27,7 +27,6 @@ import { StoryTagChip } from "./story-tag-chip";
 const multiSelectCategories = new Set(["rating", "completion", "size"]);
 const singleSelectCategories = new Set(["directionality"]);
 const searchDebounceMs = 300;
-const pollIntervalMs = 45_000;
 
 export function StoriesCatalogShell() {
   const router = useRouter();
@@ -37,9 +36,9 @@ export function StoriesCatalogShell() {
   const searchParamsString = searchParams.toString();
   const appliedQuery = useMemo(() => parseStoriesQuery(new URLSearchParams(searchParamsString)), [searchParamsString]);
   const [searchDraft, setSearchDraft] = useState(appliedQuery.q);
-  const [mobileDraftQuery, setMobileDraftQuery] = useState(appliedQuery);
+  const [draftTags, setDraftTags] = useState(appliedQuery.tags);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [, setIsMobileMenuOpen] = useState(false);
   const lastRequestedSearchRef = useRef(appliedQuery.q);
 
   const navigateToQuery = useCallback(
@@ -55,24 +54,40 @@ export function StoriesCatalogShell() {
   );
 
   useEffect(() => {
-    if (appliedQuery.q === lastRequestedSearchRef.current) {
-      return;
+    if (appliedQuery.q !== lastRequestedSearchRef.current) {
+      setSearchDraft(appliedQuery.q);
+      lastRequestedSearchRef.current = appliedQuery.q;
     }
-
-    setSearchDraft(appliedQuery.q);
-    lastRequestedSearchRef.current = appliedQuery.q;
   }, [appliedQuery.q]);
 
   useEffect(() => {
-    if (isMobileFiltersOpen) {
-      return;
-    }
+    setDraftTags(appliedQuery.tags);
+  }, [appliedQuery.tags]);
 
-    setMobileDraftQuery(appliedQuery);
-  }, [appliedQuery, isMobileFiltersOpen]);
-
+  const hasFilterDraftChanges = useMemo(
+    () =>
+      serializeStoriesQuery({ ...appliedQuery, tags: draftTags }).toString() !==
+      serializeStoriesQuery(appliedQuery).toString(),
+    [appliedQuery, draftTags],
+  );
   const normalizedSearchDraft = searchDraft.trim();
   const isSearchDirty = normalizedSearchDraft !== appliedQuery.q;
+
+  const storiesQuery = useQuery({
+    ...storiesQueryOptions(appliedQuery),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const tagsQuery = useQuery(storyTagsQueryOptions());
+  const stories = storiesQuery.data?.items ?? [];
+  const groupedTags = useMemo(() => groupStoryTags(tagsQuery.data?.items ?? []), [tagsQuery.data?.items]);
+  const orderedGroups = storyTagCategoryOrder
+    .map((category) => [category, groupedTags[category] ?? []] as const)
+    .filter(([, tags]) => tags.length);
+  const totalStories = (storiesQuery.data?.pagination.total ?? 0).toLocaleString("ru-RU");
+  const hasInitialLoading = storiesQuery.isLoading && !storiesQuery.data;
+  const appliedActiveTags = (tagsQuery.data?.items ?? []).filter((tag) => appliedQuery.tags.includes(tag.slug));
 
   useEffect(() => {
     if (!isSearchDirty) {
@@ -91,55 +106,31 @@ export function StoriesCatalogShell() {
     return () => window.clearTimeout(timeoutId);
   }, [appliedQuery, isSearchDirty, navigateToQuery, normalizedSearchDraft]);
 
-  const shouldPausePolling = isSearchDirty || isMobileFiltersOpen || isMobileMenuOpen;
-  const storiesQuery = useQuery({
-    ...storiesQueryOptions(appliedQuery),
-    placeholderData: keepPreviousData,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-    refetchInterval: shouldPausePolling ? false : pollIntervalMs,
-  });
-  const tagsQuery = useQuery(storyTagsQueryOptions());
-  const stories = storiesQuery.data?.items ?? [];
-  const groupedTags = useMemo(() => groupStoryTags(tagsQuery.data?.items ?? []), [tagsQuery.data?.items]);
-  const orderedGroups = storyTagCategoryOrder
-    .map((category) => [category, groupedTags[category] ?? []] as const)
-    .filter(([, tags]) => tags.length);
-  const activeTags = (tagsQuery.data?.items ?? []).filter((tag) => appliedQuery.tags.includes(tag.slug));
-  const totalStories = (storiesQuery.data?.pagination.total ?? 0).toLocaleString("ru-RU");
-  const hasInitialLoading = storiesQuery.isLoading && !storiesQuery.data;
-  const isResultsRefreshing = storiesQuery.isFetching && Boolean(storiesQuery.data);
+  function applyDraftTags() {
+    if (!hasFilterDraftChanges) {
+      return;
+    }
 
-  function updateAppliedQuery(next: Partial<StoriesQuery>) {
     navigateToQuery({
       ...appliedQuery,
-      ...next,
+      tags: draftTags,
       page: 1,
     });
   }
 
-  function updateAppliedTags(nextTags: string[]) {
-    updateAppliedQuery({ tags: nextTags });
+  function clearDraftFilters() {
+    setDraftTags([]);
   }
 
-  function updateMobileDraft(next: Partial<StoriesQuery>) {
-    setMobileDraftQuery((current) => ({
-      ...current,
-      ...next,
-      page: 1,
-    }));
+  function clearAllDraft() {
+    setSearchDraft("");
+    lastRequestedSearchRef.current = "";
+    setDraftTags([]);
   }
 
   function clearAppliedFilters() {
-    updateAppliedQuery({ tags: [] });
-  }
-
-  function clearMobileFilters() {
-    setMobileDraftQuery((current) => ({
-      ...current,
-      tags: [],
-      page: 1,
-    }));
+    clearAllDraft();
+    navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
   }
 
   function setSingleSelectTag(currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) {
@@ -163,12 +154,7 @@ export function StoriesCatalogShell() {
 
   function applyMobileFilters() {
     setIsMobileFiltersOpen(false);
-
-    if (serializeStoriesQuery(mobileDraftQuery).toString() === serializeStoriesQuery(appliedQuery).toString()) {
-      return;
-    }
-
-    navigateToQuery(mobileDraftQuery);
+    applyDraftTags();
   }
 
   return (
@@ -177,13 +163,17 @@ export function StoriesCatalogShell() {
       onMenuOpenChange={setIsMobileMenuOpen}
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       desktopHeaderCenter={
-        <div className="mx-auto w-full max-w-[44rem] xl:max-w-[48rem]">
+        <div className="mx-auto w-full max-w-[34rem] xl:max-w-[38rem]">
           <CatalogSearchField value={searchDraft} onChange={setSearchDraft} />
+        </div>
+      }
+      mobileHeaderCenter={
+        <div className="ml-1 min-w-0">
+          <CatalogSearchField value={searchDraft} onChange={setSearchDraft} compact />
         </div>
       }
       mobileToolbar={
         <div className="grid gap-2">
-          <CatalogSearchField value={searchDraft} onChange={setSearchDraft} compact />
           <Button
             type="button"
             variant="secondary"
@@ -192,35 +182,41 @@ export function StoriesCatalogShell() {
             onClick={() => setIsMobileFiltersOpen(true)}
           >
             Фильтр
-            {activeTags.length ? (
+            {appliedActiveTags.length ? (
               <span className="ml-2 rounded-full bg-[var(--plotty-accent-soft)] px-2 py-0.5 text-xs text-[var(--plotty-accent)]">
-                {activeTags.length}
+                {appliedActiveTags.length}
               </span>
             ) : null}
           </Button>
         </div>
       }
-      contentClassName="pt-4 lg:pt-5"
-      className="!px-3 sm:!px-4 lg:!px-6 lg:!pt-8"
+      contentClassName="pt-3 lg:pt-4"
+      className="!px-3 sm:!px-4 lg:!px-6"
     >
       <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
         <aside className="hidden lg:block">
           <PlottySectionCard className="space-y-6 bg-[rgba(240,232,219,0.78)] shadow-none lg:space-y-7">
-            <div className="flex items-start justify-between gap-3">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <h2 className="plotty-section-title">Фильтры</h2>
               </div>
-              <button
-                type="button"
-                onClick={clearAppliedFilters}
-                className="plotty-meta text-xs font-bold uppercase tracking-[0.08em] transition-colors hover:text-[var(--plotty-ink)]"
-              >
-                Сбросить
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="secondary" className="min-h-10 w-full px-3 text-sm" onClick={clearDraftFilters}>
+                  Очистить всё
+                </Button>
+                <Button
+                  variant="primary"
+                  className="min-h-10 w-full px-3 text-sm"
+                  onClick={applyDraftTags}
+                  disabled={!hasFilterDraftChanges || isRouting}
+                >
+                  Применить
+                </Button>
+              </div>
             </div>
 
             {orderedGroups.map(([category, tags]) => {
-              const selectedSlugs = getSelectedCategoryTags(appliedQuery.tags, tags);
+              const selectedSlugs = getSelectedCategoryTags(draftTags, tags);
 
               if (singleSelectCategories.has(category)) {
                 return (
@@ -232,9 +228,7 @@ export function StoriesCatalogShell() {
                       className="min-h-[3.25rem]"
                       aria-label={getStoryTagCategoryLabel(category)}
                       value={selectedSlugs[0] ?? ""}
-                      onChange={(event) =>
-                        updateAppliedTags(setSingleSelectTag(appliedQuery.tags, event.target.value, tags))
-                      }
+                      onChange={(event) => setDraftTags(setSingleSelectTag(draftTags, event.target.value, tags))}
                     >
                       <option value="">Любой вариант</option>
                       {tags.map((tag) => (
@@ -253,14 +247,14 @@ export function StoriesCatalogShell() {
                     key={category}
                     title={getStoryTagCategoryLabel(category)}
                     canClear={selectedSlugs.length > 0}
-                    onClear={() => updateAppliedTags(replaceCategoryTags(appliedQuery.tags, tags, []))}
+                    onClear={() => setDraftTags(replaceCategoryTags(draftTags, tags, []))}
                   >
                     {tags.map((tag) => (
                       <CatalogTogglePill
                         key={tag.id}
                         label={tag.name}
                         active={selectedSlugs.includes(tag.slug)}
-                        onClick={() => updateAppliedTags(toggleMultiSelectTag(appliedQuery.tags, tag.slug, tags))}
+                        onClick={() => setDraftTags(toggleMultiSelectTag(draftTags, tag.slug, tags))}
                       />
                     ))}
                   </CatalogToggleGroup>
@@ -273,8 +267,8 @@ export function StoriesCatalogShell() {
                     <StoryTagChip
                       key={tag.id}
                       tag={tag}
-                      active={appliedQuery.tags.includes(tag.slug)}
-                      onClick={() => updateAppliedTags(toggleGenericTag(appliedQuery.tags, tag.slug))}
+                      active={draftTags.includes(tag.slug)}
+                      onClick={() => setDraftTags(toggleGenericTag(draftTags, tag.slug))}
                     />
                   ))}
                 </CatalogToggleGroup>
@@ -284,7 +278,7 @@ export function StoriesCatalogShell() {
         </aside>
 
         <div className="space-y-4 lg:space-y-5">
-          <PlottySectionCard className="border-[rgba(35,33,30,0.07)] bg-[rgba(240,232,219,0.86)] p-3.5 shadow-none sm:p-4">
+          <PlottySectionCard className="border-[rgba(35,33,30,0.07)] bg-[rgba(240,232,219,0.86)] p-3 shadow-none sm:p-3.5">
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="rounded-full bg-white/90 px-3 py-2 font-semibold text-[var(--plotty-ink)]">
                 Найдено {totalStories}
@@ -294,36 +288,35 @@ export function StoriesCatalogShell() {
                   Поиск: {appliedQuery.q}
                 </span>
               ) : null}
-              {activeTags.length ? (
-                <span className="rounded-full bg-white/90 px-3 py-2 font-semibold text-[var(--plotty-muted)]">
-                  Фильтров: {activeTags.length}
-                </span>
-              ) : null}
-              {isResultsRefreshing ? (
-                <span className="rounded-full bg-[var(--plotty-accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--plotty-accent)]">
-                  Обновляем...
-                </span>
-              ) : null}
-              {(appliedQuery.q || activeTags.length) && !hasInitialLoading ? (
-                <Button variant="ghost" className="min-h-10 px-3 text-sm" onClick={() => {
-                  setSearchDraft("");
-                  lastRequestedSearchRef.current = "";
-                  navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
-                }}>
+              {(appliedQuery.q || appliedActiveTags.length) && !hasInitialLoading ? (
+                <Button
+                  variant="ghost"
+                  className="min-h-10 px-3 text-sm"
+                  onClick={() => {
+                    clearAllDraft();
+                    navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
+                  }}
+                >
                   Очистить всё
                 </Button>
               ) : null}
             </div>
           </PlottySectionCard>
 
-          {activeTags.length ? (
+          {appliedActiveTags.length ? (
             <div className="flex flex-wrap gap-2">
-              {activeTags.map((tag) => (
+              {appliedActiveTags.map((tag) => (
                 <StoryTagChip
                   key={tag.id}
                   tag={tag}
                   active
-                  onClick={() => updateAppliedTags(appliedQuery.tags.filter((slug) => slug !== tag.slug))}
+                  onClick={() =>
+                    navigateToQuery({
+                      ...appliedQuery,
+                      tags: appliedQuery.tags.filter((slug) => slug !== tag.slug),
+                      page: 1,
+                    })
+                  }
                 />
               ))}
             </div>
@@ -338,7 +331,7 @@ export function StoriesCatalogShell() {
             <EmptyState
               title="Не удалось загрузить истории"
               description="Проверьте доступность API proxy /api и настройки BACKEND_URL."
-              actionLabel="Сбросить фильтры"
+              actionLabel="Очистить всё"
               onAction={clearAppliedFilters}
             />
           ) : stories.length ? (
@@ -351,7 +344,7 @@ export function StoriesCatalogShell() {
             <EmptyState
               title="Ничего не найдено"
               description="Попробуйте изменить поисковый запрос или снять часть фильтров."
-              actionLabel="Сбросить фильтры"
+              actionLabel="Очистить всё"
               onAction={clearAppliedFilters}
             />
           )}
@@ -359,9 +352,18 @@ export function StoriesCatalogShell() {
       </div>
 
       <PlottyMobileSheet open={isMobileFiltersOpen} title="Фильтры" onClose={() => setIsMobileFiltersOpen(false)}>
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          <Button variant="primary" onClick={applyMobileFilters} disabled={!hasFilterDraftChanges || isRouting}>
+            Применить
+          </Button>
+          <Button variant="secondary" onClick={clearDraftFilters}>
+            Очистить всё
+          </Button>
+        </div>
+
         <div className="space-y-6">
           {orderedGroups.map(([category, tags]) => {
-            const selectedSlugs = getSelectedCategoryTags(mobileDraftQuery.tags, tags);
+            const selectedSlugs = getSelectedCategoryTags(draftTags, tags);
 
             if (singleSelectCategories.has(category)) {
               return (
@@ -373,11 +375,7 @@ export function StoriesCatalogShell() {
                     className="min-h-[3.25rem]"
                     aria-label={getStoryTagCategoryLabel(category)}
                     value={selectedSlugs[0] ?? ""}
-                    onChange={(event) =>
-                      updateMobileDraft({
-                        tags: setSingleSelectTag(mobileDraftQuery.tags, event.target.value, tags),
-                      })
-                    }
+                    onChange={(event) => setDraftTags(setSingleSelectTag(draftTags, event.target.value, tags))}
                   >
                     <option value="">Любой вариант</option>
                     {tags.map((tag) => (
@@ -396,18 +394,14 @@ export function StoriesCatalogShell() {
                   key={category}
                   title={getStoryTagCategoryLabel(category)}
                   canClear={selectedSlugs.length > 0}
-                  onClear={() => updateMobileDraft({ tags: replaceCategoryTags(mobileDraftQuery.tags, tags, []) })}
+                  onClear={() => setDraftTags(replaceCategoryTags(draftTags, tags, []))}
                 >
                   {tags.map((tag) => (
                     <CatalogTogglePill
                       key={tag.id}
                       label={tag.name}
                       active={selectedSlugs.includes(tag.slug)}
-                      onClick={() =>
-                        updateMobileDraft({
-                          tags: toggleMultiSelectTag(mobileDraftQuery.tags, tag.slug, tags),
-                        })
-                      }
+                      onClick={() => setDraftTags(toggleMultiSelectTag(draftTags, tag.slug, tags))}
                     />
                   ))}
                 </CatalogToggleGroup>
@@ -420,22 +414,13 @@ export function StoriesCatalogShell() {
                   <StoryTagChip
                     key={tag.id}
                     tag={tag}
-                    active={mobileDraftQuery.tags.includes(tag.slug)}
-                    onClick={() => updateMobileDraft({ tags: toggleGenericTag(mobileDraftQuery.tags, tag.slug) })}
+                    active={draftTags.includes(tag.slug)}
+                    onClick={() => setDraftTags(toggleGenericTag(draftTags, tag.slug))}
                   />
                 ))}
               </CatalogToggleGroup>
             );
           })}
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <Button variant="secondary" onClick={clearMobileFilters}>
-            Сбросить
-          </Button>
-          <Button variant="primary" onClick={applyMobileFilters}>
-            Применить
-          </Button>
         </div>
       </PlottyMobileSheet>
       {isRouting ? <span className="sr-only">Каталог обновляется</span> : null}
@@ -456,7 +441,7 @@ function CatalogSearchField({
     <div
       className={cn(
         "grid items-center gap-3 rounded-[18px] border border-[rgba(35,33,30,0.08)] bg-white/84 px-4 shadow-none",
-        compact ? "grid-cols-[auto_1fr] py-1" : "grid-cols-[auto_1fr] py-2",
+        compact ? "grid-cols-[auto_1fr] py-0.5" : "grid-cols-[auto_1fr] py-2",
       )}
     >
       <span className="text-base text-[var(--plotty-muted)]" aria-hidden="true">
@@ -467,7 +452,10 @@ function CatalogSearchField({
         onChange={(event) => onChange(event.target.value)}
         aria-label="Поиск по названию истории"
         placeholder="Поиск по названию истории"
-        className="min-h-11 border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+        className={cn(
+          "border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
+          compact ? "min-h-10 text-sm" : "min-h-11",
+        )}
       />
     </div>
   );
