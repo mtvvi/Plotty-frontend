@@ -7,19 +7,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { storiesQueryOptions, storyTagsQueryOptions } from "@/entities/story/api/stories-api";
 import { parseStoriesQuery, serializeStoriesQuery } from "@/entities/story/model/story-query";
 import type { StoriesQuery, StoryTag } from "@/entities/story/model/types";
-import { cn } from "@/shared/lib/utils";
 import { getStoryTagCategoryLabel, groupStoryTags, storyTagCategoryOrder } from "@/shared/config/story-tags";
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Input } from "@/shared/ui/input";
-import { Select } from "@/shared/ui/select";
-import {
-  PlottyAppMenu,
-  PlottyMobileSheet,
-  PlottyPageShell,
-  PlottySectionCard,
-} from "@/widgets/layout/plotty-page-shell";
+import { PlottyAppMenu, PlottyMobileSheet, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCard } from "./story-card";
 import { StoryTagChip } from "./story-tag-chip";
@@ -162,16 +156,6 @@ export function StoriesCatalogShell() {
       suppressPageIntro
       onMenuOpenChange={setIsMobileMenuOpen}
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
-      desktopHeaderCenter={
-        <div className="mx-auto w-full max-w-[30rem] xl:max-w-[34rem]">
-          <CatalogSearchField value={searchDraft} onChange={setSearchDraft} />
-        </div>
-      }
-      mobileHeaderCenter={
-        <div className="ml-1 min-w-0">
-          <CatalogSearchField value={searchDraft} onChange={setSearchDraft} compact />
-        </div>
-      }
       mobileToolbar={
         <div className="grid gap-2">
           <Button
@@ -181,7 +165,7 @@ export function StoriesCatalogShell() {
             className="w-full justify-center"
             onClick={() => setIsMobileFiltersOpen(true)}
           >
-            Фильтр
+            Фильтры
             {appliedActiveTags.length ? (
               <span className="ml-2 rounded-full bg-[var(--plotty-accent-soft)] px-2 py-0.5 text-xs text-[var(--plotty-accent)]">
                 {appliedActiveTags.length}
@@ -190,160 +174,155 @@ export function StoriesCatalogShell() {
           </Button>
         </div>
       }
-      contentClassName="pt-2 lg:pt-3"
+      contentClassName="pt-3 lg:pt-5"
       className="!px-3 sm:!px-4 lg:!px-6"
     >
-      <div className="grid gap-3 lg:grid-cols-[272px_minmax(0,1fr)] lg:gap-5">
-        <aside className="hidden lg:block">
-          <PlottySectionCard className="space-y-5 bg-[rgba(240,232,219,0.7)] shadow-none lg:space-y-6">
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="plotty-section-title">Фильтры</h2>
-                <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearDraftFilters}>
-                  Очистить всё
+      <div className="space-y-4 lg:space-y-5">
+        <PlottySectionCard className="p-4 sm:p-5 lg:p-6">
+          <CatalogSearchField value={searchDraft} onChange={setSearchDraft} />
+        </PlottySectionCard>
+
+        <div className="grid gap-3 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-5">
+          <aside className="hidden lg:block">
+            <PlottySectionCard className="sticky top-[6.5rem] space-y-5 bg-[rgba(240,232,219,0.55)] shadow-none">
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="plotty-section-title">Фильтры</h2>
+                  <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearDraftFilters}>
+                    Очистить всё
+                  </Button>
+                </div>
+                <Button
+                  variant="primary"
+                  className="min-h-10 w-full justify-center px-3 text-sm"
+                  onClick={applyDraftTags}
+                  disabled={!hasFilterDraftChanges || isRouting}
+                >
+                  Применить
                 </Button>
               </div>
-              <Button
-                variant="primary"
-                className="min-h-10 w-full justify-center px-3 text-sm"
-                onClick={applyDraftTags}
-                disabled={!hasFilterDraftChanges || isRouting}
-              >
-                Применить
-              </Button>
-            </div>
 
-            {orderedGroups.map(([category, tags]) => {
-              const selectedSlugs = getSelectedCategoryTags(draftTags, tags);
+              {orderedGroups.map(([category, tags]) => {
+                const selectedSlugs = getSelectedCategoryTags(draftTags, tags);
 
-              if (singleSelectCategories.has(category)) {
-                return (
-                  <label key={category} className="grid gap-3">
-                    <span className="plotty-meta text-xs font-bold uppercase tracking-[0.08em]">
-                      {getStoryTagCategoryLabel(category)}
-                    </span>
-                    <Select
-                      className="min-h-[3.25rem]"
-                      aria-label={getStoryTagCategoryLabel(category)}
-                      value={selectedSlugs[0] ?? ""}
-                      onChange={(event) => setDraftTags(setSingleSelectTag(draftTags, event.target.value, tags))}
+                if (singleSelectCategories.has(category)) {
+                  return (
+                    <CatalogFandomDropdown
+                      key={category}
+                      title={getStoryTagCategoryLabel(category)}
+                      options={tags}
+                      selectedSlug={selectedSlugs[0] ?? ""}
+                      onSelect={(tagSlug) => setDraftTags(setSingleSelectTag(draftTags, tagSlug, tags))}
+                    />
+                  );
+                }
+
+                if (multiSelectCategories.has(category)) {
+                  return (
+                    <CatalogToggleGroup
+                      key={category}
+                      title={getStoryTagCategoryLabel(category)}
+                      canClear={selectedSlugs.length > 0}
+                      onClear={() => setDraftTags(replaceCategoryTags(draftTags, tags, []))}
                     >
-                      <option value="">Любой вариант</option>
                       {tags.map((tag) => (
-                        <option key={tag.id} value={tag.slug}>
-                          {tag.name}
-                        </option>
+                        <CatalogTogglePill
+                          key={tag.id}
+                          label={tag.name}
+                          active={selectedSlugs.includes(tag.slug)}
+                          onClick={() => setDraftTags(toggleMultiSelectTag(draftTags, tag.slug, tags))}
+                        />
                       ))}
-                    </Select>
-                  </label>
-                );
-              }
+                    </CatalogToggleGroup>
+                  );
+                }
 
-              if (multiSelectCategories.has(category)) {
                 return (
-                  <CatalogToggleGroup
-                    key={category}
-                    title={getStoryTagCategoryLabel(category)}
-                    canClear={selectedSlugs.length > 0}
-                    onClear={() => setDraftTags(replaceCategoryTags(draftTags, tags, []))}
-                  >
+                  <CatalogToggleGroup key={category} title={getStoryTagCategoryLabel(category)}>
                     {tags.map((tag) => (
-                      <CatalogTogglePill
+                      <StoryTagChip
                         key={tag.id}
-                        label={tag.name}
-                        active={selectedSlugs.includes(tag.slug)}
-                        onClick={() => setDraftTags(toggleMultiSelectTag(draftTags, tag.slug, tags))}
+                        tag={tag}
+                        active={draftTags.includes(tag.slug)}
+                        onClick={() => setDraftTags(toggleGenericTag(draftTags, tag.slug))}
                       />
                     ))}
                   </CatalogToggleGroup>
                 );
-              }
-
-              return (
-                <CatalogToggleGroup key={category} title={getStoryTagCategoryLabel(category)}>
-                  {tags.map((tag) => (
-                    <StoryTagChip
-                      key={tag.id}
-                      tag={tag}
-                      active={draftTags.includes(tag.slug)}
-                      onClick={() => setDraftTags(toggleGenericTag(draftTags, tag.slug))}
-                    />
-                  ))}
-                </CatalogToggleGroup>
-              );
-            })}
-          </PlottySectionCard>
-        </aside>
-
-        <div className="space-y-3 lg:space-y-4">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="rounded-full bg-white/90 px-3 py-2 font-semibold text-[var(--plotty-ink)] shadow-[0_6px_16px_rgba(46,35,23,0.06)]">
-              Найдено {totalStories}
-            </span>
-            {appliedQuery.q ? (
-              <span className="rounded-full bg-[var(--plotty-accent-soft)] px-3 py-2 font-semibold text-[var(--plotty-accent)]">
-                Поиск: {appliedQuery.q}
-              </span>
-            ) : null}
-            {(appliedQuery.q || appliedActiveTags.length) && !hasInitialLoading ? (
-              <Button
-                variant="ghost"
-                className="min-h-9 px-2.5 text-sm"
-                onClick={() => {
-                  clearAllDraft();
-                  navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
-                }}
-              >
-                Очистить всё
-              </Button>
-            ) : null}
-          </div>
-
-          {appliedActiveTags.length ? (
-            <div className="flex flex-wrap gap-2">
-              {appliedActiveTags.map((tag) => (
-                <StoryTagChip
-                  key={tag.id}
-                  tag={tag}
-                  active
-                  onClick={() =>
-                    navigateToQuery({
-                      ...appliedQuery,
-                      tags: appliedQuery.tags.filter((slug) => slug !== tag.slug),
-                      page: 1,
-                    })
-                  }
-                />
-              ))}
-            </div>
-          ) : null}
-
-          {hasInitialLoading ? (
-            <PlottySectionCard className="space-y-3 shadow-none">
-              <div className="h-48 rounded-[20px] bg-white/50" />
-              <div className="h-48 rounded-[20px] bg-white/50" />
+              })}
             </PlottySectionCard>
-          ) : storiesQuery.isError ? (
-            <EmptyState
-              title="Не удалось загрузить истории"
-              description="Проверьте доступность API proxy /api и настройки BACKEND_URL."
-              actionLabel="Очистить всё"
-              onAction={clearAppliedFilters}
-            />
-          ) : stories.length ? (
-            <div className="space-y-3 sm:space-y-4" aria-live="polite">
-              {stories.map((story) => (
-                <StoryCard key={story.id} story={story} />
-              ))}
+          </aside>
+
+          <div className="space-y-3 lg:space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="rounded-full bg-white/90 px-3 py-2 font-semibold text-[var(--plotty-ink)] shadow-[0_6px_16px_rgba(46,35,23,0.06)]">
+                Найдено {totalStories}
+              </span>
+              {appliedQuery.q ? (
+                <span className="rounded-full bg-[var(--plotty-accent-soft)] px-3 py-2 font-semibold text-[var(--plotty-accent)]">
+                  Поиск: {appliedQuery.q}
+                </span>
+              ) : null}
+              {(appliedQuery.q || appliedActiveTags.length) && !hasInitialLoading ? (
+                <Button
+                  variant="ghost"
+                  className="min-h-9 px-2.5 text-sm"
+                  onClick={() => {
+                    clearAllDraft();
+                    navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
+                  }}
+                >
+                  Очистить всё
+                </Button>
+              ) : null}
             </div>
-          ) : (
-            <EmptyState
-              title="Под этот запрос историй не нашлось"
-              description="Попробуйте ослабить фильтры или очистить поиск, чтобы вернуть больше историй в каталог."
-              actionLabel="Очистить всё"
-              onAction={clearAppliedFilters}
-            />
-          )}
+
+            {appliedActiveTags.length ? (
+              <div className="flex flex-wrap gap-2">
+                {appliedActiveTags.map((tag) => (
+                  <StoryTagChip
+                    key={tag.id}
+                    tag={tag}
+                    active
+                    onClick={() =>
+                      navigateToQuery({
+                        ...appliedQuery,
+                        tags: appliedQuery.tags.filter((slug) => slug !== tag.slug),
+                        page: 1,
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            {hasInitialLoading ? (
+              <PlottySectionCard className="space-y-3 shadow-none">
+                <div className="h-48 rounded-[20px] bg-white/50" />
+                <div className="h-48 rounded-[20px] bg-white/50" />
+              </PlottySectionCard>
+            ) : storiesQuery.isError ? (
+              <EmptyState
+                title="Не удалось загрузить истории"
+                description="Проверьте доступность API proxy /api и настройки BACKEND_URL."
+                actionLabel="Очистить всё"
+                onAction={clearAppliedFilters}
+              />
+            ) : stories.length ? (
+              <div className="space-y-3 sm:space-y-4" aria-live="polite">
+                {stories.map((story) => (
+                  <StoryCard key={story.id} story={story} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="Под этот запрос историй не нашлось"
+                description="Попробуйте ослабить фильтры или очистить поиск, чтобы вернуть больше историй в каталог."
+                actionLabel="Очистить всё"
+                onAction={clearAppliedFilters}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -363,24 +342,13 @@ export function StoriesCatalogShell() {
 
             if (singleSelectCategories.has(category)) {
               return (
-                <label key={category} className="grid gap-3">
-                  <span className="plotty-meta text-xs font-bold uppercase tracking-[0.08em]">
-                    {getStoryTagCategoryLabel(category)}
-                  </span>
-                  <Select
-                    className="min-h-[3.25rem]"
-                    aria-label={getStoryTagCategoryLabel(category)}
-                    value={selectedSlugs[0] ?? ""}
-                    onChange={(event) => setDraftTags(setSingleSelectTag(draftTags, event.target.value, tags))}
-                  >
-                    <option value="">Любой вариант</option>
-                    {tags.map((tag) => (
-                      <option key={tag.id} value={tag.slug}>
-                        {tag.name}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
+                <CatalogFandomDropdown
+                  key={category}
+                  title={getStoryTagCategoryLabel(category)}
+                  options={tags}
+                  selectedSlug={selectedSlugs[0] ?? ""}
+                  onSelect={(tagSlug) => setDraftTags(setSingleSelectTag(draftTags, tagSlug, tags))}
+                />
               );
             }
 
@@ -427,19 +395,12 @@ export function StoriesCatalogShell() {
 function CatalogSearchField({
   value,
   onChange,
-  compact = false,
 }: {
   value: string;
   onChange: (value: string) => void;
-  compact?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        "grid items-center gap-3 rounded-[16px] border border-[rgba(35,33,30,0.08)] bg-white/84 px-4 shadow-none transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]",
-        compact ? "grid-cols-[auto_1fr] py-0.5" : "grid-cols-[auto_1fr] py-1.5",
-      )}
-    >
+    <div className="grid grid-cols-[auto_1fr] items-center gap-3 rounded-[18px] border border-[rgba(35,33,30,0.08)] bg-white/88 px-4 py-1.5 shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]">
       <span className="text-base text-[var(--plotty-muted)]" aria-hidden="true">
         ⌕
       </span>
@@ -448,11 +409,113 @@ function CatalogSearchField({
         onChange={(event) => onChange(event.target.value)}
         aria-label="Поиск по названию истории"
         placeholder="Поиск по названию истории"
-        className={cn(
-          "border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
-          compact ? "min-h-10 text-sm" : "min-h-[42px]",
-        )}
+        className="min-h-[42px] border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
       />
+    </div>
+  );
+}
+
+function CatalogFandomDropdown({
+  title,
+  options,
+  selectedSlug,
+  onSelect,
+}: {
+  title: string;
+  options: StoryTag[];
+  selectedSlug: string;
+  onSelect: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const selectedOption = options.find((option) => option.slug === selectedSlug);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="grid gap-3">
+      <span className="plotty-meta text-xs font-bold uppercase tracking-[0.08em]">{title}</span>
+      <div className="relative">
+        <button
+          type="button"
+          aria-label={title}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className="flex min-h-[3.25rem] w-full items-center justify-between rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/88 px-4 text-left text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow] duration-150 hover:border-[var(--plotty-line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+        >
+          <span>{selectedOption?.name ?? "Любой вариант"}</span>
+          <span className="text-[var(--plotty-muted)]" aria-hidden="true">
+            ▾
+          </span>
+        </button>
+
+        {open ? (
+          <div
+            role="listbox"
+            aria-label={title}
+            className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-10 rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-2 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl"
+          >
+            <button
+              type="button"
+              role="option"
+              aria-selected={!selectedSlug}
+              onClick={() => {
+                onSelect("");
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-center rounded-[14px] px-3 py-2 text-left text-sm transition-colors",
+                !selectedSlug ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
+              )}
+            >
+              Любой вариант
+            </button>
+            {options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="option"
+                aria-selected={selectedSlug === option.slug}
+                onClick={() => {
+                  onSelect(option.slug);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center rounded-[14px] px-3 py-2 text-left text-sm transition-colors",
+                  selectedSlug === option.slug ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
+                )}
+              >
+                {option.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

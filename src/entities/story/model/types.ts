@@ -30,6 +30,8 @@ export interface StoryListItem {
   likesCount?: number;
   commentsCount?: number;
   bookmarksCount?: number;
+  viewsCount?: number;
+  viewerHasLiked?: boolean;
   aiHint?: string;
   summaryLabel?: string;
   readLabel?: string;
@@ -58,6 +60,20 @@ export interface StoryDetails {
   description?: string;
   excerpt?: string;
   status?: StoryStatus;
+  fandom?: string;
+  pairing?: string;
+  ratingLabel?: string;
+  statusLabel?: string;
+  sizeLabel?: string;
+  likesCount?: number;
+  commentsCount?: number;
+  bookmarksCount?: number;
+  viewsCount?: number;
+  viewerHasLiked?: boolean;
+  aiHint?: string;
+  summaryLabel?: string;
+  readLabel?: string;
+  updatedLabel?: string;
 }
 
 export interface ChapterDetails {
@@ -164,4 +180,38 @@ export interface ImageGenerationPayload extends SpellcheckPayload {
 
 export interface StoryTagsResponse {
   items: StoryTag[];
+}
+
+export interface StoryCommentAuthor {
+  id: number;
+  username: string;
+  email: string;
+  avatarUrl?: string | null;
+}
+
+export interface StoryComment {
+  id: string;
+  storyId: string;
+  author: StoryCommentAuthor;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  viewerCanDelete?: boolean;
+}
+
+export interface StoryCommentsResponse {
+  items: StoryComment[];
+}
+
+export interface CreateStoryCommentPayload {
+  content: string;
+}
+
+export interface ToggleLikeResult {
+  storyId: string;
+  likesCount: number;
+  commentsCount?: number;
+  bookmarksCount?: number;
+  viewsCount?: number;
+  viewerHasLiked: boolean;
 }

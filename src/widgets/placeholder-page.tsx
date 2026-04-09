@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { ButtonLink } from "@/shared/ui/button";
 import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 

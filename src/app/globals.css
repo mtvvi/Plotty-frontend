@@ -7,10 +7,12 @@
   --plotty-paper-strong: #fdfbf7;
   --plotty-panel: #f0e8db;
   --plotty-panel-strong: #e9e0d1;
+  --plotty-panel-muted: rgba(255, 255, 255, 0.58);
   --plotty-line: rgba(41, 38, 34, 0.12);
   --plotty-line-strong: rgba(41, 38, 34, 0.22);
   --plotty-ink: #23211e;
   --plotty-muted: #6d665d;
+  --plotty-muted-soft: #9a9088;
   --plotty-accent: #bc5f3d;
   --plotty-accent-soft: #f1d6cb;
   --plotty-olive: #36513f;
@@ -19,6 +21,7 @@
   --plotty-gold-soft: #efe4cc;
   --plotty-shadow: 0 24px 70px rgba(46, 35, 23, 0.11);
   --plotty-shadow-soft: 0 10px 30px rgba(46, 35, 23, 0.08);
+  --plotty-shadow-card: 0 16px 40px rgba(46, 35, 23, 0.08);
   --plotty-container: 1440px;
   --plotty-radius-xl: 32px;
   --plotty-radius-lg: 20px;
@@ -82,7 +85,7 @@ select {
 .plotty-page-shell {
   width: 100%;
   min-height: 100vh;
-  padding: 2rem clamp(1rem, 3vw, 2rem) 5rem;
+  padding: 1.25rem clamp(1rem, 3vw, 2rem) 4.5rem;
   background-image:
     linear-gradient(rgba(41, 38, 34, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(41, 38, 34, 0.03) 1px, transparent 1px);
@@ -93,8 +96,8 @@ select {
   width: min(100%, var(--plotty-container));
   margin: 0 auto 1.25rem;
   border-radius: var(--plotty-radius-xl);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(247, 242, 234, 0.95));
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(247, 242, 234, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: var(--plotty-shadow);
   overflow: hidden;
 }
@@ -108,8 +111,8 @@ select {
 .plotty-surface {
   border-radius: var(--plotty-radius-lg);
   border: 1px solid var(--plotty-line);
-  background: rgba(255, 255, 255, 0.62);
-  box-shadow: var(--plotty-shadow-soft);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: var(--plotty-shadow-card);
 }
 
 .plotty-serif {
@@ -140,10 +143,10 @@ select {
 }
 
 .plotty-card-title {
-  font-size: 1.1rem;
+  font-size: 1.125rem;
   font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
 }
 
 .plotty-body {
@@ -157,6 +160,41 @@ select {
   line-height: 1.45;
   letter-spacing: 0.01em;
   color: var(--plotty-muted);
+}
+
+.plotty-kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--plotty-muted);
+}
+
+.plotty-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(41, 38, 34, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--plotty-muted);
+}
+
+.plotty-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(41, 38, 34, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .plotty-label {
@@ -181,7 +219,7 @@ select {
 @media (max-width: 768px) {
   .plotty-page-shell {
     padding-inline: 0.75rem;
-    padding-top: 1rem;
+    padding-top: 0.85rem;
   }
 
   .plotty-frame {

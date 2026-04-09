@@ -11,11 +11,15 @@ export function PlottyShell({
   title,
   description,
   actions,
+  showMobileBack = true,
+  mobileBackHref,
   children,
 }: {
   title: string;
   description: string;
   actions?: ReactNode;
+  showMobileBack?: boolean;
+  mobileBackHref?: string;
   children: ReactNode;
 }) {
   return (
@@ -23,6 +27,8 @@ export function PlottyShell({
       pageTitle={title}
       pageDescription={description}
       pageActions={actions}
+      showMobileBack={showMobileBack}
+      mobileBackHref={mobileBackHref}
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       {children}

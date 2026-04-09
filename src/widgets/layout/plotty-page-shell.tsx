@@ -3,7 +3,7 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { Suspense, useEffect, useId, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
@@ -16,17 +16,25 @@ export const plottyPrimaryNavItems = [
   { href: routes.write, label: "Мастерская" },
 ] as const;
 
+function isPrimaryNavItemActive(pathname: string, href: string) {
+  if (href === routes.home) {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function PlottyPageShell({
   children,
   pageTitle,
   pageDescription,
   pageMeta,
   pageActions,
-  desktopHeaderCenter,
-  mobileHeaderCenter,
   desktopHeaderActions,
   mobileHeaderActions,
   mobileToolbar,
+  showMobileBack = false,
+  mobileBackHref,
   contentClassName,
   showBottomNav = true,
   menuContent,
@@ -39,11 +47,11 @@ export function PlottyPageShell({
   pageDescription?: string;
   pageMeta?: ReactNode;
   pageActions?: ReactNode;
-  desktopHeaderCenter?: ReactNode;
-  mobileHeaderCenter?: ReactNode;
   desktopHeaderActions?: ReactNode;
   mobileHeaderActions?: ReactNode;
   mobileToolbar?: ReactNode;
+  showMobileBack?: boolean;
+  mobileBackHref?: string;
   contentClassName?: string;
   showBottomNav?: boolean;
   menuContent?: (options: { closeMenu: () => void }) => ReactNode;
@@ -52,6 +60,7 @@ export function PlottyPageShell({
   className?: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -70,60 +79,84 @@ export function PlottyPageShell({
   return (
     <div
       className={cn(
-        "plotty-page-shell !pt-0 lg:!pt-8",
+        "plotty-page-shell !pt-0 lg:!pt-6",
         showBottomNav && menuContent ? "!pb-[calc(7rem+env(safe-area-inset-bottom))]" : "!pb-12",
         className,
       )}
     >
+      {showMobileBack ? (
+        mobileBackHref ? (
+          <Link
+            href={mobileBackHref}
+            aria-label="Назад"
+            className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.96)] px-3 text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_8px_24px_rgba(46,35,23,0.08)] backdrop-blur-xl lg:hidden"
+          >
+            ←
+          </Link>
+        ) : (
+          <button
+            type="button"
+            aria-label="Назад"
+            onClick={() => router.back()}
+            className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.96)] px-3 text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_8px_24px_rgba(46,35,23,0.08)] backdrop-blur-xl lg:hidden"
+          >
+            ←
+          </button>
+        )
+      ) : null}
+
       <section className="plotty-frame">
-        <header className="sticky top-0 z-40 border-b border-[var(--plotty-line)] bg-[rgba(247,242,234,0.78)] backdrop-blur-xl">
+        <header className="sticky top-0 z-40 border-b border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.84)] backdrop-blur-xl">
           <div className="px-4 sm:px-6 lg:px-7">
-            <div className="flex min-h-[62px] items-center gap-3 lg:min-h-[68px] lg:gap-4">
-              <Link href={routes.home} className="plotty-logo transition-opacity hover:opacity-80">
+            <div className="flex min-h-[68px] items-center gap-3 lg:min-h-[78px] lg:gap-5">
+              <Link href={routes.home} className="plotty-logo shrink-0 transition-opacity hover:opacity-80 lg:flex-1">
                 Plotty
               </Link>
 
-              <nav className="ml-1 hidden items-center gap-1.5 lg:flex" aria-label="Основная навигация">
-                {plottyPrimaryNavItems.map((item) => {
-                  const isActive = item.href === pathname;
+              <div className="hidden flex-1 justify-center lg:flex">
+                <div className="flex items-center gap-2">
+                  <nav className="inline-flex items-center gap-1" aria-label="Основная навигация">
+                    <div className="inline-flex items-center rounded-full border border-[rgba(41,38,34,0.08)] bg-white/84 p-1 shadow-[0_8px_24px_rgba(46,35,23,0.08)]">
+                      {plottyPrimaryNavItems.map((item) => {
+                        const isActive = isPrimaryNavItemActive(pathname, item.href);
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "rounded-[14px] px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
-                        isActive ? "bg-black/8 text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-black/5",
-                      )}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-
-              {desktopHeaderCenter ? <div className="hidden min-w-0 flex-1 lg:block">{desktopHeaderCenter}</div> : null}
-
-              {mobileHeaderCenter ? <div className="min-w-0 flex-1 lg:hidden">{mobileHeaderCenter}</div> : null}
-
-              <div className={cn("hidden items-center gap-2.5 lg:flex", desktopHeaderCenter ? "ml-0" : "ml-auto")}>
-                {desktopActions}
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className={cn(
+                              "plotty-button-label inline-flex min-h-[46px] items-center justify-center rounded-full px-5 text-sm transition-[background-color,color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                              isActive
+                                ? "bg-[var(--plotty-accent)] !text-white visited:!text-white hover:!text-white shadow-[0_8px_18px_rgba(188,95,61,0.16)]"
+                                : "text-[var(--plotty-muted)] hover:bg-white/70 hover:text-[var(--plotty-ink)]",
+                            )}
+                          >
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </nav>
+                  {desktopActions}
+                </div>
               </div>
 
               {mobileHeaderActions ? (
-                <div className={cn("flex items-center gap-2 lg:hidden", mobileHeaderCenter ? "" : "ml-auto")}>
+                <div className="ml-auto flex items-center gap-2 lg:hidden">
                   {mobileHeaderActions}
                 </div>
-              ) : null}
+              ) : <div className="ml-auto lg:hidden" />}
+
+              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
             </div>
 
-            {mobileToolbar ? <div className="border-t border-[var(--plotty-line)] py-3 lg:hidden">{mobileToolbar}</div> : null}
+            {mobileToolbar ? <div className="border-t border-[rgba(41,38,34,0.08)] py-3 lg:hidden">{mobileToolbar}</div> : null}
           </div>
         </header>
 
-        <div className={cn("px-4 pb-6 pt-4 sm:px-6 lg:px-7 lg:pb-7 lg:pt-[18px]", contentClassName)}>
+        <div className={cn("px-4 pb-6 pt-3.5 sm:px-6 lg:px-7 lg:pb-7 lg:pt-[18px]", contentClassName)}>
           {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
-            <div className="mb-5 space-y-3.5 lg:mb-6">
+            <div className="mb-4 space-y-3.5 lg:mb-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 space-y-1.5">
                   {pageMeta ? <div className="flex flex-wrap items-center gap-2">{pageMeta}</div> : null}
@@ -169,7 +202,7 @@ export function PlottySectionCard({
   headerClassName?: string;
 } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <Card className={cn("space-y-4 p-5 lg:p-[22px]", className)} {...props}>
+    <Card className={cn("space-y-4 p-4 sm:p-5 lg:p-[22px]", className)} {...props}>
       {title ? (
         <div className={cn("space-y-1.5", headerClassName)}>
           <div className="plotty-section-title">{title}</div>
@@ -188,7 +221,7 @@ export function PlottyAppMenu({ onNavigate }: { onNavigate?: () => void }) {
     <div className="space-y-4">
       <nav className="grid gap-2" aria-label="Мобильная навигация">
         {plottyPrimaryNavItems.map((item) => {
-          const isActive = item.href === pathname;
+          const isActive = isPrimaryNavItemActive(pathname, item.href);
 
           return (
             <Link
@@ -266,7 +299,7 @@ export function PlottyMobileSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto rounded-t-[28px] border border-[var(--plotty-line)] bg-[var(--plotty-paper)] p-5 shadow-[var(--plotty-shadow)]"
+        className="absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto rounded-t-[28px] border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 id={titleId} className="plotty-section-title">
@@ -291,7 +324,7 @@ function PlottyBottomNav({
 }) {
   return (
     <nav
-      className="fixed inset-x-3 bottom-3 z-40 rounded-[22px] border border-[var(--plotty-line)] bg-[rgba(247,242,234,0.94)] p-2 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-3 bottom-3 z-40 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.94)] p-2 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl lg:hidden"
       aria-label="Нижняя навигация"
       style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
     >

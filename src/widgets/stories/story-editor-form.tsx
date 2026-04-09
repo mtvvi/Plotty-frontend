@@ -27,6 +27,7 @@ export interface StoryEditorFormProps {
   aiStatusLabel?: string;
   isSaving?: boolean;
   isSpellchecking?: boolean;
+  imagePanel?: React.ReactNode;
   onChange: (next: StoryEditorValues) => void;
   onSave: () => void;
   onCreateNextChapter?: () => void;
@@ -45,6 +46,7 @@ export function StoryEditorForm({
   aiStatusLabel,
   isSaving,
   isSpellchecking,
+  imagePanel,
   onChange,
   onSave,
   onCreateNextChapter,
@@ -64,13 +66,13 @@ export function StoryEditorForm({
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-5">
         <ShellCard
           title={`Глава ${chapterNumber ?? "—"}`}
           description="Редактируйте только текущую главу: текст, название, иллюстрацию и AI-инструменты."
         >
-          <div className="grid gap-4">
+          <div className="grid gap-5">
             {storyId ? (
               <div className="flex flex-wrap gap-3">
                 {previousChapter ? (
@@ -91,35 +93,37 @@ export function StoryEditorForm({
               </div>
             ) : null}
 
-            <Field>
-              <FieldLabel htmlFor="chapter-title">Название главы</FieldLabel>
-              <Input
-                id="chapter-title"
-                value={values.chapterTitle}
-                onChange={(event) => update("chapterTitle", event.target.value)}
-                placeholder="Название главы"
-              />
-            </Field>
+            <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.58)] p-4">
+              <Field>
+                <FieldLabel htmlFor="chapter-title">Название главы</FieldLabel>
+                <Input
+                  id="chapter-title"
+                  value={values.chapterTitle}
+                  onChange={(event) => update("chapterTitle", event.target.value)}
+                  placeholder="Название главы"
+                />
+              </Field>
 
-            <Field>
-              <FieldLabel htmlFor="chapter-content">Текст главы</FieldLabel>
-              <Textarea
-                id="chapter-content"
-                value={values.chapterContent}
-                onChange={(event) => update("chapterContent", event.target.value)}
-                placeholder="Начните писать главу"
-                className="min-h-[420px]"
-              />
-            </Field>
+              <Field>
+                <FieldLabel htmlFor="chapter-content">Текст главы</FieldLabel>
+                <Textarea
+                  id="chapter-content"
+                  value={values.chapterContent}
+                  onChange={(event) => update("chapterContent", event.target.value)}
+                  placeholder="Начните писать главу"
+                  className="min-h-[420px] bg-[rgba(255,255,255,0.9)]"
+                />
+              </Field>
+            </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 border-t border-[var(--plotty-line)] pt-4">
               <Button variant="primary" onClick={onSave} disabled={isSaving}>
                 {isSaving ? "Сохраняем..." : "Сохранить"}
               </Button>
-              <Button onClick={onSpellcheck} disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}>
+              <Button variant="secondary" onClick={onSpellcheck} disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}>
                 {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
               </Button>
-              <Button variant="secondary" onClick={onCreateNextChapter} disabled={isSaving || typeof onCreateNextChapter !== "function"}>
+              <Button variant="ghost" onClick={onCreateNextChapter} disabled={isSaving || typeof onCreateNextChapter !== "function"}>
                 Новая глава
               </Button>
             </div>
@@ -128,6 +132,8 @@ export function StoryEditorForm({
       </div>
 
       <div className="space-y-5">
+        {imagePanel}
+
         <ShellCard title="Орфография" description={aiStatusLabel ?? "Проверка запускается вручную после сохранения текста."}>
           {spellcheckResult ? (
             <div className="space-y-3">
@@ -165,7 +171,7 @@ export function StoryEditorForm({
                     href={routes.chapterEditor(storyId ?? "", chapter.id)}
                     className={`block rounded-[18px] border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,color] duration-150 ${
                       chapter.id === chapterId
-                        ? "border-transparent bg-[var(--plotty-accent)] text-white"
+                        ? "border-[rgba(188,95,61,0.16)] bg-[rgba(188,95,61,0.08)] text-[var(--plotty-ink)]"
                         : "border-[var(--plotty-line)] bg-white/70 text-[var(--plotty-muted)] hover:bg-white hover:text-[var(--plotty-ink)]"
                     }`}
                   >

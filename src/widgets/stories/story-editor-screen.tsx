@@ -18,6 +18,8 @@ import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { EmptyState } from "@/shared/ui/empty-state";
 
+import { ChapterImageFrame } from "./chapter-image-frame";
+import { GenerateChapterImageButton } from "./generate-chapter-image-button";
 import { PlottyShell } from "./plotty-shell";
 import { StoryEditorForm, type StoryEditorValues } from "./story-editor-form";
 
@@ -192,6 +194,25 @@ export function StoryEditorScreen({
         aiStatusLabel={aiStatusLabel}
         isSaving={updateChapterMutation.isPending}
         isSpellchecking={spellcheckMutation.isPending || spellcheckJobQuery.data?.status === "queued"}
+        imagePanel={
+          <div className="space-y-5">
+            <div className="rounded-[26px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.8)] p-4 shadow-[var(--plotty-shadow-card)]">
+              <div className="space-y-3">
+                <div>
+                  <div className="plotty-section-title">Иллюстрация главы</div>
+                  <p className="plotty-meta">Сгенерируйте изображение для этой главы.</p>
+                </div>
+                <ChapterImageFrame title={chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl} />
+                <GenerateChapterImageButton
+                  chapterId={chapterId}
+                  chapterTitle={chapterQuery.data.title}
+                  storySlug={chapterQuery.data.storySlug ?? ""}
+                  storyTitle={chapterQuery.data.storyTitle}
+                />
+              </div>
+            </div>
+          </div>
+        }
         onChange={setValues}
         onSave={handleSave}
         onCreateNextChapter={handleCreateNextChapter}

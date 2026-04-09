@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
@@ -11,15 +12,33 @@ import {
   storyTagsQueryOptions,
   updateStory,
 } from "@/entities/story/api/stories-api";
-import type { StoriesResponse, StoryDetails } from "@/entities/story/model/types";
+import type { StoriesResponse, StoryDetails, StoryTag } from "@/entities/story/model/types";
 import { getStoryTextOverride, setStoryTextOverride } from "@/entities/story/model/story-text-cache";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
-import { Button, ButtonLink } from "@/shared/ui/button";
+import {
+  getStoryTagCategoryLabel,
+  groupStoryTags,
+  singleSelectTagCategories,
+  storyTagCategoryOrder,
+} from "@/shared/config/story-tags";
+import { Button } from "@/shared/ui/button";
+import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { Field, FieldLabel } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 
 import { PlottyShell, ShellCard } from "./plotty-shell";
-import { StorySettingsFields, type StorySettingsValues } from "./story-settings-fields";
+
+type StoryEditStage = "details" | "taxonomy" | "review";
+
+export interface StorySettingsValues {
+  title: string;
+  description: string;
+  excerpt: string;
+  selectedTagIds: string[];
+}
 
 const emptyValues: StorySettingsValues = {
   title: "",
@@ -28,11 +47,14 @@ const emptyValues: StorySettingsValues = {
   selectedTagIds: [],
 };
 
+const requiredCategoryOrder = ["directionality", "rating", "completion", "size", "genre"] as const;
+
 export function StorySettingsScreen({ storyId }: { storyId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const storyQuery = useQuery(storyDetailsByIdQueryOptions(storyId));
   const tagsQuery = useQuery(storyTagsQueryOptions());
+  const [stage, setStage] = useState<StoryEditStage>("details");
   const [values, setValues] = useState<StorySettingsValues>(emptyValues);
   const updateStoryMutation = useMutation({
     mutationFn: ({ targetStoryId, targetPayload }: { targetStoryId: string; targetPayload: StorySettingsValues }) =>
@@ -62,6 +84,25 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
     });
   }, [storyQuery.data]);
 
+  const availableTags = useMemo(
+    () => tagsQuery.data?.items ?? storyQuery.data?.tags ?? [],
+    [storyQuery.data?.tags, tagsQuery.data?.items],
+  );
+  const groupedTags = useMemo(() => groupStoryTags(availableTags), [availableTags]);
+  const orderedGroups = storyTagCategoryOrder
+    .map((category) => [category, groupedTags[category] ?? []] as const)
+    .filter(([, tags]) => tags.length);
+  const selectedTagIds = useMemo(() => new Set(values.selectedTagIds), [values.selectedTagIds]);
+  const selectedTags = useMemo(
+    () => availableTags.filter((tag) => selectedTagIds.has(tag.id)),
+    [availableTags, selectedTagIds],
+  );
+  const selectedTagsByCategory = useMemo(() => groupStoryTags(selectedTags), [selectedTags]);
+  const canAdvanceFromDetails = Boolean(values.title.trim() && values.description.trim() && values.excerpt.trim());
+  const canAdvanceFromTaxonomy = requiredCategoryOrder.every((category) =>
+    (groupedTags[category] ?? []).some((tag) => selectedTagIds.has(tag.id)),
+  );
+
   async function handleSave() {
     try {
       const nextDescription = values.description.trim();
@@ -76,6 +117,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
         current
           ? {
               ...current,
+              title: values.title.trim(),
               description: nextDescription,
               excerpt: nextExcerpt,
             }
@@ -87,6 +129,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
           current
             ? {
                 ...current,
+                title: values.title.trim(),
                 description: nextDescription,
                 excerpt: nextExcerpt,
               }
@@ -102,8 +145,10 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
                 item.id === storyId
                   ? {
                       ...item,
+                      title: values.title.trim(),
                       description: nextDescription,
                       excerpt: nextExcerpt,
+                      tags: availableTags.filter((tag) => values.selectedTagIds.includes(tag.id)),
                     }
                   : item,
               ),
@@ -115,6 +160,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
         targetStoryId: storyId,
         targetPayload: {
           ...values,
+          title: values.title.trim(),
           description: nextDescription,
           excerpt: nextExcerpt,
         },
@@ -151,7 +197,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
 
   if (storyQuery.isLoading) {
     return (
-      <PlottyShell title="Настройки истории загружаются" description="Подтягиваем общие данные и метаданные истории.">
+      <PlottyShell title="Редактирование истории" description="" mobileBackHref={routes.write}>
         <div className="h-72 rounded-[24px] bg-white/40" />
       </PlottyShell>
     );
@@ -159,53 +205,304 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
 
   if (storyQuery.isError || !storyQuery.data) {
     return (
-      <PlottyShell title="История не найдена" description="Эта история недоступна для настройки.">
+      <PlottyShell title="История не найдена" description="" mobileBackHref={routes.write}>
         <EmptyState title="История не найдена" description="Вернитесь в мастерскую и выберите другую историю." />
       </PlottyShell>
     );
   }
 
   return (
-    <PlottyShell
-      title={`Настройки: ${storyQuery.data.title}`}
-      description="Редактируйте только общие параметры истории. Главы и текст редактируются отдельно."
-      actions={
-        <ButtonLink href={routes.write} variant="secondary">
-          В мастерскую
-        </ButtonLink>
-      }
-    >
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <ShellCard title="Параметры истории" description="Название, описание и теги управляют каталогом, страницей истории и поиском.">
-          <div className="space-y-5">
-            <StorySettingsFields values={values} availableTags={tagsQuery.data?.items ?? storyQuery.data.tags} onChange={setValues} />
-            <div className="border-t border-[var(--plotty-line)] pt-5">
-              <Button variant="primary" onClick={handleSave} disabled={updateStoryMutation.isPending} className="w-full sm:w-auto">
-                {updateStoryMutation.isPending ? "Сохраняем..." : "Сохранить настройки"}
-              </Button>
-            </div>
+    <PlottyShell title="Редактирование истории" description="" mobileBackHref={routes.write}>
+      <div className="space-y-4 lg:space-y-5">
+        <ShellCard className="space-y-4">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <FlowStepButton
+              number={1}
+              label="Название, описание и тизер"
+              active={stage === "details"}
+              complete={canAdvanceFromDetails}
+              onClick={() => setStage("details")}
+            />
+            <FlowStepButton
+              number={2}
+              label="Теги и категории"
+              active={stage === "taxonomy"}
+              complete={canAdvanceFromTaxonomy}
+              disabled={!canAdvanceFromDetails}
+              onClick={() => {
+                if (canAdvanceFromDetails) {
+                  setStage("taxonomy");
+                }
+              }}
+            />
+            <FlowStepButton
+              number={3}
+              label="Проверка и сохранение"
+              active={stage === "review"}
+              disabled={!canAdvanceFromTaxonomy}
+              onClick={() => {
+                if (canAdvanceFromTaxonomy) {
+                  setStage("review");
+                }
+              }}
+            />
           </div>
         </ShellCard>
 
-        <div className="space-y-5">
-          <ShellCard title="Быстрые переходы" description="Откройте историю, вернитесь в мастерскую или перейдите к главам.">
-            <div className="flex flex-col gap-3">
-              <ButtonLink href={routes.story(storyQuery.data.slug)} variant="secondary" className="w-full">
-                Открыть страницу истории
-              </ButtonLink>
-              <ButtonLink href={routes.write} variant="secondary" className="w-full">
-                Вернуться в мастерскую
-              </ButtonLink>
+        {stage === "details" ? (
+          <ShellCard title="Название, описание и тизер">
+            <div className="grid gap-5">
+              <Field>
+                <FieldLabel htmlFor="story-settings-title">Название истории</FieldLabel>
+                <Input
+                  id="story-settings-title"
+                  value={values.title}
+                  onChange={(event) => updateStoryField(setValues, "title", event.target.value)}
+                  placeholder="Название истории"
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="story-settings-description">Описание</FieldLabel>
+                <Textarea
+                  id="story-settings-description"
+                  value={values.description}
+                  onChange={(event) => updateStoryField(setValues, "description", event.target.value)}
+                  placeholder="О чем эта история"
+                  className="min-h-32"
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="story-settings-excerpt">Тизер</FieldLabel>
+                <Textarea
+                  id="story-settings-excerpt"
+                  value={values.excerpt}
+                  onChange={(event) => updateStoryField(setValues, "excerpt", event.target.value)}
+                  placeholder="Короткий тизер для каталога"
+                  className="min-h-28"
+                />
+              </Field>
+
+              <div className="flex justify-end border-t border-[var(--plotty-line)] pt-5">
+                <Button variant="primary" disabled={!canAdvanceFromDetails} onClick={() => setStage("taxonomy")}>
+                  Далее
+                </Button>
+              </div>
             </div>
           </ShellCard>
+        ) : null}
 
-          <ShellCard title="Опасные действия" description="Удаление истории уберёт её из каталога и удалит главы.">
-            <Button variant="destructive" onClick={handleDeleteStory} disabled={deleteStoryMutation.isPending} className="w-full sm:w-auto">
-              {deleteStoryMutation.isPending ? "Удаляем..." : "Удалить историю"}
-            </Button>
+        {stage === "taxonomy" ? (
+          <ShellCard title="Теги и категории">
+            <div className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                {orderedGroups.map(([category, tags]) => (
+                  <TagCategoryCard
+                    key={category}
+                    category={category}
+                    tags={tags}
+                    selectedTagIds={selectedTagIds}
+                    onToggle={(tag) => setValues((current) => toggleStoryTag(current, tag, groupedTags))}
+                  />
+                ))}
+              </div>
+
+              <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--plotty-line)] pt-5">
+                <Button variant="secondary" onClick={() => setStage("details")}>
+                  Назад
+                </Button>
+                <Button variant="primary" disabled={!canAdvanceFromTaxonomy} onClick={() => setStage("review")}>
+                  Далее
+                </Button>
+              </div>
+            </div>
           </ShellCard>
-        </div>
+        ) : null}
+
+        {stage === "review" ? (
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <ShellCard title="Проверьте историю перед сохранением">
+              <div className="space-y-5">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                  <div className="space-y-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-white/72 p-4 sm:p-5">
+                    <div>
+                      <div className="plotty-kicker">Название</div>
+                      <div className="mt-2 text-xl font-semibold text-[var(--plotty-ink)]">{values.title}</div>
+                    </div>
+                    <SummaryTextBlock label="Описание" value={values.description} />
+                    <SummaryTextBlock label="Тизер" value={values.excerpt} />
+                  </div>
+
+                  <div className="space-y-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4 sm:p-5">
+                    {storyTagCategoryOrder.map((category) => {
+                      const tags = selectedTagsByCategory[category] ?? [];
+
+                      if (!tags.length) {
+                        return null;
+                      }
+
+                      return (
+                        <div key={category} className="space-y-2">
+                          <div className="plotty-kicker">{getStoryTagCategoryLabel(category)}</div>
+                          <div className="flex flex-wrap gap-2">
+                            {tags.map((tag) => (
+                              <Chip key={tag.id} className="bg-[var(--plotty-panel)] text-[var(--plotty-ink)]">
+                                {tag.name}
+                              </Chip>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--plotty-line)] pt-5">
+                  <Button variant="secondary" onClick={() => setStage("taxonomy")}>
+                    Назад
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleSave}
+                    disabled={updateStoryMutation.isPending || !canAdvanceFromDetails || !canAdvanceFromTaxonomy}
+                  >
+                    {updateStoryMutation.isPending ? "Сохраняем..." : "Сохранить изменения"}
+                  </Button>
+                </div>
+              </div>
+            </ShellCard>
+
+            <ShellCard title="Удаление истории">
+              <div className="space-y-4">
+                <p className="text-sm leading-6 text-[var(--plotty-muted)]">
+                  Это действие удалит историю и связанные главы из мастерской.
+                </p>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteStory}
+                  disabled={deleteStoryMutation.isPending}
+                  className="w-full"
+                >
+                  {deleteStoryMutation.isPending ? "Удаляем..." : "Удалить историю"}
+                </Button>
+              </div>
+            </ShellCard>
+          </div>
+        ) : null}
       </div>
     </PlottyShell>
   );
+}
+
+function FlowStepButton({
+  number,
+  label,
+  active,
+  complete,
+  disabled = false,
+  onClick,
+}: {
+  number: number;
+  label: string;
+  active: boolean;
+  complete?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`rounded-[20px] border px-4 py-3 text-left transition-colors ${
+        active
+          ? "border-transparent bg-[var(--plotty-accent-soft)] text-[var(--plotty-accent)]"
+          : complete
+            ? "border-[rgba(188,95,61,0.14)] bg-[rgba(188,95,61,0.06)] text-[var(--plotty-ink)]"
+            : "border-[var(--plotty-line)] bg-white/76 text-[var(--plotty-muted)]"
+      } ${disabled ? "cursor-not-allowed opacity-55" : ""}`}
+    >
+      <div className="plotty-kicker">{`Шаг ${number}`}</div>
+      <div className="mt-2 text-sm font-semibold leading-5">{label}</div>
+    </button>
+  );
+}
+
+function TagCategoryCard({
+  category,
+  tags,
+  selectedTagIds,
+  onToggle,
+}: {
+  category: string;
+  tags: StoryTag[];
+  selectedTagIds: Set<string>;
+  onToggle: (tag: StoryTag) => void;
+}) {
+  return (
+    <div className="space-y-2.5 rounded-[18px] border border-[rgba(41,38,34,0.06)] bg-white/72 p-4">
+      <div className="plotty-label">{getStoryTagCategoryLabel(category)}</div>
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag) => (
+          <Chip key={tag.id} selected={selectedTagIds.has(tag.id)} onClick={() => onToggle(tag)}>
+            {tag.name}
+          </Chip>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SummaryTextBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="plotty-kicker">{label}</div>
+      <p className="text-sm leading-6 text-[var(--plotty-muted)]">{value}</p>
+    </div>
+  );
+}
+
+function updateStoryField<K extends keyof StorySettingsValues>(
+  setValues: Dispatch<SetStateAction<StorySettingsValues>>,
+  key: K,
+  value: StorySettingsValues[K],
+) {
+  setValues((current) => ({
+    ...current,
+    [key]: value,
+  }));
+}
+
+function toggleStoryTag(
+  current: StorySettingsValues,
+  tag: StoryTag,
+  groupedTags: Record<string, StoryTag[]>,
+) {
+  const isSingle = singleSelectTagCategories.includes(tag.category as (typeof singleSelectTagCategories)[number]);
+  const categoryTags = groupedTags[tag.category ?? "other"] ?? [];
+
+  const nextTagIds = isSingle
+    ? replaceCategoryTagIds(current.selectedTagIds, categoryTags, [tag.id])
+    : current.selectedTagIds.includes(tag.id)
+      ? current.selectedTagIds.filter((id) => id !== tag.id)
+      : [...current.selectedTagIds, tag.id];
+
+  return {
+    ...current,
+    selectedTagIds: nextTagIds,
+  };
+}
+
+function replaceCategoryTagIds(currentTagIds: string[], categoryTags: StoryTag[], nextCategoryTagIds: string[]) {
+  const categoryTagSet = new Set(categoryTags.map((tag) => tag.id));
+  const filteredTagIds = currentTagIds.filter((tagId) => !categoryTagSet.has(tagId));
+
+  nextCategoryTagIds.forEach((tagId) => {
+    if (!filteredTagIds.includes(tagId)) {
+      filteredTagIds.push(tagId);
+    }
+  });
+
+  return filteredTagIds;
 }

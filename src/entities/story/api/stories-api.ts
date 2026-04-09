@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type QueryClient } from "@tanstack/react-query";
 
 import { fetchJson } from "@/shared/api/fetch-json";
 
@@ -8,18 +8,22 @@ import type {
   AiJobResponse,
   ChapterDetails,
   ChapterListItem,
+  CreateStoryCommentPayload,
   CreateChapterPayload,
   CreateStoryPayload,
   ImageGenerationPayload,
   ImageGenerationResult,
   SpellcheckPayload,
   SpellcheckResult,
+  StoryCommentsResponse,
   StoriesQuery,
   StoriesResponse,
+  StoryComment,
   StoryDetails,
   StoryListItem,
   StoryTag,
   StoryTagsResponse,
+  ToggleLikeResult,
   UpdateChapterPayload,
   UpdateStoryPayload,
 } from "../model/types";
@@ -40,6 +44,12 @@ interface BackendStoryListItem extends BackendStory {
   description?: string;
   excerpt?: string;
   status?: StoryDetails["status"];
+  likesCount?: number;
+  commentsCount?: number;
+  bookmarksCount?: number;
+  viewsCount?: number;
+  viewerHasLiked?: boolean;
+  updatedLabel?: string;
 }
 
 interface BackendStoryDetails extends BackendStory {
@@ -48,6 +58,18 @@ interface BackendStoryDetails extends BackendStory {
   description?: string;
   excerpt?: string;
   status?: StoryDetails["status"];
+  fandom?: string;
+  pairing?: string;
+  ratingLabel?: string;
+  statusLabel?: string;
+  sizeLabel?: string;
+  likesCount?: number;
+  commentsCount?: number;
+  bookmarksCount?: number;
+  aiHint?: string;
+  summaryLabel?: string;
+  readLabel?: string;
+  updatedLabel?: string;
   chapters: Array<{
     id: string;
     title: string;
@@ -77,6 +99,21 @@ interface BackendStoriesResponse {
   };
 }
 
+interface BackendStoryComment {
+  id: string;
+  storyId: string;
+  author: {
+    id: number;
+    username: string;
+    email: string;
+    avatarUrl?: string | null;
+  };
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  viewerCanDelete?: boolean;
+}
+
 const STORY_LOOKUP_PAGE_SIZE = 100;
 
 export const storyKeys = {
@@ -85,6 +122,7 @@ export const storyKeys = {
   list: (query: StoriesQuery) => ["stories", "list", query] as const,
   details: (slug: string) => ["stories", "details", slug] as const,
   detailsById: (storyId: string) => ["stories", "details-by-id", storyId] as const,
+  comments: (storyId: string) => ["stories", "comments", storyId] as const,
   chapter: (chapterId: string) => ["stories", "chapter", chapterId] as const,
   chapterEditor: (storyId: string, chapterId: string) => ["stories", "chapter-editor", storyId, chapterId] as const,
   aiJob: (jobId: string) => ["stories", "ai-job", jobId] as const,
@@ -116,6 +154,12 @@ function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
     ratingLabel: getTagName(item.tags, "rating"),
     statusLabel: getTagName(item.tags, "completion"),
     sizeLabel: getTagName(item.tags, "size"),
+    likesCount: item.likesCount,
+    commentsCount: item.commentsCount,
+    bookmarksCount: item.bookmarksCount,
+    viewsCount: item.viewsCount,
+    viewerHasLiked: item.viewerHasLiked,
+    updatedLabel: item.updatedLabel,
   };
 }
 
@@ -141,6 +185,18 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     description: item.description,
     excerpt: item.excerpt,
     status: item.status,
+    fandom: item.fandom ?? getTagName(item.tags, "directionality"),
+    pairing: item.pairing,
+    ratingLabel: item.ratingLabel ?? getTagName(item.tags, "rating"),
+    statusLabel: item.statusLabel ?? getTagName(item.tags, "completion"),
+    sizeLabel: item.sizeLabel ?? getTagName(item.tags, "size"),
+    likesCount: item.likesCount,
+    commentsCount: item.commentsCount,
+    bookmarksCount: item.bookmarksCount,
+    aiHint: item.aiHint,
+    summaryLabel: item.summaryLabel,
+    readLabel: item.readLabel,
+    updatedLabel: item.updatedLabel,
   };
 }
 
@@ -156,6 +212,23 @@ function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
     storySlug: item.storySlug,
     storyTitle: item.storyTitle,
     wordCount: countWords(item.content),
+  };
+}
+
+function mapStoryComment(comment: BackendStoryComment): StoryComment {
+  return {
+    id: comment.id,
+    storyId: comment.storyId,
+    author: {
+      id: comment.author.id,
+      username: comment.author.username,
+      email: comment.author.email,
+      avatarUrl: comment.author.avatarUrl,
+    },
+    content: comment.content,
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+    viewerCanDelete: comment.viewerCanDelete,
   };
 }
 
@@ -246,6 +319,20 @@ export function storyDetailsByIdQueryOptions(storyId: string) {
   });
 }
 
+export function storyCommentsQueryOptions(storyId: string) {
+  return queryOptions({
+    queryKey: storyKeys.comments(storyId),
+    queryFn: async (): Promise<StoryCommentsResponse> => {
+      const response = await fetchJson<{ items: BackendStoryComment[] }>(`/stories/${storyId}/comments`);
+
+      return {
+        items: response.items.map(mapStoryComment),
+      };
+    },
+    enabled: Boolean(storyId),
+  });
+}
+
 export function chapterDetailsQueryOptions(chapterId: string) {
   return queryOptions({
     queryKey: storyKeys.chapter(chapterId),
@@ -285,17 +372,19 @@ export function aiJobQueryOptions<TResult>(jobId: string) {
 }
 
 export function createStory(payload: CreateStoryPayload) {
-  return fetchJson<BackendStory>("/stories", {
+  return fetchJson<BackendStoryDetails>("/stories", {
     method: "POST",
     body: JSON.stringify({
       title: payload.title,
       tagIds: payload.tagIds ?? [],
+      description: payload.description,
+      excerpt: payload.excerpt,
     }),
-  });
+  }).then(mapStoryDetails);
 }
 
 export function updateStory(storyId: string, payload: UpdateStoryPayload) {
-  return fetchJson<BackendStory>(`/stories/${storyId}`, {
+  return fetchJson<BackendStoryDetails>(`/stories/${storyId}`, {
     method: "PATCH",
     body: JSON.stringify({
       title: payload.title,
@@ -303,7 +392,7 @@ export function updateStory(storyId: string, payload: UpdateStoryPayload) {
       excerpt: payload.excerpt,
       tagIds: payload.tagIds,
     }),
-  });
+  }).then(mapStoryDetails);
 }
 
 export function deleteStory(storyId: string) {
@@ -332,6 +421,31 @@ export function deleteChapter(chapterId: string) {
   });
 }
 
+export function likeStory(storyId: string) {
+  return fetchJson<ToggleLikeResult>(`/stories/${storyId}/like`, {
+    method: "POST",
+  });
+}
+
+export function unlikeStory(storyId: string) {
+  return fetchJson<ToggleLikeResult>(`/stories/${storyId}/like`, {
+    method: "DELETE",
+  });
+}
+
+export function addStoryComment(storyId: string, payload: CreateStoryCommentPayload) {
+  return fetchJson<BackendStoryComment>(`/stories/${storyId}/comments`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }).then(mapStoryComment);
+}
+
+export function deleteStoryComment(commentId: string) {
+  return fetchJson<null>(`/comments/${commentId}`, {
+    method: "DELETE",
+  });
+}
+
 export function startSpellcheck(payload: SpellcheckPayload) {
   return fetchJson<AiJobAccepted>("/ai/spellcheck", {
     method: "POST",
@@ -344,6 +458,34 @@ export function startImageGeneration(payload: ImageGenerationPayload) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+type StorySummaryFields = Pick<
+  StoryListItem,
+  "likesCount" | "commentsCount" | "bookmarksCount" | "viewsCount" | "viewerHasLiked"
+>;
+
+export function patchStorySummaryCaches(
+  queryClient: QueryClient,
+  storyId: string,
+  patch: Partial<StorySummaryFields>,
+) {
+  queryClient.setQueriesData<StoriesResponse>({ queryKey: ["stories", "list"] }, (current) =>
+    current
+      ? {
+          ...current,
+          items: current.items.map((item) => (item.id === storyId ? { ...item, ...patch } : item)),
+        }
+      : current,
+  );
+
+  queryClient.setQueriesData<StoryDetails>({ queryKey: ["stories", "details"] }, (current) =>
+    current && current.id === storyId ? { ...current, ...patch } : current,
+  );
+
+  queryClient.setQueriesData<StoryDetails>({ queryKey: ["stories", "details-by-id"] }, (current) =>
+    current && current.id === storyId ? { ...current, ...patch } : current,
+  );
 }
 
 export type SpellcheckJobResponse = AiJobResponse<SpellcheckResult>;
