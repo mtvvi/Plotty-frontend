@@ -40,6 +40,7 @@ describe("StoryEditorScreen", () => {
 
     expect(screen.queryByLabelText("Название истории")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Удалить историю" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Обновить иллюстрацию|Сгенерировать картинку/i })).toBeInTheDocument();
 
     const chapterTitle = screen.getByDisplayValue("Глава 1. Архив под лестницей");
     await user.clear(chapterTitle);

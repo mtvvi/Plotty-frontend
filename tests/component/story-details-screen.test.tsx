@@ -32,12 +32,17 @@ describe("StoryDetailsScreen", () => {
     );
 
     expect(screen.getByAltText("Обложка истории «После полуночи снег не тает»")).toBeInTheDocument();
+    expect(screen.getByAltText("Обложка истории «После полуночи снег не тает»").closest('[data-cover-frame="true"]')).toHaveClass(
+      "h-full",
+      "min-h-[18rem]",
+    );
     expect(screen.getAllByRole("link", { name: "Читать" })[0]).toHaveAttribute(
       "href",
       "/stories/after-midnight-the-snow-does-not-melt/chapters/1",
     );
     expect(screen.getByRole("button", { name: "Описание" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Главы" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Комментарии" })).toBeInTheDocument();
     expect(
       screen.getByText(/Гермиона пытается пережить восьмой курс, пока архив старого факультета/i),
     ).toBeInTheDocument();

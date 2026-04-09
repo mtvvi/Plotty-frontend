@@ -49,14 +49,13 @@ export function ChapterReaderScreen({
     <PlottyShell
       title={`${storyQuery.data.title} • Глава ${chapterNumber}`}
       description={`Обновлена ${new Date(chapterQuery.data.updatedAt).toLocaleString("ru-RU")}`}
-      
     >
-      <div className="space-y-5">
-        <ChapterImageFrame title={chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl} />
+      <div className="mx-auto max-w-4xl space-y-5">
+        {chapterQuery.data.imageUrl ? <ChapterImageFrame title={chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl} /> : null}
 
-        <ShellCard title={chapterQuery.data.title} description={`${chapterQuery.data.wordCount ?? 0} слов`}>
-          <div className="space-y-4">
-            <div className="whitespace-pre-wrap text-[15px] leading-8 text-[var(--plotty-ink)]">
+        <ShellCard title={chapterQuery.data.title} description={`${chapterQuery.data.wordCount ?? 0} слов`} className="bg-[rgba(255,255,255,0.72)]">
+          <div className="space-y-5">
+            <div className="whitespace-pre-wrap text-[15px] leading-8 text-[var(--plotty-ink)] md:text-[16px] md:leading-9">
               {chapterQuery.data.content}
             </div>
 

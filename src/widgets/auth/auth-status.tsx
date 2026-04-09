@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { logout, authKeys } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
-import { Button, ButtonLink } from "@/shared/ui/button";
+import { cn } from "@/shared/lib/utils";
+import { Button, ButtonLink, buttonClassName } from "@/shared/ui/button";
 
 function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
   const query = searchParams.toString();
@@ -21,12 +22,40 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const [isCompactMenuOpen, setIsCompactMenuOpen] = useState(false);
+  const compactMenuRef = useRef<HTMLDivElement | null>(null);
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: authKeys.session() });
     },
   });
+
+  useEffect(() => {
+    if (!isCompactMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!compactMenuRef.current?.contains(event.target as Node)) {
+        setIsCompactMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsCompactMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isCompactMenuOpen]);
 
   if (isLoading) {
     return <span className="text-sm text-[var(--plotty-muted)]">Проверяем сессию...</span>;
@@ -70,35 +99,71 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
 
   if (variant === "compact") {
     return (
-      <div className="flex items-center gap-2">
-        <div className="hidden text-right sm:block">
-          <div className="text-sm font-semibold">{user.username}</div>
-        </div>
-        <Button
-          variant="secondary"
-          className="h-10 px-3 text-sm"
-          disabled={logoutMutation.isPending}
-          onClick={async () => {
-            await logoutMutation.mutateAsync();
-            router.refresh();
-          }}
+      <div ref={compactMenuRef} className="relative">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={isCompactMenuOpen}
+          onClick={() => setIsCompactMenuOpen((current) => !current)}
+          className={cn(
+            "inline-flex min-h-[54px] items-center justify-start gap-3 rounded-full border border-[rgba(41,38,34,0.08)] bg-white/84 px-2.5 py-1.5 pr-4 text-left shadow-[0_8px_24px_rgba(46,35,23,0.08)] transition-[background-color,border-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+            isCompactMenuOpen ? "bg-white shadow-[0_12px_28px_rgba(46,35,23,0.1)]" : "hover:bg-white",
+          )}
         >
-          {logoutMutation.isPending ? "..." : "Выйти"}
-        </Button>
+          <span className="flex size-[2.75rem] items-center justify-center rounded-full bg-[rgba(188,95,61,0.12)] text-sm font-bold text-[var(--plotty-accent)]">
+            {user.username.slice(0, 1).toUpperCase()}
+          </span>
+          <span className="min-w-0 text-left leading-none">
+            <span className="block max-w-[8rem] truncate text-[0.95rem] font-semibold text-[var(--plotty-ink)]">
+              {user.username}
+            </span>
+            <span className="mt-1 hidden max-w-[8rem] truncate text-[11px] text-[var(--plotty-muted)] md:block">{user.email}</span>
+          </span>
+          <span className="ml-0.5 text-[var(--plotty-muted)]" aria-hidden="true">
+            ▾
+          </span>
+        </button>
+
+        {isCompactMenuOpen ? (
+          <div
+            role="menu"
+            className="absolute right-0 top-[calc(100%+0.75rem)] z-20 w-[18rem] rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-3 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl"
+          >
+            <div className="rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/84 p-4">
+              <div className="text-sm font-semibold text-[var(--plotty-ink)]">{user.username}</div>
+              <div className="mt-1 text-xs text-[var(--plotty-muted)]">{user.email}</div>
+            </div>
+            <div className="mt-3 grid gap-2">
+              <Button
+                variant="ghost"
+                className="w-full justify-start rounded-[16px] px-3 text-sm"
+                disabled={logoutMutation.isPending}
+                onClick={async () => {
+                  setIsCompactMenuOpen(false);
+                  await logoutMutation.mutateAsync();
+                  router.refresh();
+                }}
+              >
+                {logoutMutation.isPending ? "Выходим..." : "Выйти"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }
 
   if (variant === "menu") {
     return (
-      <div className="space-y-3">
-        <div className="rounded-[18px] border border-[var(--plotty-line)] bg-white/80 p-4">
+      <div className="space-y-3.5">
+        <div className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/84 p-4">
+          <div className="plotty-kicker">Аккаунт</div>
           <div className="text-sm font-semibold">{user.username}</div>
           <div className="mt-1 text-xs text-[var(--plotty-muted)]">{user.email}</div>
         </div>
         <Button
-          variant="secondary"
-          className="w-full"
+          variant="ghost"
+          className="w-full justify-start"
           disabled={logoutMutation.isPending}
           onClick={async () => {
             await logoutMutation.mutateAsync();

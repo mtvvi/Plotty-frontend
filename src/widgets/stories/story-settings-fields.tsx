@@ -54,7 +54,7 @@ export function StorySettingsFields({
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       <Field>
         <FieldLabel htmlFor="story-settings-title">Название истории</FieldLabel>
         <Input
@@ -66,7 +66,8 @@ export function StorySettingsFields({
       </Field>
 
       {includeSummaryFields ? (
-        <>
+        <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4 sm:p-5">
+          <div className="plotty-section-title">Описание и тизер</div>
           <Field>
             <FieldLabel htmlFor="story-settings-description">Описание</FieldLabel>
             <Textarea
@@ -88,30 +89,36 @@ export function StorySettingsFields({
               className="min-h-28"
             />
           </Field>
-        </>
+        </div>
       ) : null}
 
-      {orderedGroups.map(([category, tags]) => {
-        const isSingle = singleSelectTagCategories.includes(category as (typeof singleSelectTagCategories)[number]);
+      <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-white/62 p-4 sm:p-5">
+        <div className="plotty-section-title">Теги и категории</div>
 
-        return (
-          <div key={category} className="space-y-2">
-            <div className="plotty-label">{getStoryTagCategoryLabel(category)}</div>
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag) => (
-                <Chip
-                  key={tag.id}
-                  selected={values.selectedTagIds.includes(tag.id)}
-                  onClick={() => toggleTag(tag)}
-                  className={isSingle && values.selectedTagIds.includes(tag.id) ? "ring-1 ring-[var(--plotty-accent-soft)]" : undefined}
-                >
-                  {tag.name}
-                </Chip>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+        <div className="grid gap-4 md:grid-cols-2">
+          {orderedGroups.map(([category, tags]) => {
+            const isSingle = singleSelectTagCategories.includes(category as (typeof singleSelectTagCategories)[number]);
+
+            return (
+              <div key={category} className="space-y-2.5 rounded-[18px] border border-[rgba(41,38,34,0.06)] bg-white/72 p-4">
+                <div className="plotty-label">{getStoryTagCategoryLabel(category)}</div>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag) => (
+                    <Chip
+                      key={tag.id}
+                      selected={values.selectedTagIds.includes(tag.id)}
+                      onClick={() => toggleTag(tag)}
+                      className={isSingle && values.selectedTagIds.includes(tag.id) ? "ring-1 ring-[var(--plotty-accent-soft)]" : undefined}
+                    >
+                      {tag.name}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

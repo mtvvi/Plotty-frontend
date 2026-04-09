@@ -44,6 +44,9 @@ describe("StoriesCatalogShell", () => {
     const user = userEvent.setup();
     renderCatalogShell();
 
+    expect(screen.queryByText("Поиск и выдача")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Поиск живёт только здесь/i)).not.toBeInTheDocument();
+
     await waitFor(() => expect(screen.getByRole("button", { name: "Драма" })).toBeInTheDocument());
 
     await user.click(screen.getByRole("button", { name: "Драма" }));
@@ -55,13 +58,14 @@ describe("StoriesCatalogShell", () => {
     expect(replace).toHaveBeenCalledWith("/?tag=drama", { scroll: false });
   });
 
-  it("keeps desktop fandom select changes in draft until apply", async () => {
+  it("keeps desktop fandom picker changes in draft until apply", async () => {
     const user = userEvent.setup();
     renderCatalogShell();
 
-    await waitFor(() => expect(screen.getByLabelText("Фандом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Фандом" })).toBeInTheDocument());
 
-    await user.selectOptions(screen.getByLabelText("Фандом"), "witcher");
+    await user.click(screen.getByRole("button", { name: "Фандом" }));
+    await user.click(screen.getByRole("option", { name: "Ведьмак" }));
 
     expect(replace).not.toHaveBeenCalled();
 
@@ -74,9 +78,10 @@ describe("StoriesCatalogShell", () => {
     const user = userEvent.setup();
     renderCatalogShell();
 
-    await waitFor(() => expect(screen.getByLabelText("Фандом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Фандом" })).toBeInTheDocument());
 
-    await user.selectOptions(screen.getByLabelText("Фандом"), "harry-potter");
+    await user.click(screen.getByRole("button", { name: "Фандом" }));
+    await user.click(screen.getByRole("option", { name: "Гарри Поттер" }));
 
     expect(screen.getByText("Рейтинг")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Драма" })).toBeInTheDocument();
@@ -87,7 +92,7 @@ describe("StoriesCatalogShell", () => {
     const user = userEvent.setup();
     renderCatalogShell();
 
-    const [desktopSearch] = screen.getAllByLabelText("Поиск по названию истории");
+    const desktopSearch = screen.getByLabelText("Поиск по названию истории");
 
     await user.type(desktopSearch, "архив");
 

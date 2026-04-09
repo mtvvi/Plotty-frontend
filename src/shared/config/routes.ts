@@ -14,6 +14,7 @@ export const routes = {
     return params.toString() ? `/auth?${params.toString()}` : "/auth";
   },
   write: "/write",
+  writeNew: "/write/new",
   story: (slug: string) => `/stories/${slug}`,
   chapter: (slug: string, number: number) => `/stories/${slug}/chapters/${number}`,
   storySettings: (storyId: string) => `/write/stories/${storyId}/settings`,

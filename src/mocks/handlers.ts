@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw";
 
 import { parseStoriesQuery } from "@/entities/story/model/story-query";
 import type {
+  CreateStoryCommentPayload,
   CreateChapterPayload,
   CreateStoryPayload,
   ImageGenerationPayload,
@@ -15,13 +16,18 @@ import {
   createImageGenerationJob,
   createSpellcheckJob,
   createStoryRecord,
+  deleteStoryCommentRecord,
   deleteChapterRecord,
   deleteStoryRecord,
+  getStoryComments,
   getAiJob,
   getChapterById,
   getStoryBySlug,
+  likeStoryRecord,
   listTags,
   listStories,
+  addStoryCommentRecord,
+  unlikeStoryRecord,
   updateChapterRecord,
   updateStoryRecord,
 } from "./data/stories";
@@ -78,8 +84,9 @@ export const handlers = [
   http.get("*/stories", ({ request }) => {
     const url = new URL(request.url);
     const query = parseStoriesQuery(url.searchParams);
+    const session = getMockSession();
 
-    return HttpResponse.json(listStories(query));
+    return HttpResponse.json(listStories(query, session?.user.id));
   }),
 
   http.post("*/stories", async ({ request }) => {
@@ -110,13 +117,87 @@ export const handlers = [
   }),
 
   http.get("*/stories/:slug", ({ params }) => {
-    const story = getStoryBySlug(String(params.slug));
+    const session = getMockSession();
+    const story = getStoryBySlug(String(params.slug), session?.user.id);
 
     if (!story) {
       return HttpResponse.json({ message: "Story not found" }, { status: 404 });
     }
 
     return HttpResponse.json(story);
+  }),
+
+  http.get("*/stories/:storyId/comments", ({ params }) => {
+    const session = getMockSession();
+
+    return HttpResponse.json({
+      items: getStoryComments(String(params.storyId), session?.user.id),
+    });
+  }),
+
+  http.post("*/stories/:storyId/comments", async ({ params, request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as CreateStoryCommentPayload;
+    const comment = addStoryCommentRecord(String(params.storyId), payload, session.user);
+
+    if (!comment) {
+      return HttpResponse.json({ message: "Story not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(comment, { status: 201 });
+  }),
+
+  http.delete("*/comments/:commentId", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const deleted = deleteStoryCommentRecord(String(params.commentId), session.user.id);
+
+    if (!deleted) {
+      return HttpResponse.json({ message: "Comment not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json({ ok: true });
+  }),
+
+  http.post("*/stories/:storyId/like", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const result = likeStoryRecord(String(params.storyId), session.user.id);
+
+    if (!result) {
+      return HttpResponse.json({ message: "Story not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(result);
+  }),
+
+  http.delete("*/stories/:storyId/like", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const result = unlikeStoryRecord(String(params.storyId), session.user.id);
+
+    if (!result) {
+      return HttpResponse.json({ message: "Story not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(result);
   }),
 
   http.post("*/stories/:storyId/chapters", async ({ params, request }) => {

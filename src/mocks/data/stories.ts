@@ -6,6 +6,7 @@ import type {
   AiJobType,
   ChapterDetails,
   ChapterListItem,
+  CreateStoryCommentPayload,
   CreateChapterPayload,
   CreateStoryPayload,
   GeneratedImage,
@@ -14,15 +15,18 @@ import type {
   SpellcheckIssue,
   SpellcheckPayload,
   SpellcheckResult,
+  StoryComment,
   StoriesQuery,
   StoriesResponse,
   StoryDetails,
   StoryListItem,
   StoryStatus,
   StoryTag,
+  ToggleLikeResult,
   UpdateChapterPayload,
   UpdateStoryPayload,
 } from "@/entities/story/model/types";
+import type { AuthUser } from "@/entities/auth/model/types";
 
 interface StoryRecord {
   id: string;
@@ -43,10 +47,23 @@ interface StoryRecord {
   likesCount: number;
   commentsCount: number;
   bookmarksCount: number;
+  viewsCount: number;
+  likedByUserIds: number[];
   aiHint: string;
   summaryLabel: string;
   readLabel: string;
   updatedLabel: string;
+}
+
+interface CommentRecord {
+  id: string;
+  storyId: string;
+  authorId: number;
+  authorUsername: string;
+  authorEmail: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ChapterRecord {
@@ -76,10 +93,12 @@ interface AiJobRecord {
 interface MockStoriesDb {
   stories: StoryRecord[];
   chapters: ChapterRecord[];
+  comments: CommentRecord[];
   aiJobs: AiJobRecord[];
   jobSeed: number;
   storySeed: number;
   chapterSeed: number;
+  commentSeed: number;
   imageSeed: number;
 }
 
@@ -128,6 +147,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 3482,
         commentsCount: 412,
         bookmarksCount: 1096,
+        viewsCount: 12891,
+        likedByUserIds: [],
         aiHint: "AI автора: 2 замечания по канону",
         summaryLabel: "Сводка для читателя",
         readLabel: "Читать",
@@ -153,6 +174,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 1904,
         commentsCount: 188,
         bookmarksCount: 703,
+        viewsCount: 7420,
+        likedByUserIds: [],
         aiHint: "AI автора: читателю неясен переход сцены 4",
         summaryLabel: "Кратко по сюжету",
         readLabel: "Открыть",
@@ -178,6 +201,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 4122,
         commentsCount: 531,
         bookmarksCount: 1544,
+        viewsCount: 15984,
+        likedByUserIds: [],
         aiHint: "AI автора: диалог можно сделать жёстче",
         summaryLabel: "Сводка по арке",
         readLabel: "Читать",
@@ -203,6 +228,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 2116,
         commentsCount: 276,
         bookmarksCount: 930,
+        viewsCount: 8105,
+        likedByUserIds: [],
         aiHint: "AI автора: сводка прошлых глав обновлена",
         summaryLabel: "Что было раньше",
         readLabel: "Читать",
@@ -228,6 +255,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 5003,
         commentsCount: 624,
         bookmarksCount: 1982,
+        viewsCount: 18360,
+        likedByUserIds: [],
         aiHint: "AI автора: OOC не найден",
         summaryLabel: "Сюжет за минуту",
         readLabel: "Открыть",
@@ -243,7 +272,7 @@ function createInitialDb(): MockStoriesDb {
         content:
           "Гермиона открыла архив слишком поздно, почти на ощупь. Внутри пахло пылью, сургучом и чем-то нечаяно забытым. Драко ждал у двери и делал вид, что это не его касается.",
         imageUrl:
-          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='960' height='540'%3E%3Crect width='100%25' height='100%25' fill='%23253349'/%3E%3Ctext x='56' y='140' fill='%23f7f2ea' font-size='44' font-family='Georgia'%3EПосле полуночи снег не тает%3C/text%3E%3Ctext x='56' y='220' fill='%23d9d2c4' font-size='28' font-family='Arial'%3EАрхив под лестницей%3C/text%3E%3C/svg%3E",
+          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'%3E%3Crect width='100%25' height='100%25' fill='%23253349'/%3E%3Ccircle cx='760' cy='264' r='156' fill='%23f7f2ea' fill-opacity='.14'/%3E%3Ctext x='72' y='160' fill='%23f7f2ea' font-size='50' font-family='Georgia'%3EПосле полуночи снег не тает%3C/text%3E%3Ctext x='72' y='248' fill='%23d9d2c4' font-size='30' font-family='Arial'%3EАрхив под лестницей%3C/text%3E%3C/svg%3E",
         imagePrompt: "Архив Хогвартса ночью, пыльный свет, кинематографично",
         createdAt: "2026-03-19T18:10:00.000Z",
         updatedAt: "2026-03-21T10:10:00.000Z",
@@ -299,10 +328,33 @@ function createInitialDb(): MockStoriesDb {
         updatedAt: "2026-03-19T21:10:00.000Z",
       },
     ],
+    comments: [
+      {
+        id: "comment-1",
+        storyId: "story-1",
+        authorId: 101,
+        authorUsername: "reader_one",
+        authorEmail: "reader_one@plotty.test",
+        content: "Очень хорошо держится ритм. Хочется быстрее открыть следующую главу.",
+        createdAt: "2026-03-21T08:40:00.000Z",
+        updatedAt: "2026-03-21T08:40:00.000Z",
+      },
+      {
+        id: "comment-2",
+        storyId: "story-1",
+        authorId: 102,
+        authorUsername: "snowowl",
+        authorEmail: "snowowl@plotty.test",
+        content: "Архив и снег работают отлично. Было бы интересно больше напряжения в сцене у двери.",
+        createdAt: "2026-03-21T09:12:00.000Z",
+        updatedAt: "2026-03-21T09:12:00.000Z",
+      },
+    ],
     aiJobs: [],
     jobSeed: 1,
     storySeed: 6,
     chapterSeed: 7,
+    commentSeed: 3,
     imageSeed: 1,
   };
 }
@@ -341,7 +393,7 @@ function toChapterListItem(chapter: ChapterRecord): ChapterListItem {
   };
 }
 
-function toStoryListItem(story: StoryRecord): StoryListItem {
+function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListItem {
   const firstChapter = getChaptersForStory(story.id)[0];
 
   return {
@@ -365,6 +417,8 @@ function toStoryListItem(story: StoryRecord): StoryListItem {
     likesCount: story.likesCount,
     commentsCount: story.commentsCount,
     bookmarksCount: story.bookmarksCount,
+    viewsCount: story.viewsCount,
+    viewerHasLiked: viewerUserId ? story.likedByUserIds.includes(viewerUserId) : false,
     aiHint: story.aiHint,
     summaryLabel: story.summaryLabel,
     readLabel: story.readLabel,
@@ -372,9 +426,9 @@ function toStoryListItem(story: StoryRecord): StoryListItem {
   };
 }
 
-function toStoryDetails(story: StoryRecord): StoryDetails {
+function toStoryDetails(story: StoryRecord, viewerUserId?: number): StoryDetails {
   return {
-    ...toStoryListItem(story),
+    ...toStoryListItem(story, viewerUserId),
     createdAt: story.createdAt,
     updatedAt: story.updatedAt,
     chapters: getChaptersForStory(story.id).map(toChapterListItem),
@@ -457,8 +511,17 @@ function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
   };
 }
 
-export function listStories(query: StoriesQuery) {
-  return buildStoriesQueryResult(query);
+export function listStories(query: StoriesQuery, viewerUserId?: number) {
+  const result = buildStoriesQueryResult(query);
+
+  return {
+    ...result,
+    items: result.items.map((item) => {
+      const story = db.stories.find((current) => current.id === item.id);
+
+      return story ? toStoryListItem(story, viewerUserId) : item;
+    }),
+  };
 }
 
 function matchesStoryTags(story: StoryRecord, selectedTags: string[]) {
@@ -515,10 +578,10 @@ export function listTags() {
   };
 }
 
-export function getStoryBySlug(slug: string) {
+export function getStoryBySlug(slug: string, viewerUserId?: number) {
   const story = db.stories.find((item) => item.slug === slug);
 
-  return story ? toStoryDetails(story) : null;
+  return story ? toStoryDetails(story, viewerUserId) : null;
 }
 
 export function getChapterById(chapterId: string) {
@@ -547,6 +610,8 @@ export function createStoryRecord(payload: CreateStoryPayload) {
     likesCount: 0,
     commentsCount: 0,
     bookmarksCount: 0,
+    viewsCount: 0,
+    likedByUserIds: [],
     aiHint: "AI автора: орфография ещё не запускалась",
     summaryLabel: "Кратко по сюжету",
     readLabel: "Открыть",
@@ -590,9 +655,121 @@ export function deleteStoryRecord(storyId: string) {
 
   db.stories.splice(storyIndex, 1);
   db.chapters = db.chapters.filter((chapter) => chapter.storyId !== storyId);
+  db.comments = db.comments.filter((comment) => comment.storyId !== storyId);
   db.aiJobs = db.aiJobs.filter((job) => db.chapters.some((chapter) => chapter.id === job.chapterId));
 
   return true;
+}
+
+function toStoryComment(comment: CommentRecord, viewerUserId?: number): StoryComment {
+  return {
+    id: comment.id,
+    storyId: comment.storyId,
+    author: {
+      id: comment.authorId,
+      username: comment.authorUsername,
+      email: comment.authorEmail,
+      avatarUrl: null,
+    },
+    content: comment.content,
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+    viewerCanDelete: Boolean(viewerUserId && viewerUserId === comment.authorId),
+  };
+}
+
+export function getStoryComments(storyId: string, viewerUserId?: number) {
+  return db.comments
+    .filter((comment) => comment.storyId === storyId)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map((comment) => toStoryComment(comment, viewerUserId));
+}
+
+export function addStoryCommentRecord(storyId: string, payload: CreateStoryCommentPayload, user: AuthUser) {
+  const story = db.stories.find((item) => item.id === storyId);
+  const content = payload.content.trim();
+
+  if (!story || !content) {
+    return null;
+  }
+
+  const timestamp = nowIso();
+  const comment: CommentRecord = {
+    id: `comment-${db.commentSeed}`,
+    storyId,
+    authorId: user.id,
+    authorUsername: user.username,
+    authorEmail: user.email,
+    content,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  db.commentSeed += 1;
+  db.comments.unshift(comment);
+  story.commentsCount += 1;
+
+  return toStoryComment(comment, user.id);
+}
+
+export function deleteStoryCommentRecord(commentId: string, viewerUserId: number) {
+  const commentIndex = db.comments.findIndex((comment) => comment.id === commentId && comment.authorId === viewerUserId);
+
+  if (commentIndex === -1) {
+    return false;
+  }
+
+  const [removed] = db.comments.splice(commentIndex, 1);
+  const story = db.stories.find((item) => item.id === removed.storyId);
+
+  if (story && story.commentsCount > 0) {
+    story.commentsCount -= 1;
+  }
+
+  return true;
+}
+
+function toToggleLikeResult(story: StoryRecord, viewerUserId: number): ToggleLikeResult {
+  return {
+    storyId: story.id,
+    likesCount: story.likesCount,
+    commentsCount: story.commentsCount,
+    bookmarksCount: story.bookmarksCount,
+    viewsCount: story.viewsCount,
+    viewerHasLiked: story.likedByUserIds.includes(viewerUserId),
+  };
+}
+
+export function likeStoryRecord(storyId: string, viewerUserId: number) {
+  const story = db.stories.find((item) => item.id === storyId);
+
+  if (!story) {
+    return null;
+  }
+
+  if (!story.likedByUserIds.includes(viewerUserId)) {
+    story.likedByUserIds.push(viewerUserId);
+    story.likesCount += 1;
+  }
+
+  return toToggleLikeResult(story, viewerUserId);
+}
+
+export function unlikeStoryRecord(storyId: string, viewerUserId: number) {
+  const story = db.stories.find((item) => item.id === storyId);
+
+  if (!story) {
+    return null;
+  }
+
+  if (story.likedByUserIds.includes(viewerUserId)) {
+    story.likedByUserIds = story.likedByUserIds.filter((id) => id !== viewerUserId);
+    if (story.likesCount > 0) {
+      story.likesCount -= 1;
+    }
+  }
+
+  return toToggleLikeResult(story, viewerUserId);
 }
 
 export function createChapterRecord(storyId: string, payload: CreateChapterPayload) {
@@ -700,9 +877,9 @@ function createChapterImage(prompt: string, title: string) {
   const safePrompt = encodeURIComponent(prompt.slice(0, 80));
   const safeTitle = encodeURIComponent(title.slice(0, 48));
 
-  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='960' height='540'%3E%3Crect width='100%25' height='100%25' fill='${encodeURIComponent(
+  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'%3E%3Crect width='100%25' height='100%25' fill='${encodeURIComponent(
     accent,
-  )}'/%3E%3Ccircle cx='760' cy='120' r='92' fill='%23f7f2ea' fill-opacity='.18'/%3E%3Ctext x='56' y='120' fill='%23f7f2ea' font-size='42' font-family='Georgia'%3E${safeTitle}%3C/text%3E%3Ctext x='56' y='204' fill='%23f0e8db' font-size='26' font-family='Arial'%3E${safePrompt}%3C/text%3E%3C/svg%3E`;
+  )}'/%3E%3Ccircle cx='790' cy='240' r='148' fill='%23f7f2ea' fill-opacity='.18'/%3E%3Ctext x='72' y='156' fill='%23f7f2ea' font-size='48' font-family='Georgia'%3E${safeTitle}%3C/text%3E%3Ctext x='72' y='244' fill='%23f0e8db' font-size='28' font-family='Arial'%3E${safePrompt}%3C/text%3E%3C/svg%3E`;
 }
 
 function createImageResult(payload: ImageGenerationPayload): ImageGenerationResult {
