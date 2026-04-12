@@ -13,6 +13,7 @@ import type {
   CreateStoryPayload,
   ImageGenerationPayload,
   ImageGenerationResult,
+  LogicCheckResult,
   SpellcheckPayload,
   SpellcheckResult,
   StoryCommentsResponse,
@@ -477,6 +478,13 @@ export function startSpellcheck(payload: SpellcheckPayload) {
   });
 }
 
+export function startLogicCheck(payload: SpellcheckPayload) {
+  return fetchJson<AiJobAccepted>("/ai/logic-check", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function startImageGeneration(payload: ImageGenerationPayload) {
   return fetchJson<AiJobAccepted>("/ai/image-generation", {
     method: "POST",
@@ -517,4 +525,5 @@ export function patchStorySummaryCaches(
 }
 
 export type SpellcheckJobResponse = AiJobResponse<SpellcheckResult>;
+export type LogicCheckJobResponse = AiJobResponse<LogicCheckResult>;
 export type ImageGenerationJobResponse = AiJobResponse<ImageGenerationResult>;
