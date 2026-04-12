@@ -32,7 +32,6 @@ describe("stories mock handlers", () => {
       body: JSON.stringify({
         title: "Midnight Draft",
         description: "Описание истории",
-        excerpt: "Короткий тизер",
         tags: ["drama", "mysticism"],
       }),
     });
@@ -63,24 +62,22 @@ describe("stories mock handlers", () => {
     expect(data.items.some((item) => item.id === "story-3")).toBe(false);
   });
 
-  it("updates story description and excerpt", async () => {
+  it("updates story description", async () => {
     const patchResponse = await fetch("http://localhost/stories/story-1", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: "После полуночи снег не тает",
         description: "Новое описание истории",
-        excerpt: "Новый тизер истории",
       }),
     });
 
     expect(patchResponse.ok).toBe(true);
 
     const detailsResponse = await fetch("http://localhost/stories/after-midnight-the-snow-does-not-melt");
-    const details = (await detailsResponse.json()) as { description?: string; excerpt?: string };
+    const details = (await detailsResponse.json()) as { description?: string };
 
     expect(details.description).toBe("Новое описание истории");
-    expect(details.excerpt).toBe("Новый тизер истории");
   });
 
   it("deletes a chapter and removes it from story details", async () => {

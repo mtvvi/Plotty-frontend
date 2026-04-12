@@ -34,7 +34,6 @@ interface StoryRecord {
   title: string;
   coverImageUrl?: string;
   description: string;
-  excerpt: string;
   status: StoryStatus;
   tagSlugs: string[];
   createdAt: string;
@@ -57,7 +56,7 @@ interface StoryRecord {
 
 interface CommentRecord {
   id: string;
-  storyId: string;
+  chapterId: string;
   authorId: number;
   authorUsername: string;
   authorEmail: string;
@@ -133,8 +132,6 @@ function createInitialDb(): MockStoriesDb {
         title: "После полуночи снег не тает",
         description:
           "Гермиона пытается пережить восьмой курс, пока архив старого факультета вскрывает неудобные связи между прошлым и настоящим.",
-        excerpt:
-          "Восьмой курс начинается как вынужденное перемирие, но каждое письмо из архива Хогвартса поднимает старые долги. История тянется медленно, через библиотеку, снег и слишком внятные паузы в диалогах.",
         status: "published",
         tagSlugs: ["drama", "fantasy", "ooc"],
         createdAt: "2026-03-19T18:00:00.000Z",
@@ -160,8 +157,6 @@ function createInitialDb(): MockStoriesDb {
         title: "Пепел для Белого Волка",
         description:
           "Йеннифэр и Геральт снова идут по следу пропавшей карты, которая ведет к старому долгу и новым решениям.",
-        excerpt:
-          "После охоты на стрыгу Геральт едет не туда, куда собирался, и весь маршрут превращается в спор о том, кто кому семья, если никто не умеет это произносить вслух.",
         status: "published",
         tagSlugs: ["adventure", "humor", "violence"],
         createdAt: "2026-03-18T14:00:00.000Z",
@@ -187,8 +182,6 @@ function createInitialDb(): MockStoriesDb {
         title: "Седьмой фонарь на Тенистой улице",
         description:
           "Детективная линия в Средиземье, где почти каждый разговор одновременно допрос и попытка защитить близкого человека.",
-        excerpt:
-          "Минас-Тирит, утро, протокол, разбитые витрины. Следствие тянется через коридоры власти, где любой неверный шаг звучит громче меча.",
         status: "published",
         tagSlugs: ["mysticism", "fantasy", "character-death"],
         createdAt: "2026-03-20T09:30:00.000Z",
@@ -214,8 +207,6 @@ function createInitialDb(): MockStoriesDb {
         title: "Письма без адреса обратной совы",
         description:
           "Эпистолярная история о доверии, памяти и аккуратно спрятанных чувствах в мире Гарри Поттера.",
-        excerpt:
-          "Текст держится на письмах, в которых важнее не сказанное, а то, как меняется тон между строками. Автор явно работает на длинную дистанцию и аккуратно собирает доверие из мелочей.",
         status: "published",
         tagSlugs: ["drama", "slice-of-life", "profanity"],
         createdAt: "2026-03-17T14:20:00.000Z",
@@ -241,8 +232,6 @@ function createInitialDb(): MockStoriesDb {
         title: "Тепло под кристальным куполом",
         description:
           "История о деревне скрытого листа, где официальные поручения и личная верность постоянно ломают друг друга.",
-        excerpt:
-          "Каждая миссия выглядит как формальность, пока не становится ясно, что приказ и привязанность ведут героев в разные стороны.",
         status: "published",
         tagSlugs: ["adventure", "fantasy", "violence"],
         createdAt: "2026-03-16T14:20:00.000Z",
@@ -331,7 +320,7 @@ function createInitialDb(): MockStoriesDb {
     comments: [
       {
         id: "comment-1",
-        storyId: "story-1",
+        chapterId: "chapter-1",
         authorId: 101,
         authorUsername: "reader_one",
         authorEmail: "reader_one@plotty.test",
@@ -341,7 +330,7 @@ function createInitialDb(): MockStoriesDb {
       },
       {
         id: "comment-2",
-        storyId: "story-1",
+        chapterId: "chapter-1",
         authorId: 102,
         authorUsername: "snowowl",
         authorEmail: "snowowl@plotty.test",
@@ -404,7 +393,6 @@ function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListIt
     firstChapterId: firstChapter?.id,
     createdAt: story.createdAt,
     description: story.description,
-    excerpt: story.excerpt,
     status: story.status,
     tags: resolveTags(story.tagSlugs),
     chaptersCount: getChaptersForStory(story.id).length,
@@ -448,7 +436,6 @@ function toChapterDetails(chapter: ChapterRecord): ChapterDetails {
     storySlug: story.slug,
     storyTitle: story.title,
     storyDescription: story.description,
-    storyExcerpt: story.excerpt,
     storyTags: resolveTags(story.tagSlugs),
     storyChapters: getChaptersForStory(story.id).map(toChapterListItem),
     number: chapter.number,
@@ -597,7 +584,6 @@ export function createStoryRecord(payload: CreateStoryPayload) {
     slug: uniqueStorySlug(payload.title),
     title: payload.title,
     description: payload.description ?? "",
-    excerpt: payload.excerpt ?? "",
     status: "draft",
     tagSlugs: resolveTagSlugsFromPayload(payload),
     createdAt: timestamp,
@@ -636,7 +622,6 @@ export function updateStoryRecord(storyId: string, payload: UpdateStoryPayload) 
     story.slug = uniqueStorySlug(payload.title, story.id);
   }
   story.description = payload.description ?? story.description;
-  story.excerpt = payload.excerpt ?? story.excerpt;
   if (payload.tags || payload.tagIds) {
     story.tagSlugs = resolveTagSlugsFromPayload(payload);
   }
@@ -653,18 +638,24 @@ export function deleteStoryRecord(storyId: string) {
     return false;
   }
 
+  const chapterIds = db.chapters.filter((chapter) => chapter.storyId === storyId).map((chapter) => chapter.id);
+
   db.stories.splice(storyIndex, 1);
+  db.comments = db.comments.filter((comment) => !chapterIds.includes(comment.chapterId));
   db.chapters = db.chapters.filter((chapter) => chapter.storyId !== storyId);
-  db.comments = db.comments.filter((comment) => comment.storyId !== storyId);
   db.aiJobs = db.aiJobs.filter((job) => db.chapters.some((chapter) => chapter.id === job.chapterId));
 
   return true;
 }
 
 function toStoryComment(comment: CommentRecord, viewerUserId?: number): StoryComment {
+  const chapter = db.chapters.find((item) => item.id === comment.chapterId);
+  const storyId = chapter?.storyId ?? "";
+
   return {
     id: comment.id,
-    storyId: comment.storyId,
+    storyId,
+    chapterId: comment.chapterId,
     author: {
       id: comment.authorId,
       username: comment.authorUsername,
@@ -679,24 +670,34 @@ function toStoryComment(comment: CommentRecord, viewerUserId?: number): StoryCom
 }
 
 export function getStoryComments(storyId: string, viewerUserId?: number) {
+  const chapterIds = db.chapters.filter((chapter) => chapter.storyId === storyId).map((chapter) => chapter.id);
+
   return db.comments
-    .filter((comment) => comment.storyId === storyId)
+    .filter((comment) => chapterIds.includes(comment.chapterId))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     .map((comment) => toStoryComment(comment, viewerUserId));
 }
 
-export function addStoryCommentRecord(storyId: string, payload: CreateStoryCommentPayload, user: AuthUser) {
-  const story = db.stories.find((item) => item.id === storyId);
+export function getChapterComments(chapterId: string, viewerUserId?: number) {
+  return db.comments
+    .filter((comment) => comment.chapterId === chapterId)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map((comment) => toStoryComment(comment, viewerUserId));
+}
+
+export function addChapterCommentRecord(chapterId: string, payload: CreateStoryCommentPayload, user: AuthUser) {
+  const chapter = db.chapters.find((item) => item.id === chapterId);
+  const story = chapter ? db.stories.find((item) => item.id === chapter.storyId) : undefined;
   const content = payload.content.trim();
 
-  if (!story || !content) {
+  if (!chapter || !story || !content) {
     return null;
   }
 
   const timestamp = nowIso();
   const comment: CommentRecord = {
     id: `comment-${db.commentSeed}`,
-    storyId,
+    chapterId,
     authorId: user.id,
     authorUsername: user.username,
     authorEmail: user.email,
@@ -720,7 +721,8 @@ export function deleteStoryCommentRecord(commentId: string, viewerUserId: number
   }
 
   const [removed] = db.comments.splice(commentIndex, 1);
-  const story = db.stories.find((item) => item.id === removed.storyId);
+  const chapter = db.chapters.find((item) => item.id === removed.chapterId);
+  const story = chapter ? db.stories.find((item) => item.id === chapter.storyId) : undefined;
 
   if (story && story.commentsCount > 0) {
     story.commentsCount -= 1;
@@ -730,13 +732,16 @@ export function deleteStoryCommentRecord(commentId: string, viewerUserId: number
 }
 
 function toToggleLikeResult(story: StoryRecord, viewerUserId: number): ToggleLikeResult {
+  const liked = story.likedByUserIds.includes(viewerUserId);
+
   return {
     storyId: story.id,
     likesCount: story.likesCount,
+    likedByMe: liked,
     commentsCount: story.commentsCount,
     bookmarksCount: story.bookmarksCount,
     viewsCount: story.viewsCount,
-    viewerHasLiked: story.likedByUserIds.includes(viewerUserId),
+    viewerHasLiked: liked,
   };
 }
 

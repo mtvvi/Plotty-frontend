@@ -37,26 +37,25 @@ interface BackendStory {
 }
 
 interface BackendStoryListItem extends BackendStory {
-  tags: StoryTag[];
+  tags?: StoryTag[];
   chaptersCount: number;
   coverImageUrl?: string;
   firstChapterId?: string;
   description?: string;
-  excerpt?: string;
   status?: StoryDetails["status"];
   likesCount?: number;
   commentsCount?: number;
   bookmarksCount?: number;
   viewsCount?: number;
   viewerHasLiked?: boolean;
+  likedByMe?: boolean;
   updatedLabel?: string;
 }
 
 interface BackendStoryDetails extends BackendStory {
-  tags: StoryTag[];
+  tags?: StoryTag[];
   coverImageUrl?: string;
   description?: string;
-  excerpt?: string;
   status?: StoryDetails["status"];
   fandom?: string;
   pairing?: string;
@@ -70,7 +69,9 @@ interface BackendStoryDetails extends BackendStory {
   summaryLabel?: string;
   readLabel?: string;
   updatedLabel?: string;
-  chapters: Array<{
+  likedByMe?: boolean;
+  viewerHasLiked?: boolean;
+  chapters?: Array<{
     id: string;
     title: string;
     updatedAt: string;
@@ -99,19 +100,14 @@ interface BackendStoriesResponse {
   };
 }
 
-interface BackendStoryComment {
+interface BackendChapterComment {
   id: string;
-  storyId: string;
-  author: {
-    id: number;
-    username: string;
-    email: string;
-    avatarUrl?: string | null;
-  };
+  chapterId: string;
+  userId: number;
+  username: string;
+  avatarUrl?: string | null;
   content: string;
   createdAt: string;
-  updatedAt: string;
-  viewerCanDelete?: boolean;
 }
 
 const STORY_LOOKUP_PAGE_SIZE = 100;
@@ -122,7 +118,7 @@ export const storyKeys = {
   list: (query: StoriesQuery) => ["stories", "list", query] as const,
   details: (slug: string) => ["stories", "details", slug] as const,
   detailsById: (storyId: string) => ["stories", "details-by-id", storyId] as const,
-  comments: (storyId: string) => ["stories", "comments", storyId] as const,
+  chapterComments: (chapterId: string) => ["stories", "chapter-comments", chapterId] as const,
   chapter: (chapterId: string) => ["stories", "chapter", chapterId] as const,
   chapterEditor: (storyId: string, chapterId: string) => ["stories", "chapter-editor", storyId, chapterId] as const,
   aiJob: (jobId: string) => ["stories", "ai-job", jobId] as const,
@@ -137,34 +133,37 @@ function getTagName(tags: StoryTag[], category: string) {
 }
 
 function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
+  const tags = item.tags ?? [];
+
   return {
     id: item.id,
     slug: item.slug,
     title: item.title,
     coverImageUrl: item.coverImageUrl,
     firstChapterId: item.firstChapterId,
-    tags: item.tags,
+    tags,
     chaptersCount: item.chaptersCount,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     description: item.description,
-    excerpt: item.excerpt,
     status: item.status,
-    fandom: getTagName(item.tags, "directionality"),
-    ratingLabel: getTagName(item.tags, "rating"),
-    statusLabel: getTagName(item.tags, "completion"),
-    sizeLabel: getTagName(item.tags, "size"),
+    fandom: getTagName(tags, "directionality"),
+    ratingLabel: getTagName(tags, "rating"),
+    statusLabel: getTagName(tags, "completion"),
+    sizeLabel: getTagName(tags, "size"),
     likesCount: item.likesCount,
     commentsCount: item.commentsCount,
-    bookmarksCount: item.bookmarksCount,
+    // bookmarksCount: item.bookmarksCount,
     viewsCount: item.viewsCount,
-    viewerHasLiked: item.viewerHasLiked,
+    viewerHasLiked: item.viewerHasLiked ?? item.likedByMe,
     updatedLabel: item.updatedLabel,
   };
 }
 
 function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
-  const chapters: ChapterListItem[] = item.chapters.map((chapter, index) => ({
+  const chapterRows = item.chapters ?? [];
+  const tags = item.tags ?? [];
+  const chapters: ChapterListItem[] = chapterRows.map((chapter, index) => ({
     id: chapter.id,
     number: index + 1,
     title: chapter.title,
@@ -177,26 +176,26 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     id: item.id,
     slug: item.slug,
     title: item.title,
-    coverImageUrl: item.coverImageUrl ?? item.chapters.find((chapter) => chapter.imageUrl)?.imageUrl,
-    tags: item.tags,
+    coverImageUrl: item.coverImageUrl ?? chapterRows.find((chapter) => chapter.imageUrl)?.imageUrl,
+    tags,
     chapters,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     description: item.description,
-    excerpt: item.excerpt,
     status: item.status,
-    fandom: item.fandom ?? getTagName(item.tags, "directionality"),
+    fandom: item.fandom ?? getTagName(tags, "directionality"),
     pairing: item.pairing,
-    ratingLabel: item.ratingLabel ?? getTagName(item.tags, "rating"),
-    statusLabel: item.statusLabel ?? getTagName(item.tags, "completion"),
-    sizeLabel: item.sizeLabel ?? getTagName(item.tags, "size"),
+    ratingLabel: item.ratingLabel ?? getTagName(tags, "rating"),
+    statusLabel: item.statusLabel ?? getTagName(tags, "completion"),
+    sizeLabel: item.sizeLabel ?? getTagName(tags, "size"),
     likesCount: item.likesCount,
     commentsCount: item.commentsCount,
-    bookmarksCount: item.bookmarksCount,
+    // bookmarksCount: item.bookmarksCount,
     aiHint: item.aiHint,
     summaryLabel: item.summaryLabel,
     readLabel: item.readLabel,
     updatedLabel: item.updatedLabel,
+    viewerHasLiked: item.viewerHasLiked ?? item.likedByMe,
   };
 }
 
@@ -215,20 +214,20 @@ function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
   };
 }
 
-function mapStoryComment(comment: BackendStoryComment): StoryComment {
+function mapChapterComment(comment: BackendChapterComment, storyId: string): StoryComment {
   return {
     id: comment.id,
-    storyId: comment.storyId,
+    storyId,
+    chapterId: comment.chapterId,
     author: {
-      id: comment.author.id,
-      username: comment.author.username,
-      email: comment.author.email,
-      avatarUrl: comment.author.avatarUrl,
+      id: comment.userId,
+      username: comment.username,
+      email: "",
+      avatarUrl: comment.avatarUrl,
     },
     content: comment.content,
     createdAt: comment.createdAt,
-    updatedAt: comment.updatedAt,
-    viewerCanDelete: comment.viewerCanDelete,
+    updatedAt: comment.createdAt,
   };
 }
 
@@ -319,17 +318,23 @@ export function storyDetailsByIdQueryOptions(storyId: string) {
   });
 }
 
-export function storyCommentsQueryOptions(storyId: string) {
+async function fetchChapterCommentsPage(chapterId: string) {
+  const params = new URLSearchParams({ page: "1", pageSize: "100" });
+
+  return fetchJson<{ items: BackendChapterComment[] }>(`/chapters/${chapterId}/comments?${params.toString()}`);
+}
+
+export function chapterCommentsQueryOptions(storyId: string, chapterId: string) {
   return queryOptions({
-    queryKey: storyKeys.comments(storyId),
+    queryKey: storyKeys.chapterComments(chapterId),
     queryFn: async (): Promise<StoryCommentsResponse> => {
-      const response = await fetchJson<{ items: BackendStoryComment[] }>(`/stories/${storyId}/comments`);
+      const response = await fetchChapterCommentsPage(chapterId);
 
       return {
-        items: response.items.map(mapStoryComment),
+        items: response.items.map((comment) => mapChapterComment(comment, storyId)),
       };
     },
-    enabled: Boolean(storyId),
+    enabled: Boolean(storyId && chapterId),
   });
 }
 
@@ -377,21 +382,24 @@ export function createStory(payload: CreateStoryPayload) {
     body: JSON.stringify({
       title: payload.title,
       tagIds: payload.tagIds ?? [],
-      description: payload.description,
-      excerpt: payload.excerpt,
     }),
   }).then(mapStoryDetails);
 }
 
 export function updateStory(storyId: string, payload: UpdateStoryPayload) {
+  const body: { title?: string; tagIds?: string[] } = {};
+
+  if (payload.title !== undefined) {
+    body.title = payload.title;
+  }
+
+  if (payload.tagIds !== undefined) {
+    body.tagIds = payload.tagIds;
+  }
+
   return fetchJson<BackendStoryDetails>(`/stories/${storyId}`, {
     method: "PATCH",
-    body: JSON.stringify({
-      title: payload.title,
-      description: payload.description,
-      excerpt: payload.excerpt,
-      tagIds: payload.tagIds,
-    }),
+    body: JSON.stringify(body),
   }).then(mapStoryDetails);
 }
 
@@ -422,22 +430,30 @@ export function deleteChapter(chapterId: string) {
 }
 
 export function likeStory(storyId: string) {
-  return fetchJson<ToggleLikeResult>(`/stories/${storyId}/like`, {
+  return fetchJson<{ likesCount: number; likedByMe: boolean }>(`/stories/${storyId}/like`, {
     method: "POST",
-  });
+  }).then((response) => ({
+    likesCount: response.likesCount,
+    viewerHasLiked: response.likedByMe,
+    storyId,
+  }));
 }
 
 export function unlikeStory(storyId: string) {
-  return fetchJson<ToggleLikeResult>(`/stories/${storyId}/like`, {
+  return fetchJson<{ likesCount: number; likedByMe: boolean }>(`/stories/${storyId}/like`, {
     method: "DELETE",
-  });
+  }).then((response) => ({
+    likesCount: response.likesCount,
+    viewerHasLiked: response.likedByMe,
+    storyId,
+  }));
 }
 
-export function addStoryComment(storyId: string, payload: CreateStoryCommentPayload) {
-  return fetchJson<BackendStoryComment>(`/stories/${storyId}/comments`, {
+export function addChapterComment(storyId: string, chapterId: string, payload: CreateStoryCommentPayload) {
+  return fetchJson<BackendChapterComment>(`/chapters/${chapterId}/comments`, {
     method: "POST",
     body: JSON.stringify(payload),
-  }).then(mapStoryComment);
+  }).then((comment) => mapChapterComment(comment, storyId));
 }
 
 export function deleteStoryComment(commentId: string) {
@@ -462,7 +478,11 @@ export function startImageGeneration(payload: ImageGenerationPayload) {
 
 type StorySummaryFields = Pick<
   StoryListItem,
-  "likesCount" | "commentsCount" | "bookmarksCount" | "viewsCount" | "viewerHasLiked"
+  | "likesCount"
+  | "commentsCount"
+  // | "bookmarksCount"
+  | "viewsCount"
+  | "viewerHasLiked"
 >;
 
 export function patchStorySummaryCaches(

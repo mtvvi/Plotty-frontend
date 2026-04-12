@@ -33,14 +33,12 @@ type StoryFlowStage = "details" | "taxonomy" | "review";
 interface StorySettingsValues {
   title: string;
   description: string;
-  excerpt: string;
   selectedTagIds: string[];
 }
 
 const initialStoryValues: StorySettingsValues = {
   title: "",
   description: "",
-  excerpt: "",
   selectedTagIds: [],
 };
 
@@ -83,9 +81,7 @@ export function StoryCreateFlowScreen() {
       createChapter(storyId, { title, content }),
   });
 
-  const canAdvanceFromDetails = Boolean(
-    storyValues.title.trim() && storyValues.description.trim() && storyValues.excerpt.trim(),
-  );
+  const canAdvanceFromDetails = Boolean(storyValues.title.trim() && storyValues.description.trim());
   const canAdvanceFromTaxonomy = requiredCategoryOrder.every((category) =>
     (groupedTags[category] ?? []).some((tag) => selectedTagIds.has(tag.id)),
   );
@@ -100,7 +96,6 @@ export function StoryCreateFlowScreen() {
       const story = await createStoryMutation.mutateAsync({
         title: storyValues.title.trim(),
         description: storyValues.description.trim(),
-        excerpt: storyValues.excerpt.trim(),
         tagIds: storyValues.selectedTagIds,
       });
 
@@ -142,7 +137,7 @@ export function StoryCreateFlowScreen() {
           <div className="grid gap-2 sm:grid-cols-3">
             <FlowStepButton
               number={1}
-              label="Название, описание и тизер"
+              label="Название и описание"
               active={!createdStory && stage === "details"}
               complete={canAdvanceFromDetails}
               onClick={() => setStage("details")}
@@ -177,7 +172,7 @@ export function StoryCreateFlowScreen() {
         {!createdStory ? (
           <>
             {stage === "details" ? (
-              <ShellCard title="Название, описание и тизер">
+              <ShellCard title="Название и описание">
                 <div className="grid gap-5">
                   <Field>
                     <FieldLabel htmlFor="story-create-title">Название истории</FieldLabel>
@@ -197,17 +192,6 @@ export function StoryCreateFlowScreen() {
                       onChange={(event) => updateStoryField(setStoryValues, "description", event.target.value)}
                       placeholder="О чем эта история"
                       className="min-h-32"
-                    />
-                  </Field>
-
-                  <Field>
-                    <FieldLabel htmlFor="story-create-excerpt">Тизер</FieldLabel>
-                    <Textarea
-                      id="story-create-excerpt"
-                      value={storyValues.excerpt}
-                      onChange={(event) => updateStoryField(setStoryValues, "excerpt", event.target.value)}
-                      placeholder="Короткий тизер для каталога"
-                      className="min-h-28"
                     />
                   </Field>
 
@@ -257,7 +241,6 @@ export function StoryCreateFlowScreen() {
                         <div className="mt-2 text-xl font-semibold text-[var(--plotty-ink)]">{storyValues.title}</div>
                       </div>
                       <SummaryTextBlock label="Описание" value={storyValues.description} />
-                      <SummaryTextBlock label="Тизер" value={storyValues.excerpt} />
                     </div>
 
                     <div className="space-y-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4 sm:p-5">
@@ -305,7 +288,6 @@ export function StoryCreateFlowScreen() {
             <ShellCard title={createdStory.title}>
               <div className="space-y-4">
                 <SummaryTextBlock label="Описание" value={createdStory.description || storyValues.description} />
-                <SummaryTextBlock label="Тизер" value={createdStory.excerpt || storyValues.excerpt} />
 
                 <div className="space-y-3">
                   {storyTagCategoryOrder.map((category) => {

@@ -61,10 +61,7 @@ export function StoryCreateScreen() {
     selectedStoryFirstChapterQuery.data?.imageUrl;
   const selectedStoryTextOverride = selectedStoryQuery.data ? getStoryTextOverride(selectedStoryQuery.data.id) : undefined;
   const selectedStoryDescription =
-    selectedStoryTextOverride?.description ??
-    selectedStoryQuery.data?.description ??
-    selectedStoryQuery.data?.excerpt ??
-    "Описание истории пока не заполнено.";
+    selectedStoryTextOverride?.description ?? selectedStoryQuery.data?.description ?? "Описание истории пока не заполнено.";
 
   const activeStoryTags = useMemo(
     () =>

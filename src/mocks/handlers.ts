@@ -19,14 +19,14 @@ import {
   deleteStoryCommentRecord,
   deleteChapterRecord,
   deleteStoryRecord,
-  getStoryComments,
+  getChapterComments,
   getAiJob,
   getChapterById,
   getStoryBySlug,
   likeStoryRecord,
   listTags,
   listStories,
-  addStoryCommentRecord,
+  addChapterCommentRecord,
   unlikeStoryRecord,
   updateChapterRecord,
   updateStoryRecord,
@@ -127,15 +127,24 @@ export const handlers = [
     return HttpResponse.json(story);
   }),
 
-  http.get("*/stories/:storyId/comments", ({ params }) => {
+  http.get("*/chapters/:chapterId/comments", ({ request, params }) => {
     const session = getMockSession();
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get("page") ?? 1);
+    const pageSize = Number(url.searchParams.get("pageSize") ?? 20);
+    const items = getChapterComments(String(params.chapterId), session?.user.id);
 
     return HttpResponse.json({
-      items: getStoryComments(String(params.storyId), session?.user.id),
+      items,
+      pagination: {
+        page: page > 0 ? page : 1,
+        pageSize: pageSize > 0 ? pageSize : 20,
+        total: items.length,
+      },
     });
   }),
 
-  http.post("*/stories/:storyId/comments", async ({ params, request }) => {
+  http.post("*/chapters/:chapterId/comments", async ({ params, request }) => {
     const session = getMockSession();
 
     if (!session) {
@@ -143,10 +152,10 @@ export const handlers = [
     }
 
     const payload = (await request.json()) as CreateStoryCommentPayload;
-    const comment = addStoryCommentRecord(String(params.storyId), payload, session.user);
+    const comment = addChapterCommentRecord(String(params.chapterId), payload, session.user);
 
     if (!comment) {
-      return HttpResponse.json({ message: "Story not found" }, { status: 404 });
+      return HttpResponse.json({ message: "Chapter not found" }, { status: 404 });
     }
 
     return HttpResponse.json(comment, { status: 201 });

@@ -36,14 +36,12 @@ type StoryEditStage = "details" | "taxonomy" | "review";
 export interface StorySettingsValues {
   title: string;
   description: string;
-  excerpt: string;
   selectedTagIds: string[];
 }
 
 const emptyValues: StorySettingsValues = {
   title: "",
   description: "",
-  excerpt: "",
   selectedTagIds: [],
 };
 
@@ -61,7 +59,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
       updateStory(targetStoryId, {
         title: targetPayload.title.trim(),
         description: targetPayload.description.trim(),
-        excerpt: targetPayload.excerpt.trim(),
         tagIds: targetPayload.selectedTagIds,
       }),
   });
@@ -79,7 +76,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
     setValues({
       title: storyQuery.data.title,
       description: textOverride?.description ?? storyQuery.data.description ?? "",
-      excerpt: textOverride?.excerpt ?? storyQuery.data.excerpt ?? "",
       selectedTagIds: storyQuery.data.tags.map((tag) => tag.id),
     });
   }, [storyQuery.data]);
@@ -98,7 +94,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
     [availableTags, selectedTagIds],
   );
   const selectedTagsByCategory = useMemo(() => groupStoryTags(selectedTags), [selectedTags]);
-  const canAdvanceFromDetails = Boolean(values.title.trim() && values.description.trim() && values.excerpt.trim());
+  const canAdvanceFromDetails = Boolean(values.title.trim() && values.description.trim());
   const canAdvanceFromTaxonomy = requiredCategoryOrder.every((category) =>
     (groupedTags[category] ?? []).some((tag) => selectedTagIds.has(tag.id)),
   );
@@ -106,11 +102,9 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
   async function handleSave() {
     try {
       const nextDescription = values.description.trim();
-      const nextExcerpt = values.excerpt.trim();
 
       setStoryTextOverride(storyId, {
         description: nextDescription,
-        excerpt: nextExcerpt,
       });
 
       queryClient.setQueryData<StoryDetails | undefined>(storyKeys.detailsById(storyId), (current) =>
@@ -119,7 +113,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
               ...current,
               title: values.title.trim(),
               description: nextDescription,
-              excerpt: nextExcerpt,
             }
           : current,
       );
@@ -131,7 +124,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
                 ...current,
                 title: values.title.trim(),
                 description: nextDescription,
-                excerpt: nextExcerpt,
               }
             : current,
         );
@@ -147,7 +139,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
                       ...item,
                       title: values.title.trim(),
                       description: nextDescription,
-                      excerpt: nextExcerpt,
                       tags: availableTags.filter((tag) => values.selectedTagIds.includes(tag.id)),
                     }
                   : item,
@@ -162,7 +153,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
           ...values,
           title: values.title.trim(),
           description: nextDescription,
-          excerpt: nextExcerpt,
         },
       });
 
@@ -218,7 +208,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
           <div className="grid gap-2 sm:grid-cols-3">
             <FlowStepButton
               number={1}
-              label="Название, описание и тизер"
+              label="Название и описание"
               active={stage === "details"}
               complete={canAdvanceFromDetails}
               onClick={() => setStage("details")}
@@ -250,7 +240,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
         </ShellCard>
 
         {stage === "details" ? (
-          <ShellCard title="Название, описание и тизер">
+          <ShellCard title="Название и описание">
             <div className="grid gap-5">
               <Field>
                 <FieldLabel htmlFor="story-settings-title">Название истории</FieldLabel>
@@ -270,17 +260,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
                   onChange={(event) => updateStoryField(setValues, "description", event.target.value)}
                   placeholder="О чем эта история"
                   className="min-h-32"
-                />
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="story-settings-excerpt">Тизер</FieldLabel>
-                <Textarea
-                  id="story-settings-excerpt"
-                  value={values.excerpt}
-                  onChange={(event) => updateStoryField(setValues, "excerpt", event.target.value)}
-                  placeholder="Короткий тизер для каталога"
-                  className="min-h-28"
                 />
               </Field>
 
@@ -331,7 +310,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
                       <div className="mt-2 text-xl font-semibold text-[var(--plotty-ink)]">{values.title}</div>
                     </div>
                     <SummaryTextBlock label="Описание" value={values.description} />
-                    <SummaryTextBlock label="Тизер" value={values.excerpt} />
                   </div>
 
                   <div className="space-y-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4 sm:p-5">
