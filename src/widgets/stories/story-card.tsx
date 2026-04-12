@@ -13,7 +13,6 @@ import {
   unlikeStory,
 } from "@/entities/story/api/stories-api";
 import type { StoryListItem } from "@/entities/story/model/types";
-import { getStoryTextOverride } from "@/entities/story/model/story-text-cache";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { StoryCoverPreview } from "./story-cover-preview";
@@ -46,8 +45,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
     story.coverImageUrl ??
     storyDetailsQuery.data?.coverImageUrl ??
     firstChapterQuery.data?.imageUrl;
-  const textOverride = getStoryTextOverride(story.id);
-  const catalogTeaser = textOverride?.description ?? story.description;
+  const catalogTeaser = story.description;
   const updatedLabel = story.updatedLabel ?? `Обновлена ${new Date(story.updatedAt).toLocaleDateString("ru-RU")}`;
   const viewerHasLiked = Boolean(story.viewerHasLiked);
   const genres = useMemo(() => story.tags.filter((tag) => tag.category === "genre"), [story.tags]);

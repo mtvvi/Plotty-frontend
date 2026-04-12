@@ -109,14 +109,12 @@ export interface StoriesResponse {
 export interface CreateStoryPayload {
   title: string;
   tagIds?: string[];
-  description?: string;
   tags?: string[];
 }
 
 export interface UpdateStoryPayload {
   title?: string;
   tagIds?: string[];
-  description?: string;
   tags?: string[];
 }
 
@@ -187,7 +185,6 @@ export interface StoryCommentAuthor {
 export interface StoryComment {
   id: string;
   storyId: string;
-  /** Present when the comment comes from the chapter-scoped API */
   chapterId?: string;
   author: StoryCommentAuthor;
   content: string;
@@ -207,7 +204,6 @@ export interface CreateStoryCommentPayload {
 export interface ToggleLikeResult {
   storyId: string;
   likesCount: number;
-  /** Present on the wire from the backend; normalized to `viewerHasLiked` in API helpers */
   likedByMe?: boolean;
   commentsCount?: number;
   bookmarksCount?: number;

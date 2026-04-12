@@ -12,7 +12,7 @@ import {
   storyKeys,
 } from "@/entities/story/api/stories-api";
 import { defaultStoriesQuery } from "@/entities/story/model/story-query";
-import { getStoryTextOverride } from "@/entities/story/model/story-text-cache";
+import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
@@ -59,9 +59,9 @@ export function StoryCreateScreen() {
   const selectedStoryDisplayCover =
     selectedStoryQuery.data?.coverImageUrl ??
     selectedStoryFirstChapterQuery.data?.imageUrl;
-  const selectedStoryTextOverride = selectedStoryQuery.data ? getStoryTextOverride(selectedStoryQuery.data.id) : undefined;
-  const selectedStoryDescription =
-    selectedStoryTextOverride?.description ?? selectedStoryQuery.data?.description ?? "Описание истории пока не заполнено.";
+  const selectedStoryDescription = selectedStoryQuery.data?.description?.trim()
+    ? selectedStoryQuery.data.description
+    : STORY_ANNOTATION_PLACEHOLDER;
 
   const activeStoryTags = useMemo(
     () =>

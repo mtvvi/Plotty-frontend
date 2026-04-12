@@ -13,8 +13,8 @@ import {
   updateStory,
 } from "@/entities/story/api/stories-api";
 import type { StoriesResponse, StoryDetails, StoryTag } from "@/entities/story/model/types";
-import { getStoryTextOverride, setStoryTextOverride } from "@/entities/story/model/story-text-cache";
 import { isAuthError } from "@/shared/api/fetch-json";
+import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
 import {
   getStoryTagCategoryLabel,
@@ -27,21 +27,17 @@ import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
-import { Textarea } from "@/shared/ui/textarea";
-
 import { PlottyShell, ShellCard } from "./plotty-shell";
 
 type StoryEditStage = "details" | "taxonomy" | "review";
 
 export interface StorySettingsValues {
   title: string;
-  description: string;
   selectedTagIds: string[];
 }
 
 const emptyValues: StorySettingsValues = {
   title: "",
-  description: "",
   selectedTagIds: [],
 };
 
@@ -58,7 +54,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
     mutationFn: ({ targetStoryId, targetPayload }: { targetStoryId: string; targetPayload: StorySettingsValues }) =>
       updateStory(targetStoryId, {
         title: targetPayload.title.trim(),
-        description: targetPayload.description.trim(),
         tagIds: targetPayload.selectedTagIds,
       }),
   });
@@ -71,11 +66,8 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
       return;
     }
 
-    const textOverride = getStoryTextOverride(storyQuery.data.id);
-
     setValues({
       title: storyQuery.data.title,
-      description: textOverride?.description ?? storyQuery.data.description ?? "",
       selectedTagIds: storyQuery.data.tags.map((tag) => tag.id),
     });
   }, [storyQuery.data]);
@@ -94,25 +86,18 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
     [availableTags, selectedTagIds],
   );
   const selectedTagsByCategory = useMemo(() => groupStoryTags(selectedTags), [selectedTags]);
-  const canAdvanceFromDetails = Boolean(values.title.trim() && values.description.trim());
+  const canAdvanceFromDetails = Boolean(values.title.trim());
   const canAdvanceFromTaxonomy = requiredCategoryOrder.every((category) =>
     (groupedTags[category] ?? []).some((tag) => selectedTagIds.has(tag.id)),
   );
 
   async function handleSave() {
     try {
-      const nextDescription = values.description.trim();
-
-      setStoryTextOverride(storyId, {
-        description: nextDescription,
-      });
-
       queryClient.setQueryData<StoryDetails | undefined>(storyKeys.detailsById(storyId), (current) =>
         current
           ? {
               ...current,
               title: values.title.trim(),
-              description: nextDescription,
             }
           : current,
       );
@@ -123,7 +108,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
             ? {
                 ...current,
                 title: values.title.trim(),
-                description: nextDescription,
               }
             : current,
         );
@@ -138,7 +122,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
                   ? {
                       ...item,
                       title: values.title.trim(),
-                      description: nextDescription,
                       tags: availableTags.filter((tag) => values.selectedTagIds.includes(tag.id)),
                     }
                   : item,
@@ -152,7 +135,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
         targetPayload: {
           ...values,
           title: values.title.trim(),
-          description: nextDescription,
         },
       });
 
@@ -208,7 +190,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
           <div className="grid gap-2 sm:grid-cols-3">
             <FlowStepButton
               number={1}
-              label="Название и описание"
+              label="Название"
               active={stage === "details"}
               complete={canAdvanceFromDetails}
               onClick={() => setStage("details")}
@@ -240,7 +222,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
         </ShellCard>
 
         {stage === "details" ? (
-          <ShellCard title="Название и описание">
+          <ShellCard title="Название">
             <div className="grid gap-5">
               <Field>
                 <FieldLabel htmlFor="story-settings-title">Название истории</FieldLabel>
@@ -252,16 +234,14 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
                 />
               </Field>
 
-              <Field>
-                <FieldLabel htmlFor="story-settings-description">Описание</FieldLabel>
-                <Textarea
-                  id="story-settings-description"
-                  value={values.description}
-                  onChange={(event) => updateStoryField(setValues, "description", event.target.value)}
-                  placeholder="О чем эта история"
-                  className="min-h-32"
-                />
-              </Field>
+              <div className="rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
+                <div className="plotty-kicker">Аннотация</div>
+                <p className="mt-2 text-sm leading-6 text-[var(--plotty-muted)]">
+                  {storyQuery.data.description?.trim()
+                    ? storyQuery.data.description
+                    : STORY_ANNOTATION_PLACEHOLDER}
+                </p>
+              </div>
 
               <div className="flex justify-end border-t border-[var(--plotty-line)] pt-5">
                 <Button variant="primary" disabled={!canAdvanceFromDetails} onClick={() => setStage("taxonomy")}>
@@ -309,7 +289,14 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
                       <div className="plotty-kicker">Название</div>
                       <div className="mt-2 text-xl font-semibold text-[var(--plotty-ink)]">{values.title}</div>
                     </div>
-                    <SummaryTextBlock label="Описание" value={values.description} />
+                    <div className="space-y-1.5">
+                      <div className="plotty-kicker">Аннотация</div>
+                      <p className="text-sm leading-6 text-[var(--plotty-muted)]">
+                        {storyQuery.data.description?.trim()
+                          ? storyQuery.data.description
+                          : STORY_ANNOTATION_PLACEHOLDER}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="space-y-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4 sm:p-5">
@@ -428,15 +415,6 @@ function TagCategoryCard({
           </Chip>
         ))}
       </div>
-    </div>
-  );
-}
-
-function SummaryTextBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="plotty-kicker">{label}</div>
-      <p className="text-sm leading-6 text-[var(--plotty-muted)]">{value}</p>
     </div>
   );
 }

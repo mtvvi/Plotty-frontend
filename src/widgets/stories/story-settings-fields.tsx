@@ -10,11 +10,9 @@ import {
 import { Chip } from "@/shared/ui/chip";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
-import { Textarea } from "@/shared/ui/textarea";
 
 export interface StorySettingsValues {
   title: string;
-  description: string;
   selectedTagIds: string[];
 }
 
@@ -22,12 +20,10 @@ export function StorySettingsFields({
   values,
   availableTags,
   onChange,
-  includeSummaryFields = true,
 }: {
   values: StorySettingsValues;
   availableTags: StoryTag[];
   onChange: (next: StorySettingsValues) => void;
-  includeSummaryFields?: boolean;
 }) {
   const groupedTags = groupStoryTags(availableTags);
   const orderedGroups = storyTagCategoryOrder
@@ -63,22 +59,6 @@ export function StorySettingsFields({
           placeholder="Название истории"
         />
       </Field>
-
-      {includeSummaryFields ? (
-        <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4 sm:p-5">
-          <div className="plotty-section-title">Описание</div>
-          <Field>
-            <FieldLabel htmlFor="story-settings-description">Описание</FieldLabel>
-            <Textarea
-              id="story-settings-description"
-              value={values.description}
-              onChange={(event) => update("description", event.target.value)}
-              placeholder="Короткое описание истории"
-              className="min-h-32"
-            />
-          </Field>
-        </div>
-      ) : null}
 
       <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-white/62 p-4 sm:p-5">
         <div className="plotty-section-title">Теги и категории</div>
