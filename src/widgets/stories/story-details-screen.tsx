@@ -239,7 +239,8 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 <p className="plotty-body max-w-4xl text-[16px] leading-8 text-[var(--plotty-ink)] lg:text-[17px]">
                   {storyDescription}
                 </p>
-                {story.aiHint ? (
+                {story.aiHint &&
+                story.aiHint.trim() !== (story.description ?? "").trim() ? (
                   <div className="rounded-[20px] border border-[rgba(54,81,63,0.1)] bg-[rgba(54,81,63,0.06)] p-4">
                     <div className="plotty-kicker text-[var(--plotty-olive)]">Сводка</div>
                     <p className="mt-2 text-sm leading-6 text-[var(--plotty-muted)]">{story.aiHint}</p>
