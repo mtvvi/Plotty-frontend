@@ -583,7 +583,7 @@ export function createStoryRecord(payload: CreateStoryPayload) {
     id: `story-${db.storySeed}`,
     slug: uniqueStorySlug(payload.title),
     title: payload.title,
-    description: payload.description ?? "",
+    description: "",
     status: "draft",
     tagSlugs: resolveTagSlugsFromPayload(payload),
     createdAt: timestamp,
@@ -621,7 +621,6 @@ export function updateStoryRecord(storyId: string, payload: UpdateStoryPayload) 
     story.title = payload.title;
     story.slug = uniqueStorySlug(payload.title, story.id);
   }
-  story.description = payload.description ?? story.description;
   if (payload.tags || payload.tagIds) {
     story.tagSlugs = resolveTagSlugsFromPayload(payload);
   }

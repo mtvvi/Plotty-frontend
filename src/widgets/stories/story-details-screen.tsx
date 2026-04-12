@@ -12,8 +12,8 @@ import {
   storyDetailsQueryOptions,
   unlikeStory,
 } from "@/entities/story/api/stories-api";
-import { getStoryTextOverride } from "@/entities/story/model/story-text-cache";
 import { isAuthError } from "@/shared/api/fetch-json";
+import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
@@ -71,9 +71,9 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
   const story = storyQuery.data;
 
-  const textOverride = getStoryTextOverride(story.id);
-  const storyDescription =
-    textOverride?.description ?? story.description ?? "Описание истории пока не заполнено.";
+  const storyDescription = story.description?.trim()
+    ? story.description
+    : STORY_ANNOTATION_PLACEHOLDER;
   const displayCoverImage =
     story.coverImageUrl ??
     firstChapterQuery.data?.imageUrl;

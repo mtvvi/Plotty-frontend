@@ -13,6 +13,7 @@ import {
 } from "@/entities/story/api/stories-api";
 import type { StoryDetails, StoryTag } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
+import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
 import {
   getStoryTagCategoryLabel,
@@ -32,13 +33,11 @@ type StoryFlowStage = "details" | "taxonomy" | "review";
 
 interface StorySettingsValues {
   title: string;
-  description: string;
   selectedTagIds: string[];
 }
 
 const initialStoryValues: StorySettingsValues = {
   title: "",
-  description: "",
   selectedTagIds: [],
 };
 
@@ -81,7 +80,7 @@ export function StoryCreateFlowScreen() {
       createChapter(storyId, { title, content }),
   });
 
-  const canAdvanceFromDetails = Boolean(storyValues.title.trim() && storyValues.description.trim());
+  const canAdvanceFromDetails = Boolean(storyValues.title.trim());
   const canAdvanceFromTaxonomy = requiredCategoryOrder.every((category) =>
     (groupedTags[category] ?? []).some((tag) => selectedTagIds.has(tag.id)),
   );
@@ -95,7 +94,6 @@ export function StoryCreateFlowScreen() {
     try {
       const story = await createStoryMutation.mutateAsync({
         title: storyValues.title.trim(),
-        description: storyValues.description.trim(),
         tagIds: storyValues.selectedTagIds,
       });
 
@@ -137,7 +135,7 @@ export function StoryCreateFlowScreen() {
           <div className="grid gap-2 sm:grid-cols-3">
             <FlowStepButton
               number={1}
-              label="Название и описание"
+              label="Название"
               active={!createdStory && stage === "details"}
               complete={canAdvanceFromDetails}
               onClick={() => setStage("details")}
@@ -172,7 +170,7 @@ export function StoryCreateFlowScreen() {
         {!createdStory ? (
           <>
             {stage === "details" ? (
-              <ShellCard title="Название и описание">
+              <ShellCard title="Название">
                 <div className="grid gap-5">
                   <Field>
                     <FieldLabel htmlFor="story-create-title">Название истории</FieldLabel>
@@ -184,16 +182,10 @@ export function StoryCreateFlowScreen() {
                     />
                   </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="story-create-description">Описание</FieldLabel>
-                    <Textarea
-                      id="story-create-description"
-                      value={storyValues.description}
-                      onChange={(event) => updateStoryField(setStoryValues, "description", event.target.value)}
-                      placeholder="О чем эта история"
-                      className="min-h-32"
-                    />
-                  </Field>
+                  <div className="rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
+                    <div className="plotty-kicker">Аннотация</div>
+                    <p className="mt-2 text-sm leading-6 text-[var(--plotty-muted)]">{STORY_ANNOTATION_PLACEHOLDER}</p>
+                  </div>
 
                   <div className="flex justify-end border-t border-[var(--plotty-line)] pt-5">
                     <Button variant="primary" disabled={!canAdvanceFromDetails} onClick={() => setStage("taxonomy")}>
@@ -240,7 +232,10 @@ export function StoryCreateFlowScreen() {
                         <div className="plotty-kicker">Название</div>
                         <div className="mt-2 text-xl font-semibold text-[var(--plotty-ink)]">{storyValues.title}</div>
                       </div>
-                      <SummaryTextBlock label="Описание" value={storyValues.description} />
+                      <div className="space-y-1.5">
+                        <div className="plotty-kicker">Аннотация</div>
+                        <p className="text-sm leading-6 text-[var(--plotty-muted)]">{STORY_ANNOTATION_PLACEHOLDER}</p>
+                      </div>
                     </div>
 
                     <div className="space-y-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4 sm:p-5">
@@ -287,7 +282,12 @@ export function StoryCreateFlowScreen() {
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             <ShellCard title={createdStory.title}>
               <div className="space-y-4">
-                <SummaryTextBlock label="Описание" value={createdStory.description || storyValues.description} />
+                <div className="space-y-1.5">
+                  <div className="plotty-kicker">Аннотация</div>
+                  <p className="text-sm leading-6 text-[var(--plotty-muted)]">
+                    {createdStory.description?.trim() ? createdStory.description : STORY_ANNOTATION_PLACEHOLDER}
+                  </p>
+                </div>
 
                 <div className="space-y-3">
                   {storyTagCategoryOrder.map((category) => {
@@ -408,15 +408,6 @@ function TagCategoryCard({
           </Chip>
         ))}
       </div>
-    </div>
-  );
-}
-
-function SummaryTextBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="plotty-kicker">{label}</div>
-      <p className="text-sm leading-6 text-[var(--plotty-muted)]">{value}</p>
     </div>
   );
 }

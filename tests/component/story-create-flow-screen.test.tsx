@@ -35,7 +35,6 @@ describe("StoryCreateFlowScreen", () => {
     expect(screen.getByRole("button", { name: /Теги и категории/i })).toBeDisabled();
 
     await user.type(screen.getByLabelText("Название истории"), "Новая история для теста");
-    await user.type(screen.getByLabelText("Описание"), "Описание новой истории");
 
     await user.click(screen.getByRole("button", { name: /^Далее$/i }));
 
