@@ -42,6 +42,7 @@ export interface ChapterListItem {
   title: string;
   updatedAt: string;
   number?: number;
+  status?: StoryStatus;
   wordCount?: number;
   hasImage?: boolean;
   imageUrl?: string;

@@ -1,9 +1,18 @@
 import { storyTags } from "@/shared/config/story-tags";
 
-import type { StoriesQuery, StoryListItem } from "./types";
+import type { ChapterListItem, StoriesQuery, StoryListItem } from "./types";
 
 export function isStoryInPublicCatalog(story: StoryListItem): boolean {
   return story.status === "published";
+}
+
+export function publicChaptersForReader(chapters: ChapterListItem[]): ChapterListItem[] {
+  const published = chapters.filter((ch) => (ch.status ?? "published") === "published");
+
+  return published.map((ch, index) => ({
+    ...ch,
+    number: index + 1,
+  }));
 }
 
 export const defaultStoriesQuery: StoriesQuery = {

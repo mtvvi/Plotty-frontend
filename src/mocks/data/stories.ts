@@ -381,6 +381,7 @@ function toChapterListItem(chapter: ChapterRecord): ChapterListItem {
     updatedAt: chapter.updatedAt,
     hasImage: Boolean(chapter.imageUrl),
     imageUrl: chapter.imageUrl,
+    status: chapter.status,
   };
 }
 

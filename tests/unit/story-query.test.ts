@@ -5,6 +5,7 @@ import {
   defaultStoriesQuery,
   isStoryInPublicCatalog,
   parseStoriesQuery,
+  publicChaptersForReader,
   serializeStoriesQuery,
 } from "@/entities/story/model/story-query";
 
@@ -26,6 +27,17 @@ describe("story query helpers", () => {
     expect(isStoryInPublicCatalog(minimalStory({ status: "published" }))).toBe(true);
     expect(isStoryInPublicCatalog(minimalStory({ status: "draft" }))).toBe(false);
     expect(isStoryInPublicCatalog(minimalStory({}))).toBe(false);
+  });
+
+  it("publicChaptersForReader drops drafts and renumbers", () => {
+    const chapters = [
+      { id: "a", title: "A", updatedAt: "", status: "draft" as const },
+      { id: "b", title: "B", updatedAt: "", status: "published" as const },
+      { id: "c", title: "C", updatedAt: "", status: "published" as const },
+    ];
+    const pub = publicChaptersForReader(chapters);
+    expect(pub.map((ch) => ch.id)).toEqual(["b", "c"]);
+    expect(pub.map((ch) => ch.number)).toEqual([1, 2]);
   });
 
   it("serializes repeated tag params and omits defaults", () => {

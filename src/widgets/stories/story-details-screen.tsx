@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -13,6 +13,7 @@ import {
   unlikeStory,
 } from "@/entities/story/api/stories-api";
 import { isAuthError } from "@/shared/api/fetch-json";
+import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
@@ -31,7 +32,11 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   const queryClient = useQueryClient();
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const [activeSection, setActiveSection] = useState<StorySection>(getInitialSection(searchParams.get("tab")));
-  const firstChapter = storyQuery.data?.chapters[0] ?? null;
+  const readerChapters = useMemo(
+    () => (storyQuery.data ? publicChaptersForReader(storyQuery.data.chapters) : []),
+    [storyQuery.data],
+  );
+  const firstChapter = readerChapters[0] ?? null;
   const firstChapterQuery = useQuery({
     ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
     staleTime: 30_000,
@@ -137,7 +142,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[14px] text-[var(--plotty-muted)]">
                   {story.fandom ? <span>{story.fandom}</span> : null}
                   {story.pairing ? <span>{story.pairing}</span> : null}
-                  <span>{story.chapters.length} {getChapterLabel(story.chapters.length)}</span>
+                  <span>{readerChapters.length} {getChapterLabel(readerChapters.length)}</span>
                 </div>
                 <p className="plotty-meta">
                   {story.updatedLabel ?? `Обновлена ${new Date(story.updatedAt).toLocaleString("ru-RU")}`}
@@ -164,7 +169,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     type="button"
                     variant="secondary"
                     onClick={() => setActiveSection("chapters")}
-                    disabled={!story.chapters.length}
+                    disabled={!readerChapters.length}
                   >
                     К главам
                   </Button>
@@ -182,9 +187,9 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     <StatHeartIcon />
                     <span>{formatCount(story.likesCount)}</span>
                   </button>
-                  {story.chapters[0] ? (
+                  {readerChapters[0] ? (
                     <Link
-                      href={`${routes.chapter(story.slug, story.chapters[0].number ?? 1)}#comments`}
+                      href={`${routes.chapter(story.slug, readerChapters[0].number ?? 1)}#comments`}
                       className="plotty-stat transition-colors"
                       aria-label="Комментарии"
                     >
@@ -259,9 +264,9 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
           ) : null}
 
           {activeSection === "chapters" ? (
-            story.chapters.length ? (
+            readerChapters.length ? (
               <div className="space-y-3">
-                {story.chapters.map((chapter) => (
+                {readerChapters.map((chapter) => (
                   <div
                     key={chapter.id}
                     className="flex flex-col gap-4 rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/76 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"

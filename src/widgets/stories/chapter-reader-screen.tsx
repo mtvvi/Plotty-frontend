@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -16,6 +16,7 @@ import {
 } from "@/entities/story/api/stories-api";
 import type { StoryCommentsResponse } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
+import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
@@ -38,7 +39,11 @@ export function ChapterReaderScreen({
   const { isAuthenticated } = useAuth();
   const chapterNumber = Number(number);
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
-  const chapterId = storyQuery.data?.chapters.find((chapter) => chapter.number === chapterNumber)?.id ?? "";
+  const readerChapters = useMemo(
+    () => (storyQuery.data ? publicChaptersForReader(storyQuery.data.chapters) : []),
+    [storyQuery.data],
+  );
+  const chapterId = readerChapters.find((chapter) => chapter.number === chapterNumber)?.id ?? "";
   const chapterQuery = useQuery(chapterDetailsQueryOptions(chapterId));
   const commentsQuery = useQuery({
     ...chapterCommentsQueryOptions(storyQuery.data?.id ?? "", chapterId),
@@ -92,10 +97,10 @@ export function ChapterReaderScreen({
 
   const story = storyQuery.data;
   const chapter = chapterQuery.data;
-  const currentIndex = story.chapters.findIndex((ch) => ch.id === chapterId);
-  const prevChapter = currentIndex > 0 ? story.chapters[currentIndex - 1] : null;
+  const currentIndex = readerChapters.findIndex((ch) => ch.id === chapterId);
+  const prevChapter = currentIndex > 0 ? readerChapters[currentIndex - 1] : null;
   const nextChapter =
-    currentIndex >= 0 && currentIndex < story.chapters.length - 1 ? story.chapters[currentIndex + 1] : null;
+    currentIndex >= 0 && currentIndex < readerChapters.length - 1 ? readerChapters[currentIndex + 1] : null;
 
   async function handleAddComment() {
     const content = commentDraft.trim();

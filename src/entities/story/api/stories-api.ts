@@ -78,6 +78,7 @@ interface BackendStoryDetails extends BackendStory {
     title: string;
     updatedAt: string;
     imageUrl?: string;
+    status?: string;
   }>;
 }
 
@@ -173,6 +174,7 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     updatedAt: chapter.updatedAt,
     imageUrl: chapter.imageUrl,
     hasImage: Boolean(chapter.imageUrl),
+    status: chapter.status === "draft" || chapter.status === "published" ? chapter.status : undefined,
   }));
 
   return {
