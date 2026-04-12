@@ -31,7 +31,7 @@ import {
   updateChapterRecord,
   updateStoryRecord,
 } from "./data/stories";
-import { getMockSession, loginMockUser, logoutMockUser, registerMockUser } from "./data/auth";
+import { getMockSession, loginMockUser, logoutMockUser, registerMockUser, updateMockUserProfile } from "./data/auth";
 
 export const handlers = [
   http.get("*/session", () => {
@@ -75,6 +75,31 @@ export const handlers = [
     logoutMockUser();
 
     return HttpResponse.json({ status: "logged out" });
+  }),
+
+  http.patch("*/profile", async ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as { username?: string; avatarUrl?: string };
+
+    if (payload.username === undefined && payload.avatarUrl === undefined) {
+      return HttpResponse.json({ error: "nothing to update" }, { status: 400 });
+    }
+
+    const result = updateMockUserProfile({
+      username: typeof payload.username === "string" ? payload.username : session.user.username,
+      avatarUrl: typeof payload.avatarUrl === "string" ? payload.avatarUrl : session.user.avatar_url ?? "",
+    });
+
+    if ("error" in result) {
+      return HttpResponse.json({ error: result.error }, { status: 401 });
+    }
+
+    return HttpResponse.json(result);
   }),
 
   http.get("*/tags", () => {

@@ -8,7 +8,9 @@ import { logout, authKeys } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
-import { Button, ButtonLink, buttonClassName } from "@/shared/ui/button";
+import { Button, ButtonLink } from "@/shared/ui/button";
+
+import { ProfileEditDialog } from "./profile-edit-dialog";
 
 function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
   const query = searchParams.toString();
@@ -23,6 +25,7 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading } = useAuth();
   const [isCompactMenuOpen, setIsCompactMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const compactMenuRef = useRef<HTMLDivElement | null>(null);
   const logoutMutation = useMutation({
     mutationFn: logout,
@@ -56,6 +59,12 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
       window.removeEventListener("keydown", handleEscape);
     };
   }, [isCompactMenuOpen]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setProfileOpen(false);
+    }
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return <span className="text-sm text-[var(--plotty-muted)]">Проверяем сессию...</span>;
@@ -99,20 +108,30 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
 
   if (variant === "compact") {
     return (
-      <div ref={compactMenuRef} className="relative">
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={isCompactMenuOpen}
-          onClick={() => setIsCompactMenuOpen((current) => !current)}
-          className={cn(
-            "inline-flex min-h-[54px] items-center justify-start gap-3 rounded-full border border-[rgba(41,38,34,0.08)] bg-white/84 px-2.5 py-1.5 pr-4 text-left shadow-[0_8px_24px_rgba(46,35,23,0.08)] transition-[background-color,border-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
-            isCompactMenuOpen ? "bg-white shadow-[0_12px_28px_rgba(46,35,23,0.1)]" : "hover:bg-white",
-          )}
-        >
-          <span className="flex size-[2.75rem] items-center justify-center rounded-full bg-[rgba(188,95,61,0.12)] text-sm font-bold text-[var(--plotty-accent)]">
-            {user.username.slice(0, 1).toUpperCase()}
-          </span>
+      <>
+        <div ref={compactMenuRef} className="relative">
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={isCompactMenuOpen}
+            onClick={() => setIsCompactMenuOpen((current) => !current)}
+            className={cn(
+              "inline-flex min-h-[54px] items-center justify-start gap-3 rounded-full border border-[rgba(41,38,34,0.08)] bg-white/84 px-2.5 py-1.5 pr-4 text-left shadow-[0_8px_24px_rgba(46,35,23,0.08)] transition-[background-color,border-color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+              isCompactMenuOpen ? "bg-white shadow-[0_12px_28px_rgba(46,35,23,0.1)]" : "hover:bg-white",
+            )}
+          >
+            {user.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- URL из профиля пользователя
+              <img
+                src={user.avatar_url}
+                alt=""
+                className="size-[2.75rem] shrink-0 rounded-full border border-[rgba(41,38,34,0.08)] object-cover"
+              />
+            ) : (
+              <span className="flex size-[2.75rem] shrink-0 items-center justify-center rounded-full bg-[rgba(188,95,61,0.12)] text-sm font-bold text-[var(--plotty-accent)]">
+                {user.username.slice(0, 1).toUpperCase()}
+              </span>
+            )}
           <span className="min-w-0 text-left leading-none">
             <span className="block max-w-[8rem] truncate text-[0.95rem] font-semibold text-[var(--plotty-ink)]">
               {user.username}
@@ -138,6 +157,17 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
                 variant="ghost"
                 className="w-full justify-start rounded-[16px] px-3 text-sm"
                 disabled={logoutMutation.isPending}
+                onClick={() => {
+                  setIsCompactMenuOpen(false);
+                  setProfileOpen(true);
+                }}
+              >
+                Редактировать
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start rounded-[16px] px-3 text-sm"
+                disabled={logoutMutation.isPending}
                 onClick={async () => {
                   setIsCompactMenuOpen(false);
                   await logoutMutation.mutateAsync();
@@ -149,21 +179,58 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
             </div>
           </div>
         ) : null}
-      </div>
+        </div>
+        <ProfileEditDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      </>
     );
   }
 
   if (variant === "menu") {
     return (
-      <div className="space-y-3.5">
-        <div className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/84 p-4">
-          <div className="plotty-kicker">Аккаунт</div>
-          <div className="text-sm font-semibold">{user.username}</div>
-          <div className="mt-1 text-xs text-[var(--plotty-muted)]">{user.email}</div>
+      <>
+        <div className="space-y-3.5">
+          <div className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/84 p-4">
+            <div className="plotty-kicker">Аккаунт</div>
+            <div className="text-sm font-semibold">{user.username}</div>
+            <div className="mt-1 text-xs text-[var(--plotty-muted)]">{user.email}</div>
+          </div>
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            disabled={logoutMutation.isPending}
+            onClick={() => setProfileOpen(true)}
+          >
+            Редактировать
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            disabled={logoutMutation.isPending}
+            onClick={async () => {
+              await logoutMutation.mutateAsync();
+              router.refresh();
+            }}
+          >
+            {logoutMutation.isPending ? "Выходим..." : "Выйти"}
+          </Button>
         </div>
+        <ProfileEditDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="text-right">
+          <div className="text-sm font-semibold">{user.username}</div>
+          <div className="text-xs text-[var(--plotty-muted)]">{user.email}</div>
+        </div>
+        <Button variant="secondary" disabled={logoutMutation.isPending} onClick={() => setProfileOpen(true)}>
+          Редактировать
+        </Button>
         <Button
-          variant="ghost"
-          className="w-full justify-start"
+          variant="secondary"
           disabled={logoutMutation.isPending}
           onClick={async () => {
             await logoutMutation.mutateAsync();
@@ -173,25 +240,7 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
           {logoutMutation.isPending ? "Выходим..." : "Выйти"}
         </Button>
       </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="text-right">
-        <div className="text-sm font-semibold">{user.username}</div>
-        <div className="text-xs text-[var(--plotty-muted)]">{user.email}</div>
-      </div>
-      <Button
-        variant="secondary"
-        disabled={logoutMutation.isPending}
-        onClick={async () => {
-          await logoutMutation.mutateAsync();
-          router.refresh();
-        }}
-      >
-        {logoutMutation.isPending ? "Выходим..." : "Выйти"}
-      </Button>
-    </div>
+      <ProfileEditDialog open={profileOpen} onOpenChange={setProfileOpen} />
+    </>
   );
 }
