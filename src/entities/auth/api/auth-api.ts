@@ -52,7 +52,6 @@ export function updateProfile(payload: UpdateProfilePayload) {
     method: "PATCH",
     body: JSON.stringify({
       username: payload.username.trim(),
-      avatarUrl: payload.avatarUrl.trim(),
     }),
   });
 }

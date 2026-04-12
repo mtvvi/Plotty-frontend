@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 
 import { parseStoriesQuery } from "@/entities/story/model/story-query";
+import { isValidUsername } from "@/shared/lib/username";
 import type {
   CreateStoryCommentPayload,
   CreateChapterPayload,
@@ -90,10 +91,17 @@ export const handlers = [
       return HttpResponse.json({ error: "nothing to update" }, { status: 400 });
     }
 
-    const result = updateMockUserProfile({
-      username: typeof payload.username === "string" ? payload.username : session.user.username,
-      avatarUrl: typeof payload.avatarUrl === "string" ? payload.avatarUrl : session.user.avatar_url ?? "",
-    });
+    const resolvedUsername =
+      typeof payload.username === "string" ? payload.username.trim() : session.user.username;
+
+    if (typeof payload.username === "string" && !isValidUsername(resolvedUsername)) {
+      return HttpResponse.json(
+        { error: "username may only contain Latin letters, digits and underscore" },
+        { status: 400 },
+      );
+    }
+
+    const result = updateMockUserProfile({ username: resolvedUsername });
 
     if ("error" in result) {
       return HttpResponse.json({ error: result.error }, { status: 401 });
