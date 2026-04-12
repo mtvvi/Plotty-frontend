@@ -41,7 +41,9 @@ interface BackendStoryListItem extends BackendStory {
   chaptersCount: number;
   coverImageUrl?: string;
   firstChapterId?: string;
+  /** Ручное/legacy; на core бэкенде аннотация приходит в `aiHint` (колонка ai_summary). */
   description?: string;
+  aiHint?: string;
   status?: StoryDetails["status"];
   likesCount?: number;
   commentsCount?: number;
@@ -56,6 +58,8 @@ interface BackendStoryDetails extends BackendStory {
   tags?: StoryTag[];
   coverImageUrl?: string;
   description?: string;
+  /** На бэкенде (Go) поле ai_summary сериализуется как `aiHint` — это и есть ML-аннотация. */
+  aiHint?: string;
   status?: StoryDetails["status"];
   fandom?: string;
   pairing?: string;
@@ -65,7 +69,6 @@ interface BackendStoryDetails extends BackendStory {
   likesCount?: number;
   commentsCount?: number;
   bookmarksCount?: number;
-  aiHint?: string;
   summaryLabel?: string;
   readLabel?: string;
   updatedLabel?: string;
@@ -145,7 +148,7 @@ function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
     chaptersCount: item.chaptersCount,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
-    description: item.description,
+    description: item.description ?? item.aiHint,
     status: item.status,
     fandom: getTagName(tags, "directionality"),
     ratingLabel: getTagName(tags, "rating"),
@@ -157,6 +160,7 @@ function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
     viewsCount: item.viewsCount,
     viewerHasLiked: item.viewerHasLiked ?? item.likedByMe,
     updatedLabel: item.updatedLabel,
+    aiHint: item.aiHint,
   };
 }
 
@@ -181,7 +185,7 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     chapters,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
-    description: item.description,
+    description: item.description ?? item.aiHint,
     status: item.status,
     fandom: item.fandom ?? getTagName(tags, "directionality"),
     pairing: item.pairing,
