@@ -1,12 +1,33 @@
 import { describe, expect, it } from "vitest";
 
+import type { StoryListItem } from "@/entities/story/model/types";
 import {
   defaultStoriesQuery,
+  isStoryInPublicCatalog,
   parseStoriesQuery,
   serializeStoriesQuery,
 } from "@/entities/story/model/story-query";
 
+function minimalStory(overrides: Partial<StoryListItem>): StoryListItem {
+  return {
+    id: "1",
+    slug: "s",
+    title: "T",
+    tags: [],
+    chaptersCount: 0,
+    createdAt: "",
+    updatedAt: "",
+    ...overrides,
+  };
+}
+
 describe("story query helpers", () => {
+  it("isStoryInPublicCatalog is true only for published", () => {
+    expect(isStoryInPublicCatalog(minimalStory({ status: "published" }))).toBe(true);
+    expect(isStoryInPublicCatalog(minimalStory({ status: "draft" }))).toBe(false);
+    expect(isStoryInPublicCatalog(minimalStory({}))).toBe(false);
+  });
+
   it("serializes repeated tag params and omits defaults", () => {
     const params = serializeStoriesQuery({
       ...defaultStoriesQuery,
