@@ -386,7 +386,9 @@ function toChapterListItem(chapter: ChapterRecord): ChapterListItem {
 }
 
 function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListItem {
-  const firstChapter = getChaptersForStory(story.id)[0];
+  const chapters = getChaptersForStory(story.id);
+  const publishedChapters = chapters.filter((ch) => isChapterPublishedMock(ch));
+  const firstChapter = publishedChapters[0] ?? chapters[0];
 
   return {
     id: story.id,
@@ -398,7 +400,7 @@ function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListIt
     description: story.description,
     status: story.status,
     tags: resolveTags(story.tagSlugs),
-    chaptersCount: getChaptersForStory(story.id).length,
+    chaptersCount: publishedChapters.length,
     updatedAt: story.updatedAt,
     fandom: story.fandom,
     pairing: story.pairing,

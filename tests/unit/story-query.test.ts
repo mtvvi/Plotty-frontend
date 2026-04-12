@@ -6,6 +6,7 @@ import {
   isStoryInPublicCatalog,
   parseStoriesQuery,
   publicChaptersForReader,
+  readerChapterNumberForChapterId,
   serializeStoriesQuery,
 } from "@/entities/story/model/story-query";
 
@@ -38,6 +39,17 @@ describe("story query helpers", () => {
     const pub = publicChaptersForReader(chapters);
     expect(pub.map((ch) => ch.id)).toEqual(["b", "c"]);
     expect(pub.map((ch) => ch.number)).toEqual([1, 2]);
+  });
+
+  it("readerChapterNumberForChapterId maps id to public reader index", () => {
+    const chapters = [
+      { id: "a", title: "A", updatedAt: "", status: "draft" as const },
+      { id: "b", title: "B", updatedAt: "", status: "published" as const },
+      { id: "c", title: "C", updatedAt: "", status: "published" as const },
+    ];
+    expect(readerChapterNumberForChapterId(chapters, "a")).toBeUndefined();
+    expect(readerChapterNumberForChapterId(chapters, "b")).toBe(1);
+    expect(readerChapterNumberForChapterId(chapters, "c")).toBe(2);
   });
 
   it("serializes repeated tag params and omits defaults", () => {

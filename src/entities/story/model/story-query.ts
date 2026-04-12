@@ -15,6 +15,10 @@ export function publicChaptersForReader(chapters: ChapterListItem[]): ChapterLis
   }));
 }
 
+export function readerChapterNumberForChapterId(chapters: ChapterListItem[], chapterId: string): number | undefined {
+  return publicChaptersForReader(chapters).find((ch) => ch.id === chapterId)?.number;
+}
+
 export const defaultStoriesQuery: StoriesQuery = {
   tags: [],
   q: "",
