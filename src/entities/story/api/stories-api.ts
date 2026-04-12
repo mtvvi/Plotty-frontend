@@ -431,6 +431,12 @@ export function deleteChapter(chapterId: string) {
   });
 }
 
+export function publishChapter(chapterId: string) {
+  return fetchJson<{ status: string }>(`/chapters/${chapterId}/publish`, {
+    method: "POST",
+  });
+}
+
 export function likeStory(storyId: string) {
   return fetchJson<{ likesCount: number; likedByMe: boolean }>(`/stories/${storyId}/like`, {
     method: "POST",

@@ -30,6 +30,9 @@ export interface StoryEditorFormProps {
   imagePanel?: React.ReactNode;
   onChange: (next: StoryEditorValues) => void;
   onSave: () => void;
+  onPublish?: () => void;
+  isPublishing?: boolean;
+  chapterPublished?: boolean;
   onCreateNextChapter?: () => void;
   onDeleteChapter?: () => void;
   onSpellcheck: () => void;
@@ -49,6 +52,9 @@ export function StoryEditorForm({
   imagePanel,
   onChange,
   onSave,
+  onPublish,
+  isPublishing,
+  chapterPublished,
   onCreateNextChapter,
   onDeleteChapter,
   onSpellcheck,
@@ -120,6 +126,24 @@ export function StoryEditorForm({
               <Button variant="primary" onClick={onSave} disabled={isSaving}>
                 {isSaving ? "Сохраняем..." : "Сохранить"}
               </Button>
+              {typeof onPublish === "function" ? (
+                <Button
+                  variant="secondary"
+                  onClick={onPublish}
+                  disabled={
+                    isPublishing ||
+                    chapterPublished ||
+                    !chapterId ||
+                    !values.chapterContent.trim()
+                  }
+                >
+                  {chapterPublished
+                    ? "Опубликовано"
+                    : isPublishing
+                      ? "Публикуем..."
+                      : "Опубликовать"}
+                </Button>
+              ) : null}
               <Button variant="secondary" onClick={onSpellcheck} disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}>
                 {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
               </Button>

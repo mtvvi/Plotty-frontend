@@ -9,6 +9,7 @@ import {
   chapterEditorDetailsQueryOptions,
   createChapter,
   deleteChapter,
+  publishChapter,
   startSpellcheck,
   storyKeys,
   updateChapter,
@@ -42,6 +43,8 @@ export function StoryEditorScreen({
   const chapterQuery = useQuery(chapterEditorDetailsQueryOptions(storyId, chapterId));
   const [values, setValues] = useState<StoryEditorValues>(emptyValues);
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
+  /** Локально после успешного POST /publish (в API главы пока не приходит status). */
+  const [chapterPublishedThisSession, setChapterPublishedThisSession] = useState(false);
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -53,6 +56,10 @@ export function StoryEditorScreen({
       chapterContent: chapterQuery.data.content,
     });
   }, [chapterQuery.data]);
+
+  useEffect(() => {
+    setChapterPublishedThisSession(false);
+  }, [chapterId]);
 
   const updateChapterMutation = useMutation({
     mutationFn: ({ targetChapterId, targetPayload }: { targetChapterId: string; targetPayload: StoryEditorValues }) =>
@@ -67,6 +74,9 @@ export function StoryEditorScreen({
   });
   const deleteChapterMutation = useMutation({
     mutationFn: deleteChapter,
+  });
+  const publishChapterMutation = useMutation({
+    mutationFn: publishChapter,
   });
   const spellcheckMutation = useMutation({
     mutationFn: startSpellcheck,
@@ -157,6 +167,25 @@ export function StoryEditorScreen({
     setSpellcheckJobId(accepted.jobId);
   }
 
+  async function handlePublish() {
+    try {
+      await publishChapterMutation.mutateAsync(chapterId);
+      setChapterPublishedThisSession(true);
+
+      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
+
+      if (chapterQuery.data?.storySlug) {
+        await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      }
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
+    }
+  }
+
   if (chapterQuery.isLoading) {
     return (
       <PlottyShell title="Редактор загружается" description="Подтягиваем историю и нужную главу.">
@@ -215,6 +244,9 @@ export function StoryEditorScreen({
         }
         onChange={setValues}
         onSave={handleSave}
+        onPublish={handlePublish}
+        isPublishing={publishChapterMutation.isPending}
+        chapterPublished={chapterPublishedThisSession}
         onCreateNextChapter={handleCreateNextChapter}
         onDeleteChapter={handleDeleteChapter}
         onSpellcheck={handleSpellcheck}

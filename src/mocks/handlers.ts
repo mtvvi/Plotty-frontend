@@ -29,6 +29,7 @@ import {
   listStories,
   addChapterCommentRecord,
   unlikeStoryRecord,
+  publishChapterRecord,
   updateChapterRecord,
   updateStoryRecord,
 } from "./data/stories";
@@ -272,6 +273,22 @@ export const handlers = [
     }
 
     return HttpResponse.json({ ok: true });
+  }),
+
+  http.post("*/chapters/:chapterId/publish", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const result = publishChapterRecord(String(params.chapterId));
+
+    if (!result) {
+      return HttpResponse.json({ message: "Chapter not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(result);
   }),
 
   http.get("*/chapters/:chapterId", ({ params }) => {
