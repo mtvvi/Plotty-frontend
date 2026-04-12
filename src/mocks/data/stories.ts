@@ -71,6 +71,8 @@ interface ChapterRecord {
   number: number;
   title: string;
   content: string;
+  /** Если `"draft"` — глава только в мастерской; иначе считается опубликованной (в т.ч. без поля для старых фикстур). */
+  status?: "draft" | "published";
   imageUrl?: string;
   imagePrompt?: string;
   createdAt: string;
@@ -791,6 +793,7 @@ export function createChapterRecord(storyId: string, payload: CreateChapterPaylo
     number: nextNumber + 1,
     title: payload.title,
     content: payload.content,
+    status: "draft",
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -844,6 +847,42 @@ export function deleteChapterRecord(chapterId: string) {
   }
 
   return true;
+}
+
+function isChapterPublishedMock(chapter: ChapterRecord) {
+  return chapter.status !== "draft";
+}
+
+export function publishChapterRecord(chapterId: string) {
+  const chapter = db.chapters.find((item) => item.id === chapterId);
+
+  if (!chapter) {
+    return null;
+  }
+
+  if (isChapterPublishedMock(chapter)) {
+    return { status: "published" as const };
+  }
+
+  chapter.status = "published";
+  chapter.updatedAt = nowIso();
+
+  const story = db.stories.find((item) => item.id === chapter.storyId);
+
+  if (story) {
+    story.status = "published";
+    story.updatedAt = chapter.updatedAt;
+    story.updatedLabel = "опубликовано только что";
+
+    const publishedForStory = getChaptersForStory(story.id).filter((ch) => isChapterPublishedMock(ch));
+
+    if (publishedForStory.length === 1 && !story.description.trim()) {
+      const excerpt = chapter.content.trim().slice(0, 280);
+      story.description = excerpt.length < chapter.content.trim().length ? `${excerpt}…` : excerpt;
+    }
+  }
+
+  return { status: "published" as const };
 }
 
 function createSpellcheckResult(payload: SpellcheckPayload): SpellcheckResult {
