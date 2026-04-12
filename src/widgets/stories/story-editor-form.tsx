@@ -208,7 +208,7 @@ export function StoryEditorForm({
               <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
-                Запустите проверку — если лор ещё пуст (нет опубликованных глав), бэкенд вернёт короткое пояснение.
+                Отправьте главу на проверку, и здесь появится список замечаний.
               </p>
             )}
           </ShellCard>
