@@ -19,3 +19,9 @@ export interface LoginPayload {
 export interface RegisterPayload extends LoginPayload {
   confirm_password: string;
 }
+
+/** Тело PATCH /profile — совпадает с plotty_backend updateProfileRequest */
+export interface UpdateProfilePayload {
+  username: string;
+  avatarUrl: string;
+}

@@ -1,4 +1,4 @@
-import type { AuthSessionResponse, AuthUser, LoginPayload, RegisterPayload } from "@/entities/auth/model/types";
+import type { AuthSessionResponse, AuthUser, LoginPayload, RegisterPayload, UpdateProfilePayload } from "@/entities/auth/model/types";
 
 interface MockAuthDb {
   users: Array<AuthUser & { password: string }>;
@@ -73,4 +73,20 @@ export function registerMockUser(payload: RegisterPayload) {
 
 export function logoutMockUser() {
   db.currentUserId = null;
+}
+
+export function updateMockUserProfile(payload: UpdateProfilePayload): AuthSessionResponse | { error: string } {
+  const user = db.users.find((item) => item.id === db.currentUserId);
+
+  if (!user) {
+    return { error: "unauthorized" };
+  }
+
+  const timestamp = new Date().toISOString();
+
+  user.username = payload.username.trim();
+  user.avatar_url = payload.avatarUrl.trim() === "" ? null : payload.avatarUrl.trim();
+  user.updated_at = timestamp;
+
+  return { user };
 }

@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 
 import { ApiError, fetchJson } from "@/shared/api/fetch-json";
 
-import type { AuthSessionResponse, LoginPayload, RegisterPayload } from "../model/types";
+import type { AuthSessionResponse, LoginPayload, RegisterPayload, UpdateProfilePayload } from "../model/types";
 
 export const authKeys = {
   session: () => ["auth", "session"] as const,
@@ -44,5 +44,15 @@ export function register(payload: RegisterPayload) {
 export function logout() {
   return fetchJson<{ status: string }>("/logout", {
     method: "POST",
+  });
+}
+
+export function updateProfile(payload: UpdateProfilePayload) {
+  return fetchJson<AuthSessionResponse>("/profile", {
+    method: "PATCH",
+    body: JSON.stringify({
+      username: payload.username.trim(),
+      avatarUrl: payload.avatarUrl.trim(),
+    }),
   });
 }
