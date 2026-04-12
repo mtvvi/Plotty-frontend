@@ -2,63 +2,43 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 
-import { useAuth } from "@/entities/auth/model/auth-context";
 import {
-  addStoryComment,
   chapterDetailsQueryOptions,
-  deleteStoryComment,
   likeStory,
   patchStorySummaryCaches,
-  storyCommentsQueryOptions,
   storyDetailsQueryOptions,
-  storyKeys,
   unlikeStory,
 } from "@/entities/story/api/stories-api";
-import type { StoryCommentsResponse } from "@/entities/story/model/types";
 import { getStoryTextOverride } from "@/entities/story/model/story-text-cache";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
-import { Field, FieldLabel } from "@/shared/ui/field";
 import { TabButton } from "@/shared/ui/tabs";
-import { Textarea } from "@/shared/ui/textarea";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCoverPreview } from "./story-cover-preview";
 import { StoryTagChip } from "./story-tag-chip";
 
-type StorySection = "description" | "chapters" | "comments";
+type StorySection = "description" | "chapters";
 
 export function StoryDetailsScreen({ slug }: { slug: string }) {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const [activeSection, setActiveSection] = useState<StorySection>(getInitialSection(searchParams.get("tab")));
-  const [commentDraft, setCommentDraft] = useState("");
   const firstChapter = storyQuery.data?.chapters[0] ?? null;
   const firstChapterQuery = useQuery({
     ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
-  const commentsQuery = useQuery({
-    ...storyCommentsQueryOptions(storyQuery.data?.id ?? ""),
-    enabled: Boolean(storyQuery.data?.id) && activeSection === "comments",
-  });
   const likeMutation = useMutation({
     mutationFn: ({ liked, storyId }: { liked: boolean; storyId: string }) => (liked ? unlikeStory(storyId) : likeStory(storyId)),
-  });
-  const addCommentMutation = useMutation({
-    mutationFn: ({ storyId, content }: { storyId: string; content: string }) => addStoryComment(storyId, { content }),
-  });
-  const deleteCommentMutation = useMutation({
-    mutationFn: deleteStoryComment,
   });
 
   useEffect(() => {
@@ -93,15 +73,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
   const textOverride = getStoryTextOverride(story.id);
   const storyDescription =
-    textOverride?.description ??
-    story.description ??
-    story.excerpt ??
-    "Описание истории пока не заполнено.";
-  const storyTeaser =
-    textOverride?.excerpt ??
-    story.excerpt ??
-    story.description ??
-    "Описание истории пока не заполнено.";
+    textOverride?.description ?? story.description ?? "Описание истории пока не заполнено.";
   const displayCoverImage =
     story.coverImageUrl ??
     firstChapterQuery.data?.imageUrl;
@@ -122,9 +94,6 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
       patchStorySummaryCaches(queryClient, story.id, {
         likesCount: result.likesCount,
-        commentsCount: result.commentsCount,
-        bookmarksCount: result.bookmarksCount,
-        viewsCount: result.viewsCount,
         viewerHasLiked: result.viewerHasLiked,
       });
     } catch (error) {
@@ -135,65 +104,6 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.story(slug) }));
-      }
-    }
-  }
-
-  async function handleAddComment() {
-    const content = commentDraft.trim();
-
-    if (!content) {
-      return;
-    }
-
-    if (!isAuthenticated) {
-      router.push(routes.auth({ next: `${routes.story(slug)}?tab=comments` }));
-      return;
-    }
-
-    try {
-      const comment = await addCommentMutation.mutateAsync({
-        storyId: story.id,
-        content,
-      });
-
-      queryClient.setQueryData<StoryCommentsResponse | undefined>(
-        storyKeys.comments(story.id),
-        (current) => ({
-          items: [comment, ...(current?.items ?? [])],
-        }),
-      );
-      patchStorySummaryCaches(queryClient, story.id, {
-        commentsCount: (story.commentsCount ?? 0) + 1,
-      });
-      setCommentDraft("");
-    } catch (error) {
-      if (isAuthError(error)) {
-        router.push(routes.auth({ next: `${routes.story(slug)}?tab=comments` }));
-      }
-    }
-  }
-
-  async function handleDeleteComment(commentId: string) {
-    const currentComments = commentsQuery.data?.items ?? [];
-
-    queryClient.setQueryData<StoryCommentsResponse | undefined>(storyKeys.comments(story.id), {
-      items: currentComments.filter((comment) => comment.id !== commentId),
-    });
-    patchStorySummaryCaches(queryClient, story.id, {
-      commentsCount: Math.max((story.commentsCount ?? 0) - 1, 0),
-    });
-
-    try {
-      await deleteCommentMutation.mutateAsync(commentId);
-    } catch (error) {
-      queryClient.setQueryData(storyKeys.comments(story.id), { items: currentComments });
-      patchStorySummaryCaches(queryClient, story.id, {
-        commentsCount: story.commentsCount,
-      });
-
-      if (isAuthError(error)) {
-        router.push(routes.auth({ next: `${routes.story(slug)}?tab=comments` }));
       }
     }
   }
@@ -272,14 +182,27 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     <StatHeartIcon />
                     <span>{formatCount(story.likesCount)}</span>
                   </button>
-                  <button type="button" className="plotty-stat" onClick={() => setActiveSection("comments")}>
-                    <StatCommentIcon />
-                    <span>{formatCount(story.commentsCount)}</span>
-                  </button>
+                  {story.chapters[0] ? (
+                    <Link
+                      href={`${routes.chapter(story.slug, story.chapters[0].number ?? 1)}#comments`}
+                      className="plotty-stat transition-colors"
+                      aria-label="Комментарии"
+                    >
+                      <StatCommentIcon />
+                      <span>{formatCount(story.commentsCount)}</span>
+                    </Link>
+                  ) : (
+                    <span className="plotty-stat">
+                      <StatCommentIcon />
+                      <span>{formatCount(story.commentsCount)}</span>
+                    </span>
+                  )}
+                  {/* Закладки временно скрыты
                   <span className="plotty-stat">
                     <StatBookmarkIcon />
                     <span>{formatCount(story.bookmarksCount)}</span>
                   </span>
+                  */}
                 </div>
               </div>
 
@@ -293,7 +216,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     overflow: "hidden",
                   }}
                 >
-                  {storyTeaser}
+                  {storyDescription}
                 </p>
               </div>
             </div>
@@ -306,9 +229,6 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
           </TabButton>
           <TabButton type="button" isActive={activeSection === "chapters"} onClick={() => setActiveSection("chapters")}>
             Главы
-          </TabButton>
-          <TabButton type="button" isActive={activeSection === "comments"} onClick={() => setActiveSection("comments")}>
-            Комментарии
           </TabButton>
         </div>
 
@@ -362,6 +282,9 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                       <ButtonLink href={routes.chapter(story.slug, chapter.number ?? 1)} variant="primary">
                         Читать
                       </ButtonLink>
+                      <ButtonLink href={`${routes.chapter(story.slug, chapter.number ?? 1)}#comments`} variant="secondary">
+                        Комментарии
+                      </ButtonLink>
                     </div>
                   </div>
                 ))}
@@ -374,73 +297,6 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
             )
           ) : null}
 
-          {activeSection === "comments" ? (
-            <div className="space-y-5">
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <div className="space-y-4">
-                  <Field>
-                    <FieldLabel htmlFor="story-comment">Новый комментарий</FieldLabel>
-                    <Textarea
-                      id="story-comment"
-                      value={commentDraft}
-                      onChange={(event) => setCommentDraft(event.target.value)}
-                      placeholder={isAuthenticated ? "Поделитесь впечатлением о главе, ритме или атмосфере истории" : "Войдите, чтобы оставить комментарий"}
-                      className="min-h-32"
-                      disabled={addCommentMutation.isPending}
-                    />
-                  </Field>
-                  <div className="flex flex-wrap gap-3">
-                    <Button variant="primary" onClick={handleAddComment} disabled={addCommentMutation.isPending || !commentDraft.trim()}>
-                      {addCommentMutation.isPending ? "Публикуем..." : "Добавить комментарий"}
-                    </Button>
-                    {!isAuthenticated ? (
-                      <ButtonLink href={routes.auth({ next: `${pathname}?tab=comments` })} variant="secondary">
-                        Войти для комментария
-                      </ButtonLink>
-                    ) : null}
-                  </div>
-                </div>
-
-                
-              </div>
-
-              {commentsQuery.isLoading ? (
-                <div className="space-y-3">
-                  <div className="h-28 rounded-[20px] bg-white/50" />
-                  <div className="h-28 rounded-[20px] bg-white/50" />
-                </div>
-              ) : commentsQuery.data?.items.length ? (
-                <div className="space-y-3">
-                  {commentsQuery.data.items.map((comment) => (
-                    <div key={comment.id} className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="text-sm font-semibold text-[var(--plotty-ink)]">{comment.author.username}</div>
-                          <div className="plotty-meta">{new Date(comment.createdAt).toLocaleString("ru-RU")}</div>
-                        </div>
-                        {comment.viewerCanDelete ? (
-                          <Button
-                            variant="ghost"
-                            className="min-h-9 px-2.5 text-sm"
-                            onClick={() => handleDeleteComment(comment.id)}
-                            disabled={deleteCommentMutation.isPending}
-                          >
-                            Удалить
-                          </Button>
-                        ) : null}
-                      </div>
-                      <p className="mt-3 text-sm leading-7 text-[var(--plotty-ink)]">{comment.content}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  title="Комментариев пока нет"
-                  description="Станьте первым читателем, который оставит отзыв о темпе, атмосфере или героях."
-                />
-              )}
-            </div>
-          ) : null}
         </PlottySectionCard>
       </div>
     </PlottyPageShell>
@@ -483,13 +339,13 @@ function StatCommentIcon() {
   );
 }
 
-function StatBookmarkIcon() {
+/* function StatBookmarkIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path d="M4.2 2.3h7.6v11.4L8 10.8l-3.8 2.9V2.3Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
     </svg>
   );
-}
+} */
 
 function formatCount(value?: number) {
   return (value ?? 0).toLocaleString("ru-RU");
@@ -511,8 +367,8 @@ function getChapterLabel(count: number) {
 }
 
 function getInitialSection(value: string | null): StorySection {
-  if (value === "chapters" || value === "comments") {
-    return value;
+  if (value === "chapters") {
+    return "chapters";
   }
 
   return "description";

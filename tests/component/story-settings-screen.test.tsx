@@ -35,7 +35,7 @@ describe("StorySettingsScreen", () => {
     const user = userEvent.setup();
     renderStorySettings();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /Название, описание и тизер/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: /Название и описание/i })).toBeInTheDocument());
 
     expect(screen.queryByRole("link", { name: "В мастерскую" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Название главы")).not.toBeInTheDocument();

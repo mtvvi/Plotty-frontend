@@ -35,7 +35,7 @@ describe("StoryCard", () => {
     const story = renderStoryCard();
 
     expect(screen.getByRole("heading", { name: story.title })).toBeInTheDocument();
-    expect(screen.getByText(story.excerpt!)).toBeInTheDocument();
+    expect(screen.getByText(story.description!)).toBeInTheDocument();
     expect(screen.getByText(story.tags[0].name)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: `Открыть историю ${story.title}` })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Открыть историю" })).not.toBeInTheDocument();
@@ -55,12 +55,7 @@ describe("StoryCard", () => {
     push.mockClear();
 
     await user.click(screen.getByRole("button", { name: "Комментарии" }));
-    expect(push).toHaveBeenCalledWith(`/stories/${story.slug}?tab=comments`);
-
-    push.mockClear();
-
-    await user.click(screen.getByRole("button", { name: "Закладки" }));
-    expect(push).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith(`/stories/${story.slug}/chapters/1#comments`);
 
     push.mockClear();
 

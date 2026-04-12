@@ -12,16 +12,21 @@ test("catalog filters by tag and opens story page", async ({ page }) => {
 });
 
 test("create story from author workspace, add next chapter and run spellcheck", async ({ page }) => {
-  await page.goto("/write");
+  await page.goto("/write/new");
 
-  await page.getByRole("button", { name: "Создать свою историю" }).click();
   await page.getByLabel("Название истории").fill("Midnight Draft");
-  await page.getByLabel("Короткий тизер").fill("Тизер истории");
-  await page.getByLabel("Полное описание").fill("Полное описание истории");
-  await page.getByRole("button", { name: "драма" }).click();
+  await page.getByLabel("Описание").fill("Полное описание истории");
+  await page.getByRole("button", { name: /^Далее$/i }).click();
+  await page.getByRole("button", { name: "DC" }).click();
+  await page.getByRole("button", { name: "NC-17" }).click();
+  await page.getByRole("button", { name: "В процессе" }).click();
+  await page.getByRole("button", { name: "Макси" }).click();
+  await page.getByRole("button", { name: "Драма" }).click();
+  await page.getByRole("button", { name: /^Далее$/i }).click();
+  await page.getByRole("button", { name: "Сохранить историю" }).click();
   await page.getByLabel("Название главы").fill("Глава 1");
   await page.getByLabel("Текст главы").fill("Это текст главы, где автор нечаяно ошибся.");
-  await page.getByRole("button", { name: "Создать историю и главу" }).click();
+  await page.getByRole("button", { name: "Создать главу и открыть редактор" }).click();
 
   await expect(page).toHaveURL(/\/write\/stories\/.+\/chapters\/.+/);
 

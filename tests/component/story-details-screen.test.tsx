@@ -42,10 +42,10 @@ describe("StoryDetailsScreen", () => {
     );
     expect(screen.getByRole("button", { name: "Описание" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Главы" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Комментарии" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Комментарии" })).toBeInTheDocument();
     expect(
-      screen.getByText(/Гермиона пытается пережить восьмой курс, пока архив старого факультета/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Гермиона пытается пережить восьмой курс, пока архив старого факультета/i).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(document.querySelector("#story-content")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Удалить историю" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Настройки истории" })).not.toBeInTheDocument();

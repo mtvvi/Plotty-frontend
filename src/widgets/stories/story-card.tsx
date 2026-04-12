@@ -22,7 +22,6 @@ export function StoryCard({ story }: { story: StoryListItem }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const storyHref = routes.story(story.slug);
-  const commentsHref = `${storyHref}?tab=comments`;
   const storyDetailsQuery = useQuery({
     ...storyDetailsQueryOptions(story.slug),
     enabled: !story.coverImageUrl && !story.firstChapterId,
@@ -36,6 +35,10 @@ export function StoryCard({ story }: { story: StoryListItem }) {
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
+  const firstChapterNumber =
+    storyDetailsQuery.data?.chapters[0]?.number ?? firstChapterQuery.data?.number ?? 1;
+  const commentsHref =
+    story.chaptersCount > 0 ? `${routes.chapter(story.slug, firstChapterNumber)}#comments` : storyHref;
   const likeMutation = useMutation({
     mutationFn: ({ liked }: { liked: boolean }) => (liked ? unlikeStory(story.id) : likeStory(story.id)),
   });
@@ -44,7 +47,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
     storyDetailsQuery.data?.coverImageUrl ??
     firstChapterQuery.data?.imageUrl;
   const textOverride = getStoryTextOverride(story.id);
-  const catalogTeaser = textOverride?.excerpt ?? story.excerpt ?? story.description;
+  const catalogTeaser = textOverride?.description ?? story.description;
   const updatedLabel = story.updatedLabel ?? `Обновлена ${new Date(story.updatedAt).toLocaleDateString("ru-RU")}`;
   const viewerHasLiked = Boolean(story.viewerHasLiked);
   const genres = useMemo(() => story.tags.filter((tag) => tag.category === "genre"), [story.tags]);
@@ -69,9 +72,6 @@ export function StoryCard({ story }: { story: StoryListItem }) {
 
       patchStorySummaryCaches(queryClient, story.id, {
         likesCount: result.likesCount,
-        commentsCount: result.commentsCount,
-        bookmarksCount: result.bookmarksCount,
-        viewsCount: result.viewsCount,
         viewerHasLiked: result.viewerHasLiked,
       });
     } catch (error) {
@@ -219,6 +219,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
               <StatCommentIcon />
               <span>{formatCount(story.commentsCount)}</span>
             </button>
+            {/* Закладки временно скрыты
             <button
               type="button"
               onClick={(event) => {
@@ -230,6 +231,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
               <StatBookmarkIcon />
               <span>{formatCount(story.bookmarksCount)}</span>
             </button>
+            */}
           </div>
         </aside>
       </div>
@@ -278,13 +280,13 @@ function StatCommentIcon() {
   );
 }
 
-function StatBookmarkIcon() {
+/* function StatBookmarkIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path d="M4.2 2.3h7.6v11.4L8 10.8l-3.8 2.9V2.3Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
     </svg>
   );
-}
+} */
 
 function formatCount(value?: number) {
   return (value ?? 0).toLocaleString("ru-RU");

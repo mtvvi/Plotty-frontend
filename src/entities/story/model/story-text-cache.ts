@@ -4,7 +4,6 @@ const storyTextStorageKey = "plotty.story-text-overrides";
 
 type StoryTextOverride = {
   description?: string;
-  excerpt?: string;
 };
 
 type StoryTextCache = Record<string, StoryTextOverride>;

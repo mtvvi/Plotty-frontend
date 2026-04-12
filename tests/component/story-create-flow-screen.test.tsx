@@ -36,7 +36,6 @@ describe("StoryCreateFlowScreen", () => {
 
     await user.type(screen.getByLabelText("Название истории"), "Новая история для теста");
     await user.type(screen.getByLabelText("Описание"), "Описание новой истории");
-    await user.type(screen.getByLabelText("Тизер"), "Тизер новой истории");
 
     await user.click(screen.getByRole("button", { name: /^Далее$/i }));
 

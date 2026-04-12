@@ -15,7 +15,6 @@ import { Textarea } from "@/shared/ui/textarea";
 export interface StorySettingsValues {
   title: string;
   description: string;
-  excerpt: string;
   selectedTagIds: string[];
 }
 
@@ -67,7 +66,7 @@ export function StorySettingsFields({
 
       {includeSummaryFields ? (
         <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4 sm:p-5">
-          <div className="plotty-section-title">Описание и тизер</div>
+          <div className="plotty-section-title">Описание</div>
           <Field>
             <FieldLabel htmlFor="story-settings-description">Описание</FieldLabel>
             <Textarea
@@ -76,17 +75,6 @@ export function StorySettingsFields({
               onChange={(event) => update("description", event.target.value)}
               placeholder="Короткое описание истории"
               className="min-h-32"
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel htmlFor="story-settings-excerpt">Тизер</FieldLabel>
-            <Textarea
-              id="story-settings-excerpt"
-              value={values.excerpt}
-              onChange={(event) => update("excerpt", event.target.value)}
-              placeholder="Короткий тизер для каталога и страницы истории"
-              className="min-h-28"
             />
           </Field>
         </div>
