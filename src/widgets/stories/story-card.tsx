@@ -14,6 +14,7 @@ import {
 } from "@/entities/story/api/stories-api";
 import type { StoryListItem } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
+import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { routes } from "@/shared/config/routes";
 import { StoryCoverPreview } from "./story-cover-preview";
 
@@ -23,21 +24,23 @@ export function StoryCard({ story }: { story: StoryListItem }) {
   const storyHref = routes.story(story.slug);
   const storyDetailsQuery = useQuery({
     ...storyDetailsQueryOptions(story.slug),
-    enabled: !story.coverImageUrl && !story.firstChapterId,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
-  const firstChapterId = story.firstChapterId ?? storyDetailsQuery.data?.chapters[0]?.id ?? "";
+  const publishedChapters = storyDetailsQuery.data ? publicChaptersForReader(storyDetailsQuery.data.chapters) : [];
+  const firstPublishedChapter = publishedChapters[0];
+  const displayChaptersCount = storyDetailsQuery.data ? publishedChapters.length : story.chaptersCount;
+  const firstChapterId =
+    story.firstChapterId ?? firstPublishedChapter?.id ?? storyDetailsQuery.data?.chapters[0]?.id ?? "";
   const firstChapterQuery = useQuery({
     ...chapterDetailsQueryOptions(firstChapterId),
     enabled: Boolean(firstChapterId) && !story.coverImageUrl,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
-  const firstChapterNumber =
-    storyDetailsQuery.data?.chapters[0]?.number ?? firstChapterQuery.data?.number ?? 1;
+  const firstChapterNumber = firstPublishedChapter?.number ?? firstChapterQuery.data?.number ?? 1;
   const commentsHref =
-    story.chaptersCount > 0 ? `${routes.chapter(story.slug, firstChapterNumber)}#comments` : storyHref;
+    displayChaptersCount > 0 ? `${routes.chapter(story.slug, firstChapterNumber)}#comments` : storyHref;
   const likeMutation = useMutation({
     mutationFn: ({ liked }: { liked: boolean }) => (liked ? unlikeStory(story.id) : likeStory(story.id)),
   });
@@ -133,7 +136,9 @@ export function StoryCard({ story }: { story: StoryListItem }) {
               <h2 className="plotty-card-title text-[1.35rem] sm:text-[1.55rem]">{story.title}</h2>
               <div className="flex flex-wrap gap-x-2.5 gap-y-1 text-[13px] text-[var(--plotty-muted)]">
                 {story.pairing ? <span>{story.pairing}</span> : null}
-                <span>{story.chaptersCount} {getChapterLabel(story.chaptersCount)}</span>
+                <span>
+                  {displayChaptersCount} {getChapterLabel(displayChaptersCount)}
+                </span>
               </div>
             </div>
 

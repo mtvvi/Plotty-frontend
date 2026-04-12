@@ -17,6 +17,7 @@ export const routes = {
   writeNew: "/write/new",
   story: (slug: string) => `/stories/${slug}`,
   chapter: (slug: string, number: number) => `/stories/${slug}/chapters/${number}`,
+  chapterPreview: (slug: string, chapterId: string) => `/stories/${slug}/preview/${chapterId}`,
   storySettings: (storyId: string) => `/write/stories/${storyId}/settings`,
   chapterEditor: (storyId: string, chapterId: string) => `/write/stories/${storyId}/chapters/${chapterId}`,
 } as const;

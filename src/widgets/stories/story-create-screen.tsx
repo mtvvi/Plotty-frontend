@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import {
@@ -11,7 +11,7 @@ import {
   storyDetailsQueryOptions,
   storyKeys,
 } from "@/entities/story/api/stories-api";
-import { defaultStoriesQuery } from "@/entities/story/model/story-query";
+import { defaultStoriesQuery, publicChaptersForReader, readerChapterNumberForChapterId } from "@/entities/story/model/story-query";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
@@ -29,6 +29,14 @@ export function StoryCreateScreen() {
   const queryClient = useQueryClient();
   const [selectedStorySlug, setSelectedStorySlug] = useState("");
   const storiesQuery = useQuery(storiesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }));
+  const workshopStoryDetailsQueries = useQueries({
+    queries: (storiesQuery.data?.items ?? []).map((item) => ({
+      ...storyDetailsQueryOptions(item.slug),
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      enabled: Boolean(storiesQuery.data?.items.length),
+    })),
+  });
   const selectedStoryQuery = useQuery({
     ...storyDetailsQueryOptions(selectedStorySlug),
     enabled: Boolean(selectedStorySlug),
@@ -55,6 +63,10 @@ export function StoryCreateScreen() {
       setSelectedStorySlug(storiesQuery.data.items[0].slug);
     }
   }, [selectedStorySlug, storiesQuery.data?.items]);
+
+  const selectedStoryPublishedCount = selectedStoryQuery.data
+    ? publicChaptersForReader(selectedStoryQuery.data.chapters).length
+    : 0;
 
   const selectedStoryDisplayCover =
     selectedStoryQuery.data?.coverImageUrl ??
@@ -114,7 +126,13 @@ export function StoryCreateScreen() {
             </div>
           ) : storiesQuery.data?.items.length ? (
             <div className="space-y-3">
-              {storiesQuery.data.items.map((story) => (
+              {storiesQuery.data.items.map((story, index) => {
+                const workshopDetails = workshopStoryDetailsQueries[index]?.data;
+                const workshopPublishedCount = workshopDetails
+                  ? publicChaptersForReader(workshopDetails.chapters).length
+                  : story.chaptersCount;
+
+                return (
                 <div
                   key={story.id}
                   className={`rounded-[22px] border px-4 py-4 transition-[background-color,border-color,color,box-shadow,transform] duration-150 ${
@@ -127,7 +145,9 @@ export function StoryCreateScreen() {
                     <button type="button" onClick={() => setSelectedStorySlug(story.slug)} className="flex-1 text-left">
                       <div className="plotty-kicker">История</div>
                       <div className="mt-2 text-base font-semibold text-[var(--plotty-ink)]">{story.title}</div>
-                      <div className="mt-1 text-sm text-[var(--plotty-muted)]">{formatChapterCount(story.chaptersCount)}</div>
+                      <div className="mt-1 text-sm text-[var(--plotty-muted)]">
+                        {formatChapterCount(workshopPublishedCount)}
+                      </div>
                     </button>
                     <ButtonLink
                       href={routes.storySettings(story.id)}
@@ -139,7 +159,8 @@ export function StoryCreateScreen() {
                     </ButtonLink>
                   </div>
                 </div>
-              ))}
+                );
+              })}
 
               <ButtonLink
                 href={routes.writeNew}
@@ -181,7 +202,7 @@ export function StoryCreateScreen() {
                   <div className="space-y-2">
                     <div className="plotty-kicker">Активная история</div>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-[var(--plotty-muted)]">
-                      <span>{formatChapterCount(selectedStoryQuery.data.chapters.length)}</span>
+                      <span>{formatChapterCount(selectedStoryPublishedCount)}</span>
                       <span>{selectedStoryQuery.data.updatedLabel ?? `Обновлена ${new Date(selectedStoryQuery.data.updatedAt).toLocaleDateString("ru-RU")}`}</span>
                     </div>
                   </div>
@@ -221,7 +242,7 @@ export function StoryCreateScreen() {
               <div className="space-y-3 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="plotty-section-title">Главы</h2>
-                  <span className="plotty-meta">{formatChapterCount(selectedStoryQuery.data.chapters.length)}</span>
+                  <span className="plotty-meta">{formatChapterCount(selectedStoryPublishedCount)}</span>
                 </div>
 
                 {selectedStoryQuery.data.chapters.length ? (
@@ -240,7 +261,19 @@ export function StoryCreateScreen() {
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-3">
-                          <ButtonLink href={routes.chapter(selectedStoryQuery.data.slug, chapter.number ?? 1)} variant="secondary">
+                          <ButtonLink
+                            href={
+                              (chapter.status ?? "published") === "draft"
+                                ? routes.chapterPreview(selectedStoryQuery.data.slug, chapter.id)
+                                : routes.chapter(
+                                    selectedStoryQuery.data.slug,
+                                    readerChapterNumberForChapterId(selectedStoryQuery.data.chapters, chapter.id) ??
+                                      chapter.number ??
+                                      1,
+                                  )
+                            }
+                            variant="secondary"
+                          >
                             Читать
                           </ButtonLink>
                           <ButtonLink href={routes.chapterEditor(selectedStoryQuery.data.id, chapter.id)} variant="primary">
