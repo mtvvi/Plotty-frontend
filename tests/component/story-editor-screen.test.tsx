@@ -69,6 +69,19 @@ describe("StoryEditorScreen", () => {
     expect(screen.getByText(/нечаянно/i)).toBeInTheDocument();
   });
 
+  it("runs logic check and renders the verdict", async () => {
+    const user = userEvent.setup();
+
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Проверить логику" }));
+
+    await waitFor(() => expect(screen.getByText(/Логических нестыковок не найдено/i)).toBeInTheDocument(), {
+      timeout: 4_000,
+    });
+  });
+
   it("deletes the current chapter and navigates back to the story page", async () => {
     const user = userEvent.setup();
 

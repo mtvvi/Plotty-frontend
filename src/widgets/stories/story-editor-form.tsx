@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import type { ChapterListItem, SpellcheckResult } from "@/entities/story/model/types";
+import type { ChapterListItem, LogicCheckResult, SpellcheckResult } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Field, FieldLabel } from "@/shared/ui/field";
@@ -25,8 +25,11 @@ export interface StoryEditorFormProps {
   chapters?: ChapterListItem[];
   spellcheckResult?: SpellcheckResult;
   aiStatusLabel?: string;
+  logicCheckResult?: LogicCheckResult;
+  logicStatusLabel?: string;
   isSaving?: boolean;
   isSpellchecking?: boolean;
+  isLogicChecking?: boolean;
   imagePanel?: React.ReactNode;
   onChange: (next: StoryEditorValues) => void;
   onSave: () => void;
@@ -36,6 +39,7 @@ export interface StoryEditorFormProps {
   onCreateNextChapter?: () => void;
   onDeleteChapter?: () => void;
   onSpellcheck: () => void;
+  onLogicCheck: () => void;
 }
 
 export function StoryEditorForm({
@@ -47,8 +51,11 @@ export function StoryEditorForm({
   chapters = [],
   spellcheckResult,
   aiStatusLabel,
+  logicCheckResult,
+  logicStatusLabel,
   isSaving,
   isSpellchecking,
+  isLogicChecking,
   imagePanel,
   onChange,
   onSave,
@@ -58,6 +65,7 @@ export function StoryEditorForm({
   onCreateNextChapter,
   onDeleteChapter,
   onSpellcheck,
+  onLogicCheck,
 }: StoryEditorFormProps) {
   const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
   const previousChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : undefined;
@@ -147,6 +155,9 @@ export function StoryEditorForm({
               <Button variant="secondary" onClick={onSpellcheck} disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}>
                 {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
               </Button>
+              <Button variant="secondary" onClick={onLogicCheck} disabled={!chapterId || isLogicChecking || !values.chapterContent.trim()}>
+                {isLogicChecking ? "Проверяем логику..." : "Проверить логику"}
+              </Button>
               <Button variant="ghost" onClick={onCreateNextChapter} disabled={isSaving || typeof onCreateNextChapter !== "function"}>
                 Новая глава
               </Button>
@@ -158,32 +169,50 @@ export function StoryEditorForm({
       <div className="space-y-5">
         {imagePanel}
 
-        <ShellCard title="Орфография" description={aiStatusLabel ?? "Проверка запускается вручную после сохранения текста."}>
-          {spellcheckResult ? (
-            <div className="space-y-3">
-              <p className="text-sm leading-6 text-[var(--plotty-muted)]">{spellcheckResult.summary}</p>
-              <div className="space-y-2">
-                {spellcheckResult.items.length ? (
-                  spellcheckResult.items.map((issue) => (
-                    <div key={`${issue.startOffset}-${issue.endOffset}`} className="rounded-[18px] bg-[var(--plotty-panel)] p-3">
-                      <div className="text-sm font-semibold">{issue.fragmentText}</div>
-                      <div className="text-sm leading-6 text-[var(--plotty-muted)]">{issue.message}</div>
-                      <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+        <div className="space-y-5">
+          <ShellCard title="Орфография" description={aiStatusLabel ?? "Проверка запускается вручную после сохранения текста."}>
+            {spellcheckResult ? (
+              <div className="space-y-3">
+                <p className="text-sm leading-6 text-[var(--plotty-muted)]">{spellcheckResult.summary}</p>
+                <div className="space-y-2">
+                  {spellcheckResult.items.length ? (
+                    spellcheckResult.items.map((issue) => (
+                      <div key={`${issue.startOffset}-${issue.endOffset}`} className="rounded-[18px] bg-[var(--plotty-panel)] p-3">
+                        <div className="text-sm font-semibold">{issue.fragmentText}</div>
+                        <div className="text-sm leading-6 text-[var(--plotty-muted)]">{issue.message}</div>
+                        <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[18px] bg-[var(--plotty-panel)] p-3 text-sm text-[var(--plotty-muted)]">
+                      Ошибок не найдено.
                     </div>
-                  ))
-                ) : (
-                  <div className="rounded-[18px] bg-[var(--plotty-panel)] p-3 text-sm text-[var(--plotty-muted)]">
-                    Ошибок не найдено.
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          ) : (
-            <p className="text-sm leading-6 text-[var(--plotty-muted)]">
-              Отправьте главу на проверку, и здесь появится список замечаний.
-            </p>
-          )}
-        </ShellCard>
+            ) : (
+              <p className="text-sm leading-6 text-[var(--plotty-muted)]">
+                Отправьте главу на проверку, и здесь появится список замечаний.
+              </p>
+            )}
+          </ShellCard>
+
+          <ShellCard
+            title="Логика и лор"
+            description={
+              logicStatusLabel ??
+              "Сервис сравнивает текст с базой знаний по опубликованным главам."
+            }
+          >
+            {logicCheckResult ? (
+              <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
+            ) : (
+              <p className="text-sm leading-6 text-[var(--plotty-muted)]">
+                Запустите проверку — если лор ещё пуст (нет опубликованных глав), бэкенд вернёт короткое пояснение.
+              </p>
+            )}
+          </ShellCard>
+        </div>
 
         <ShellCard title="Навигация по главам" description="Быстрый переход между главами и действия над текущей главой.">
           <div className="space-y-3">

@@ -10,11 +10,12 @@ import {
   createChapter,
   deleteChapter,
   publishChapter,
+  startLogicCheck,
   startSpellcheck,
   storyKeys,
   updateChapter,
 } from "@/entities/story/api/stories-api";
-import type { SpellcheckResult } from "@/entities/story/model/types";
+import type { LogicCheckResult, SpellcheckResult } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { EmptyState } from "@/shared/ui/empty-state";
@@ -43,7 +44,7 @@ export function StoryEditorScreen({
   const chapterQuery = useQuery(chapterEditorDetailsQueryOptions(storyId, chapterId));
   const [values, setValues] = useState<StoryEditorValues>(emptyValues);
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
-  /** Локально после успешного POST /publish (в API главы пока не приходит status). */
+  const [logicCheckJobId, setLogicCheckJobId] = useState("");
   const [chapterPublishedThisSession, setChapterPublishedThisSession] = useState(false);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export function StoryEditorScreen({
 
   useEffect(() => {
     setChapterPublishedThisSession(false);
+    setLogicCheckJobId("");
   }, [chapterId]);
 
   const updateChapterMutation = useMutation({
@@ -81,9 +83,21 @@ export function StoryEditorScreen({
   const spellcheckMutation = useMutation({
     mutationFn: startSpellcheck,
   });
+  const logicCheckMutation = useMutation({
+    mutationFn: startLogicCheck,
+  });
 
   const spellcheckJobQuery = useQuery({
     ...aiJobQueryOptions<SpellcheckResult>(spellcheckJobId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+
+      return status === "completed" || status === "failed" ? false : 2_000;
+    },
+  });
+
+  const logicCheckJobQuery = useQuery({
+    ...aiJobQueryOptions<LogicCheckResult>(logicCheckJobId),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
 
@@ -167,6 +181,21 @@ export function StoryEditorScreen({
     setSpellcheckJobId(accepted.jobId);
   }
 
+  async function handleLogicCheck() {
+    try {
+      const accepted = await logicCheckMutation.mutateAsync({
+        chapterId,
+        content: values.chapterContent,
+      });
+
+      setLogicCheckJobId(accepted.jobId);
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
+    }
+  }
+
   async function handlePublish() {
     try {
       await publishChapterMutation.mutateAsync(chapterId);
@@ -207,6 +236,21 @@ export function StoryEditorScreen({
       ? "Наш бета-ридер работает над выявлением ошибок."
       : "";
 
+  const logicStatusLabel =
+    logicCheckJobQuery.data?.status === "processing" || logicCheckJobQuery.data?.status === "queued"
+      ? "Сверяем текст с лором и опубликованными главами..."
+      : "";
+
+  const isSpellcheckBusy =
+    spellcheckMutation.isPending ||
+    spellcheckJobQuery.data?.status === "queued" ||
+    spellcheckJobQuery.data?.status === "processing";
+
+  const isLogicCheckBusy =
+    logicCheckMutation.isPending ||
+    logicCheckJobQuery.data?.status === "queued" ||
+    logicCheckJobQuery.data?.status === "processing";
+
   return (
     <PlottyShell
       title={chapterQuery.data.title}
@@ -221,8 +265,11 @@ export function StoryEditorScreen({
         chapters={chapterQuery.data.storyChapters}
         spellcheckResult={spellcheckJobQuery.data?.result}
         aiStatusLabel={aiStatusLabel}
+        logicCheckResult={logicCheckJobQuery.data?.result}
+        logicStatusLabel={logicStatusLabel}
         isSaving={updateChapterMutation.isPending}
-        isSpellchecking={spellcheckMutation.isPending || spellcheckJobQuery.data?.status === "queued"}
+        isSpellchecking={isSpellcheckBusy}
+        isLogicChecking={isLogicCheckBusy}
         imagePanel={
           <div className="space-y-5">
             <div className="rounded-[26px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.8)] p-4 shadow-[var(--plotty-shadow-card)]">
@@ -250,6 +297,7 @@ export function StoryEditorScreen({
         onCreateNextChapter={handleCreateNextChapter}
         onDeleteChapter={handleDeleteChapter}
         onSpellcheck={handleSpellcheck}
+        onLogicCheck={handleLogicCheck}
       />
     </PlottyShell>
   );
