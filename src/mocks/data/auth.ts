@@ -85,7 +85,6 @@ export function updateMockUserProfile(payload: UpdateProfilePayload): AuthSessio
   const timestamp = new Date().toISOString();
 
   user.username = payload.username.trim();
-  user.avatar_url = payload.avatarUrl.trim() === "" ? null : payload.avatarUrl.trim();
   user.updated_at = timestamp;
 
   return { user };
