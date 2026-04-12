@@ -1,4 +1,3 @@
-/** Правила совпадают с CHECK в plotty_backend/migrations/002_users.up.sql */
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 40;
 export const USERNAME_PATTERN = /^[a-zA-Z0-9_]+$/;

@@ -41,7 +41,6 @@ interface BackendStoryListItem extends BackendStory {
   chaptersCount: number;
   coverImageUrl?: string;
   firstChapterId?: string;
-  /** Ручное/legacy; на core бэкенде аннотация приходит в `aiHint` (колонка ai_summary). */
   description?: string;
   aiHint?: string;
   status?: StoryDetails["status"];
@@ -58,7 +57,6 @@ interface BackendStoryDetails extends BackendStory {
   tags?: StoryTag[];
   coverImageUrl?: string;
   description?: string;
-  /** На бэкенде (Go) поле ai_summary сериализуется как `aiHint` — это и есть ML-аннотация. */
   aiHint?: string;
   status?: StoryDetails["status"];
   fandom?: string;
