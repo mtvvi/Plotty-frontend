@@ -71,7 +71,6 @@ interface ChapterRecord {
   number: number;
   title: string;
   content: string;
-  /** Если `"draft"` — глава только в мастерской; иначе считается опубликованной (в т.ч. без поля для старых фикстур). */
   status?: "draft" | "published";
   imageUrl?: string;
   imagePrompt?: string;
@@ -483,6 +482,7 @@ function countWords(content: string) {
 
 function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
   const filtered = db.stories
+    .filter((story) => story.status === "published")
     .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
     .filter((story) => matchesStoryTags(story, query.tags))
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
