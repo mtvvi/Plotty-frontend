@@ -5,7 +5,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { storiesQueryOptions, storyTagsQueryOptions } from "@/entities/story/api/stories-api";
-import { parseStoriesQuery, serializeStoriesQuery } from "@/entities/story/model/story-query";
+import { isStoryInPublicCatalog, parseStoriesQuery, serializeStoriesQuery } from "@/entities/story/model/story-query";
 import type { StoriesQuery, StoryTag } from "@/entities/story/model/types";
 import { getStoryTagCategoryLabel, groupStoryTags, storyTagCategoryOrder } from "@/shared/config/story-tags";
 import { cn } from "@/shared/lib/utils";
@@ -74,12 +74,14 @@ export function StoriesCatalogShell() {
     refetchOnWindowFocus: false,
   });
   const tagsQuery = useQuery(storyTagsQueryOptions());
-  const stories = storiesQuery.data?.items ?? [];
+  const rawListItems = storiesQuery.data?.items ?? [];
+  const catalogStories = useMemo(() => rawListItems.filter(isStoryInPublicCatalog), [rawListItems]);
   const groupedTags = useMemo(() => groupStoryTags(tagsQuery.data?.items ?? []), [tagsQuery.data?.items]);
   const orderedGroups = storyTagCategoryOrder
     .map((category) => [category, groupedTags[category] ?? []] as const)
     .filter(([, tags]) => tags.length);
-  const totalStories = (storiesQuery.data?.pagination.total ?? 0).toLocaleString("ru-RU");
+  const totalStories = catalogStories.length.toLocaleString("ru-RU");
+  const pageHasOnlyDraftStories = rawListItems.length > 0 && catalogStories.length === 0;
   const hasInitialLoading = storiesQuery.isLoading && !storiesQuery.data;
   const appliedActiveTags = (tagsQuery.data?.items ?? []).filter((tag) => appliedQuery.tags.includes(tag.slug));
 
@@ -308,9 +310,16 @@ export function StoriesCatalogShell() {
                 actionLabel="Очистить всё"
                 onAction={clearAppliedFilters}
               />
-            ) : stories.length ? (
+            ) : pageHasOnlyDraftStories ? (
+              <EmptyState
+                title="На этой странице нет опубликованных историй"
+                description="Черновики и истории без опубликованной первой главы в общий каталог не попадают. Перейдите на другую страницу выдачи или смените фильтры."
+                actionLabel="Очистить всё"
+                onAction={clearAppliedFilters}
+              />
+            ) : catalogStories.length ? (
               <div className="space-y-3 sm:space-y-4" aria-live="polite">
-                {stories.map((story) => (
+                {catalogStories.map((story) => (
                   <StoryCard key={story.id} story={story} />
                 ))}
               </div>

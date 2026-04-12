@@ -1,6 +1,10 @@
 import { storyTags } from "@/shared/config/story-tags";
 
-import type { StoriesQuery } from "./types";
+import type { StoriesQuery, StoryListItem } from "./types";
+
+export function isStoryInPublicCatalog(story: StoryListItem): boolean {
+  return story.status === "published";
+}
 
 export const defaultStoriesQuery: StoriesQuery = {
   tags: [],
