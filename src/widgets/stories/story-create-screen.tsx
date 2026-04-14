@@ -12,6 +12,7 @@ import {
   storyKeys,
 } from "@/entities/story/api/stories-api";
 import { defaultStoriesQuery, publicChaptersForReader, readerChapterNumberForChapterId } from "@/entities/story/model/story-query";
+import { useAuth } from "@/entities/auth/model/auth-context";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
@@ -27,8 +28,9 @@ const emptyChapterDraft = "Черновик новой главы. Открой�
 export function StoryCreateScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [selectedStorySlug, setSelectedStorySlug] = useState("");
-  const storiesQuery = useQuery(myStoriesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }));
+  const storiesQuery = useQuery(myStoriesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }, { userId: user?.id }));
   const workshopStoryDetailsQueries = useQueries({
     queries: (storiesQuery.data?.items ?? []).map((item) => ({
       ...storyDetailsQueryOptions(item.slug),
