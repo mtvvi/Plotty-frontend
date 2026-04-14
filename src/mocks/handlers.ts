@@ -17,7 +17,7 @@ import {
   createImageGenerationJob,
   createLogicCheckJob,
   createSpellcheckJob,
-  createStoryRecord,
+  createStoryRecordForAuthor,
   deleteStoryCommentRecord,
   deleteChapterRecord,
   deleteStoryRecord,
@@ -28,6 +28,7 @@ import {
   likeStoryRecord,
   listTags,
   listStories,
+  listMyStories,
   addChapterCommentRecord,
   unlikeStoryRecord,
   publishChapterRecord,
@@ -124,10 +125,29 @@ export const handlers = [
     return HttpResponse.json(listStories(query, session?.user.id));
   }),
 
+  http.get("*/stories/mine", ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const query = parseStoriesQuery(url.searchParams);
+
+    return HttpResponse.json(listMyStories(query, session.user.id));
+  }),
+
   http.post("*/stories", async ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const payload = (await request.json()) as CreateStoryPayload;
 
-    return HttpResponse.json(createStoryRecord(payload), { status: 201 });
+    return HttpResponse.json(createStoryRecordForAuthor(payload, session.user.id), { status: 201 });
   }),
 
   http.patch("*/stories/:storyId", async ({ params, request }) => {
