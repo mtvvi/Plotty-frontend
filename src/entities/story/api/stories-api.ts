@@ -315,9 +315,11 @@ export function storiesQueryOptions(query: StoriesQuery) {
   });
 }
 
-export function myStoriesQueryOptions(query: StoriesQuery) {
+export function myStoriesQueryOptions(query: StoriesQuery, options?: { userId?: number | null }) {
+  const userKey = options?.userId ? String(options.userId) : "anonymous";
+
   return queryOptions({
-    queryKey: [...storyKeys.list(query), "mine"] as const,
+    queryKey: [...storyKeys.list(query), "mine", userKey] as const,
     queryFn: async ({ signal }): Promise<StoriesResponse> => {
       const response = await fetchMyStoriesPage(query, signal);
 
@@ -326,6 +328,7 @@ export function myStoriesQueryOptions(query: StoriesQuery) {
         pagination: response.pagination,
       };
     },
+    enabled: Boolean(options?.userId),
   });
 }
 

@@ -14,6 +14,7 @@ import { cn } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Field, FieldError, FieldHint, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { storyKeys } from "@/entities/story/api/stories-api";
 
 function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
   const query = searchParams.toString();
@@ -120,6 +121,7 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
     mutationFn: logout,
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: authKeys.session() });
+      queryClient.removeQueries({ queryKey: storyKeys.all });
     },
   });
 
