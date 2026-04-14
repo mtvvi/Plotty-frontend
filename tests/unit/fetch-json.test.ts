@@ -20,10 +20,10 @@ describe("fetchJson URL resolution", () => {
 
   it("supports the deprecated direct API fallback", () => {
     expect(resolveApiInput("/stories", "https://api.plotty-stories.duckdns.org/")).toBe(
-      "https://api.plotty-stories.duckdns.org/stories",
+      "https://api.plotty-stories.duckdns.org/api/stories",
     );
     expect(resolveApiInput("/api/tags", "https://api.plotty-stories.duckdns.org")).toBe(
-      "https://api.plotty-stories.duckdns.org/tags",
+      "https://api.plotty-stories.duckdns.org/api/tags",
     );
   });
 
