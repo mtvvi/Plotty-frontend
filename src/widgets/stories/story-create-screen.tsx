@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   chapterDetailsQueryOptions,
   createChapter,
-  storiesQueryOptions,
+  myStoriesQueryOptions,
   storyDetailsQueryOptions,
   storyKeys,
 } from "@/entities/story/api/stories-api";
@@ -28,7 +28,7 @@ export function StoryCreateScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [selectedStorySlug, setSelectedStorySlug] = useState("");
-  const storiesQuery = useQuery(storiesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }));
+  const storiesQuery = useQuery(myStoriesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }));
   const workshopStoryDetailsQueries = useQueries({
     queries: (storiesQuery.data?.items ?? []).map((item) => ({
       ...storyDetailsQueryOptions(item.slug),

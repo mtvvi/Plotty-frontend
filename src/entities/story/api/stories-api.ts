@@ -24,10 +24,11 @@ import type {
   StoryListItem,
   StoryTag,
   StoryTagsResponse,
-  ToggleLikeResult,
   UpdateChapterPayload,
   UpdateStoryPayload,
 } from "../model/types";
+
+export type StoriesScope = "public" | "mine";
 
 interface BackendStory {
   id: string;
@@ -256,18 +257,24 @@ async function fetchStoriesPage(query: StoriesQuery, signal?: AbortSignal) {
   return fetchJson<BackendStoriesResponse>(`/stories?${params.toString()}`, { signal });
 }
 
+async function fetchMyStoriesPage(query: StoriesQuery, signal?: AbortSignal) {
+  const params = serializeStoriesQuery(query);
+
+  return fetchJson<BackendStoriesResponse>(`/stories/mine?${params.toString()}`, { signal });
+}
+
 async function fetchStoryDetails(slug: string) {
   const story = await fetchJson<BackendStoryDetails>(`/stories/${slug}`);
 
   return mapStoryDetails(story);
 }
 
-async function fetchStoryDetailsById(storyId: string) {
+async function fetchStoryDetailsById(storyId: string, scope: StoriesScope) {
   let page = 1;
   let total = 0;
 
   do {
-    const response = await fetchStoriesPage({
+    const response = await (scope === "mine" ? fetchMyStoriesPage : fetchStoriesPage)({
       tags: [],
       q: "",
       page,
@@ -308,6 +315,20 @@ export function storiesQueryOptions(query: StoriesQuery) {
   });
 }
 
+export function myStoriesQueryOptions(query: StoriesQuery) {
+  return queryOptions({
+    queryKey: [...storyKeys.list(query), "mine"] as const,
+    queryFn: async ({ signal }): Promise<StoriesResponse> => {
+      const response = await fetchMyStoriesPage(query, signal);
+
+      return {
+        items: response.items.map(mapStoryListItem),
+        pagination: response.pagination,
+      };
+    },
+  });
+}
+
 export function storyDetailsQueryOptions(slug: string) {
   return queryOptions({
     queryKey: storyKeys.details(slug),
@@ -315,10 +336,12 @@ export function storyDetailsQueryOptions(slug: string) {
   });
 }
 
-export function storyDetailsByIdQueryOptions(storyId: string) {
+export function storyDetailsByIdQueryOptions(storyId: string, options?: { scope?: StoriesScope }) {
+  const scope = options?.scope ?? "public";
+
   return queryOptions({
-    queryKey: storyKeys.detailsById(storyId),
-    queryFn: () => fetchStoryDetailsById(storyId),
+    queryKey: [...storyKeys.detailsById(storyId), scope] as const,
+    queryFn: () => fetchStoryDetailsById(storyId, scope),
     enabled: Boolean(storyId),
   });
 }
@@ -357,7 +380,7 @@ export function chapterEditorDetailsQueryOptions(storyId: string, chapterId: str
     queryFn: async () => {
       const [chapter, story] = await Promise.all([
         fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`),
-        fetchStoryDetailsById(storyId),
+        fetchStoryDetailsById(storyId, "mine"),
       ]);
 
       return enrichChapterDetails(chapter, story);

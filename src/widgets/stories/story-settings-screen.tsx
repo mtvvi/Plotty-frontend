@@ -46,7 +46,7 @@ const requiredCategoryOrder = ["directionality", "rating", "completion", "size",
 export function StorySettingsScreen({ storyId }: { storyId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const storyQuery = useQuery(storyDetailsByIdQueryOptions(storyId));
+  const storyQuery = useQuery(storyDetailsByIdQueryOptions(storyId, { scope: "mine" }));
   const tagsQuery = useQuery(storyTagsQueryOptions());
   const [stage, setStage] = useState<StoryEditStage>("details");
   const [values, setValues] = useState<StorySettingsValues>(emptyValues);

@@ -33,6 +33,7 @@ interface StoryRecord {
   id: string;
   slug: string;
   title: string;
+  authorId: number;
   coverImageUrl?: string;
   description: string;
   status: StoryStatus;
@@ -132,6 +133,7 @@ function createInitialDb(): MockStoriesDb {
         id: "story-1",
         slug: "after-midnight-the-snow-does-not-melt",
         title: "После полуночи снег не тает",
+        authorId: 1,
         description:
           "Гермиона пытается пережить восьмой курс, пока архив старого факультета вскрывает неудобные связи между прошлым и настоящим.",
         status: "published",
@@ -157,6 +159,7 @@ function createInitialDb(): MockStoriesDb {
         id: "story-2",
         slug: "ashes-and-salt",
         title: "Пепел для Белого Волка",
+        authorId: 102,
         description:
           "Йеннифэр и Геральт снова идут по следу пропавшей карты, которая ведет к старому долгу и новым решениям.",
         status: "published",
@@ -182,6 +185,7 @@ function createInitialDb(): MockStoriesDb {
         id: "story-3",
         slug: "seventh-lantern-on-shadow-street",
         title: "Седьмой фонарь на Тенистой улице",
+        authorId: 101,
         description:
           "Детективная линия в Средиземье, где почти каждый разговор одновременно допрос и попытка защитить близкого человека.",
         status: "published",
@@ -207,6 +211,7 @@ function createInitialDb(): MockStoriesDb {
         id: "story-4",
         slug: "letters-without-an-owl-address",
         title: "Письма без адреса обратной совы",
+        authorId: 102,
         description:
           "Эпистолярная история о доверии, памяти и аккуратно спрятанных чувствах в мире Гарри Поттера.",
         status: "published",
@@ -232,6 +237,7 @@ function createInitialDb(): MockStoriesDb {
         id: "story-5",
         slug: "warmth-under-the-crystal-dome",
         title: "Тепло под кристальным куполом",
+        authorId: 1,
         description:
           "История о деревне скрытого листа, где официальные поручения и личная верность постоянно ломают друг друга.",
         status: "published",
@@ -517,6 +523,37 @@ export function listStories(query: StoriesQuery, viewerUserId?: number) {
   };
 }
 
+export function listMyStories(query: StoriesQuery, viewerUserId?: number) {
+  if (!viewerUserId) {
+    return {
+      items: [],
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total: 0,
+      },
+    } satisfies StoriesResponse;
+  }
+
+  const filtered = db.stories
+    .filter((story) => story.authorId === viewerUserId)
+    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+    .filter((story) => matchesStoryTags(story, query.tags))
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+
+  const start = (query.page - 1) * query.pageSize;
+  const paged = filtered.slice(start, start + query.pageSize);
+
+  return {
+    items: paged.map((story) => toStoryListItem(story, viewerUserId)),
+    pagination: {
+      page: query.page,
+      pageSize: query.pageSize,
+      total: filtered.length,
+    },
+  };
+}
+
 function matchesStoryTags(story: StoryRecord, selectedTags: string[]) {
   const requiredTags: string[] = [];
   const groupedAnyTags = new Map<string, string[]>();
@@ -583,12 +620,17 @@ export function getChapterById(chapterId: string) {
   return chapter ? toChapterDetails(chapter) : null;
 }
 
-export function createStoryRecord(payload: CreateStoryPayload) {
+export function createStoryRecord(_payload: CreateStoryPayload) {
+  throw new Error("createStoryRecord requires authorId. Use createStoryRecordForAuthor instead.");
+}
+
+export function createStoryRecordForAuthor(payload: CreateStoryPayload, authorId: number) {
   const timestamp = nowIso();
   const story: StoryRecord = {
     id: `story-${db.storySeed}`,
     slug: uniqueStorySlug(payload.title),
     title: payload.title,
+    authorId,
     description: "",
     status: "draft",
     tagSlugs: resolveTagSlugsFromPayload(payload),

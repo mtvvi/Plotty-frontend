@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { loginMockUser, resetMockAuthDb } from "@/mocks/data/auth";
 import { StoryCreateFlowScreen } from "@/widgets/stories/story-create-flow-screen";
 
 const push = vi.fn();
@@ -29,6 +30,9 @@ function renderCreateFlow() {
 describe("StoryCreateFlowScreen", () => {
   it("moves through the flow step by step, then creates a first chapter and redirects to the editor", async () => {
     const user = userEvent.setup();
+
+    resetMockAuthDb();
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
 
     renderCreateFlow();
 

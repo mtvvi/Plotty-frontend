@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { listStories } from "@/mocks/data/stories";
+import { loginMockUser, resetMockAuthDb } from "@/mocks/data/auth";
 import { StorySettingsScreen } from "@/widgets/stories/story-settings-screen";
 
 const push = vi.fn();
@@ -16,7 +17,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 function renderStorySettings() {
-  const story = listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items[0];
+  resetMockAuthDb();
+  loginMockUser({ email: "writer@plotty.test", password: "password123" });
+
+  const story = listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items.find((item) => item.id === "story-5")!;
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });

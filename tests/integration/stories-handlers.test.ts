@@ -26,6 +26,15 @@ describe("stories mock handlers", () => {
   });
 
   it("creates a story and its first chapter", async () => {
+    await fetch("http://localhost/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "writer@plotty.test",
+        password: "password123",
+      }),
+    });
+
     const storyResponse = await fetch("http://localhost/stories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
