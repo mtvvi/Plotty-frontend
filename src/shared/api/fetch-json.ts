@@ -34,7 +34,17 @@ export function resolveApiInput(input: string, directApiUrl = process.env.NEXT_P
   const backendPath = path === "/api" ? "/" : path.startsWith("/api/") ? path.slice(4) : path;
 
   if (directApiUrl) {
-    return `${stripTrailingSlash(directApiUrl)}${backendPath}`;
+    const base = stripTrailingSlash(directApiUrl);
+
+    try {
+      const url = new URL(base);
+      const normalizedPathname = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+      const apiBase = normalizedPathname.endsWith("/api") ? base : `${base}/api`;
+
+      return `${stripTrailingSlash(apiBase)}${backendPath}`;
+    } catch {
+      return `${base}${backendPath}`;
+    }
   }
 
   return proxiedPath;
