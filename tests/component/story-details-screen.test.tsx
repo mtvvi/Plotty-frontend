@@ -30,7 +30,9 @@ describe("StoryDetailsScreen", () => {
       expect(screen.getByRole("heading", { name: "После полуночи снег не тает" })).toBeInTheDocument(),
     );
 
-    expect(screen.getByAltText("Обложка истории «После полуночи снег не тает»")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByAltText("Обложка истории «После полуночи снег не тает»")).toBeInTheDocument(),
+    );
     expect(screen.getAllByRole("link", { name: "Читать" })[0]).toHaveAttribute(
       "href",
       "/stories/after-midnight-the-snow-does-not-melt/chapters/1",
