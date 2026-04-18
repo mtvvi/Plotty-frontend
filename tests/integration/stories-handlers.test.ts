@@ -64,8 +64,8 @@ describe("stories mock handlers", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: "Р“Р»Р°РІР° 1",
-        content: "РџРµСЂРІС‹Р№ С‚РµРєСЃС‚",
+        title: "Глава 1",
+        content: "Первый текст",
       }),
     });
     const chapter = (await chapterResponse.json()) as { id: string };
@@ -97,7 +97,7 @@ describe("stories mock handlers", () => {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: "РџРѕСЃР»Рµ РїРѕР»СѓРЅРѕС‡Рё СЃРЅРµРі РЅРµ С‚Р°РµС‚",
+        title: "После полуночи снег не тает",
       }),
     });
 
@@ -106,7 +106,7 @@ describe("stories mock handlers", () => {
     const detailsResponse = await fetch("http://localhost/stories/after-midnight-the-snow-does-not-melt");
     const details = (await detailsResponse.json()) as { title: string; aiHint?: string };
 
-    expect(details.title).toBe("РџРѕСЃР»Рµ РїРѕР»СѓРЅРѕС‡Рё СЃРЅРµРі РЅРµ С‚Р°РµС‚");
+    expect(details.title).toBe("После полуночи снег не тает");
     expect(details.aiHint).toBe(before.aiHint);
   });
 
@@ -126,8 +126,8 @@ describe("stories mock handlers", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chapterId: "chapter-1",
-        content: "РўРµРєСЃС‚",
-        prompt: "РЎРЅРµРі Рё Р°СЂС…РёРІ",
+        content: "Текст",
+        prompt: "Снег и архив",
       }),
     });
     const accepted = (await acceptedResponse.json()) as { jobId: string };
