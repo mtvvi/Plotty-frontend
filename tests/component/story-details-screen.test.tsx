@@ -1,4 +1,3 @@
-import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -24,32 +23,26 @@ function renderStoryDetails() {
 }
 
 describe("StoryDetailsScreen", () => {
-  it("renders cover, read CTA, description and chapters access without delete-story noise", async () => {
+  it("renders cover, read CTA, AI annotation and chapters access without authoring controls", async () => {
     renderStoryDetails();
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "После полуночи снег не тает" })).toBeInTheDocument(),
+      expect(screen.getByRole("heading", { name: "РџРѕСЃР»Рµ РїРѕР»СѓРЅРѕС‡Рё СЃРЅРµРі РЅРµ С‚Р°РµС‚" })).toBeInTheDocument(),
     );
 
-    expect(screen.getByAltText("Обложка истории «После полуночи снег не тает»")).toBeInTheDocument();
-    expect(screen.getByAltText("Обложка истории «После полуночи снег не тает»").closest('[data-cover-frame="true"]')).toHaveClass(
-      "h-full",
-      "min-h-[18rem]",
-    );
-    expect(screen.getAllByRole("link", { name: "Читать" })[0]).toHaveAttribute(
+    expect(screen.getByAltText("РћР±Р»РѕР¶РєР° РёСЃС‚РѕСЂРёРё В«РџРѕСЃР»Рµ РїРѕР»СѓРЅРѕС‡Рё СЃРЅРµРі РЅРµ С‚Р°РµС‚В»")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Р§РёС‚Р°С‚СЊ" })[0]).toHaveAttribute(
       "href",
       "/stories/after-midnight-the-snow-does-not-melt/chapters/1",
     );
-    expect(screen.getByRole("button", { name: "Описание" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Главы" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Комментарии" })).toBeInTheDocument();
-    expect(
-      screen.getAllByText(/Гермиона пытается пережить восьмой курс, пока архив старого факультета/i).length,
-    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("button", { name: "РћРїРёСЃР°РЅРёРµ" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Р“Р»Р°РІС‹" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "РљРѕРјРјРµРЅС‚Р°СЂРёРё" })).toBeInTheDocument();
+    expect(screen.getByText(/AI Р°РІС‚РѕСЂР°: 2 Р·Р°РјРµС‡Р°РЅРёСЏ РїРѕ РєР°РЅРѕРЅСѓ/i)).toBeInTheDocument();
     expect(document.querySelector("#story-content")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Удалить историю" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Настройки истории" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Новая глава" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Редактировать главу" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "РЈРґР°Р»РёС‚СЊ РёСЃС‚РѕСЂРёСЋ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "РќР°СЃС‚СЂРѕР№РєРё РёСЃС‚РѕСЂРёРё" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "РќРѕРІР°СЏ РіР»Р°РІР°" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ РіР»Р°РІСѓ" })).not.toBeInTheDocument();
   });
 });

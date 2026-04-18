@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import {
@@ -31,14 +31,6 @@ export function StoryCreateScreen() {
   const { user } = useAuth();
   const [selectedStorySlug, setSelectedStorySlug] = useState("");
   const storiesQuery = useQuery(myStoriesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }, { userId: user?.id }));
-  const workshopStoryDetailsQueries = useQueries({
-    queries: (storiesQuery.data?.items ?? []).map((item) => ({
-      ...storyDetailsQueryOptions(item.slug),
-      staleTime: 30_000,
-      refetchOnWindowFocus: false,
-      enabled: Boolean(storiesQuery.data?.items.length),
-    })),
-  });
   const selectedStoryQuery = useQuery({
     ...storyDetailsQueryOptions(selectedStorySlug),
     enabled: Boolean(selectedStorySlug),
@@ -70,12 +62,8 @@ export function StoryCreateScreen() {
     ? publicChaptersForReader(selectedStoryQuery.data.chapters).length
     : 0;
 
-  const selectedStoryDisplayCover =
-    selectedStoryQuery.data?.coverImageUrl ??
-    selectedStoryFirstChapterQuery.data?.imageUrl;
-  const selectedStoryDescription = selectedStoryQuery.data?.description?.trim()
-    ? selectedStoryQuery.data.description
-    : STORY_ANNOTATION_PLACEHOLDER;
+  const selectedStoryDisplayCover = selectedStoryFirstChapterQuery.data?.imageUrl;
+  const selectedStoryDescription = selectedStoryQuery.data?.aiHint?.trim() ? selectedStoryQuery.data.aiHint : STORY_ANNOTATION_PLACEHOLDER;
 
   const activeStoryTags = useMemo(
     () =>
@@ -128,12 +116,7 @@ export function StoryCreateScreen() {
             </div>
           ) : storiesQuery.data?.items.length ? (
             <div className="space-y-3">
-              {storiesQuery.data.items.map((story, index) => {
-                const workshopDetails = workshopStoryDetailsQueries[index]?.data;
-                const workshopPublishedCount = workshopDetails
-                  ? publicChaptersForReader(workshopDetails.chapters).length
-                  : story.chaptersCount;
-
+              {storiesQuery.data.items.map((story) => {
                 return (
                 <div
                   key={story.id}
@@ -148,7 +131,7 @@ export function StoryCreateScreen() {
                       <div className="plotty-kicker">История</div>
                       <div className="mt-2 text-base font-semibold text-[var(--plotty-ink)]">{story.title}</div>
                       <div className="mt-1 text-sm text-[var(--plotty-muted)]">
-                        {formatChapterCount(workshopPublishedCount)}
+                        {formatChapterCount(story.chaptersCount)}
                       </div>
                     </button>
                     <ButtonLink
@@ -205,7 +188,7 @@ export function StoryCreateScreen() {
                     <div className="plotty-kicker">Активная история</div>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-[var(--plotty-muted)]">
                       <span>{formatChapterCount(selectedStoryPublishedCount)}</span>
-                      <span>{selectedStoryQuery.data.updatedLabel ?? `Обновлена ${new Date(selectedStoryQuery.data.updatedAt).toLocaleDateString("ru-RU")}`}</span>
+                      <span>{`Обновлена ${new Date(selectedStoryQuery.data.updatedAt).toLocaleDateString("ru-RU")}`}</span>
                     </div>
                   </div>
 

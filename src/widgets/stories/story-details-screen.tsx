@@ -1,8 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -75,15 +75,10 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   }
 
   const story = storyQuery.data;
-
-  const storyDescription = story.description?.trim()
-    ? story.description
-    : STORY_ANNOTATION_PLACEHOLDER;
-  const displayCoverImage =
-    story.coverImageUrl ??
-    firstChapterQuery.data?.imageUrl;
+  const storyDescription = story.aiHint?.trim() ? story.aiHint : STORY_ANNOTATION_PLACEHOLDER;
+  const displayCoverImage = firstChapterQuery.data?.imageUrl;
   const viewerHasLiked = Boolean(story.viewerHasLiked);
-  const genericTags = story.tags.filter((tag) => !["completion", "rating", "size"].includes(tag.category ?? ""));
+  const genericTags = story.tags.filter((tag) => !["completion", "rating", "size", "directionality"].includes(tag.category ?? ""));
 
   async function handleToggleLike() {
     const nextLiked = !viewerHasLiked;
@@ -114,12 +109,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   }
 
   return (
-    <PlottyPageShell
-      suppressPageIntro
-      showMobileBack
-      mobileBackHref={routes.home}
-      menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
-    >
+    <PlottyPageShell suppressPageIntro showMobileBack mobileBackHref={routes.home} menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
       <div className="space-y-4 lg:space-y-5">
         <PlottySectionCard className="overflow-hidden p-0">
           <div className="grid gap-0 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -141,12 +131,12 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[14px] text-[var(--plotty-muted)]">
                   {story.fandom ? <span>{story.fandom}</span> : null}
-                  {story.pairing ? <span>{story.pairing}</span> : null}
-                  <span>{readerChapters.length} {getChapterLabel(readerChapters.length)}</span>
+                  {story.author?.username ? <span>{`Автор ${story.author.username}`}</span> : null}
+                  <span>
+                    {readerChapters.length} {getChapterLabel(readerChapters.length)}
+                  </span>
                 </div>
-                <p className="plotty-meta">
-                  {story.updatedLabel ?? `Обновлена ${new Date(story.updatedAt).toLocaleString("ru-RU")}`}
-                </p>
+                <p className="plotty-meta">{`Обновлена ${new Date(story.updatedAt).toLocaleString("ru-RU")}`}</p>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -165,20 +155,20 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                       Читать
                     </ButtonLink>
                   ) : null}
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setActiveSection("chapters")}
-                    disabled={!readerChapters.length}
-                  >
+                  <Button type="button" variant="secondary" onClick={() => setActiveSection("chapters")} disabled={!readerChapters.length}>
                     К главам
                   </Button>
+                  {readerChapters[0] ? (
+                    <ButtonLink href={`${routes.chapter(story.slug, readerChapters[0].number ?? 1)}#comments`} variant="secondary">
+                      Комментарии
+                    </ButtonLink>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={handleToggleLike}
+                    onClick={() => void handleToggleLike()}
                     disabled={likeMutation.isPending}
                     className={`plotty-stat transition-colors ${viewerHasLiked ? "bg-[var(--plotty-accent-soft)] text-[var(--plotty-accent)]" : ""}`}
                     aria-pressed={viewerHasLiked}
@@ -187,27 +177,6 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     <StatHeartIcon />
                     <span>{formatCount(story.likesCount)}</span>
                   </button>
-                  {readerChapters[0] ? (
-                    <Link
-                      href={`${routes.chapter(story.slug, readerChapters[0].number ?? 1)}#comments`}
-                      className="plotty-stat transition-colors"
-                      aria-label="Комментарии"
-                    >
-                      <StatCommentIcon />
-                      <span>{formatCount(story.commentsCount)}</span>
-                    </Link>
-                  ) : (
-                    <span className="plotty-stat">
-                      <StatCommentIcon />
-                      <span>{formatCount(story.commentsCount)}</span>
-                    </span>
-                  )}
-                  {/* Закладки временно скрыты
-                  <span className="plotty-stat">
-                    <StatBookmarkIcon />
-                    <span>{formatCount(story.bookmarksCount)}</span>
-                  </span>
-                  */}
                 </div>
               </div>
 
@@ -244,20 +213,13 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 <p className="plotty-body max-w-4xl text-[16px] leading-8 text-[var(--plotty-ink)] lg:text-[17px]">
                   {storyDescription}
                 </p>
-                {story.aiHint &&
-                story.aiHint.trim() !== (story.description ?? "").trim() ? (
-                  <div className="rounded-[20px] border border-[rgba(54,81,63,0.1)] bg-[rgba(54,81,63,0.06)] p-4">
-                    <div className="plotty-kicker text-[var(--plotty-olive)]">Сводка</div>
-                    <p className="mt-2 text-sm leading-6 text-[var(--plotty-muted)]">{story.aiHint}</p>
-                  </div>
-                ) : null}
               </div>
               <div className="space-y-3 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
                 <div className="plotty-section-title">Мета истории</div>
                 <div className="grid gap-2 text-sm text-[var(--plotty-muted)]">
-                  <span>Создана {new Date(story.createdAt).toLocaleDateString("ru-RU")}</span>
-                  <span>{story.updatedLabel ?? `Обновлена ${new Date(story.updatedAt).toLocaleDateString("ru-RU")}`}</span>
-                  {story.summaryLabel ? <span>{story.summaryLabel}</span> : null}
+                  <span>{`Создана ${new Date(story.createdAt).toLocaleDateString("ru-RU")}`}</span>
+                  <span>{`Обновлена ${new Date(story.updatedAt).toLocaleDateString("ru-RU")}`}</span>
+                  {story.author?.username ? <span>{`Автор ${story.author.username}`}</span> : null}
                 </div>
               </div>
             </div>
@@ -280,7 +242,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                           Глава {chapter.number}. {chapter.title}
                         </div>
                         <div className="plotty-meta text-sm">
-                          Обновлена {new Date(chapter.updatedAt).toLocaleString("ru-RU")}
+                          {`Обновлена ${new Date(chapter.updatedAt).toLocaleString("ru-RU")}`}
                         </div>
                       </div>
                     </div>
@@ -296,13 +258,9 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 ))}
               </div>
             ) : (
-              <EmptyState
-                title="У истории пока нет глав"
-                description="Загляните позже или выберите другую историю из каталога."
-              />
+              <EmptyState title="У истории пока нет глав" description="Загляните позже или выберите другую историю из каталога." />
             )
           ) : null}
-
         </PlottySectionCard>
       </div>
     </PlottyPageShell>
@@ -313,7 +271,7 @@ function StoryMetaPill({
   children,
   accent = false,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   accent?: boolean;
 }) {
   return (
@@ -336,22 +294,6 @@ function StatHeartIcon() {
     </svg>
   );
 }
-
-function StatCommentIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M3 3.5h10v6H7l-3.2 2.7V3.5Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/* function StatBookmarkIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M4.2 2.3h7.6v11.4L8 10.8l-3.8 2.9V2.3Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
-    </svg>
-  );
-} */
 
 function formatCount(value?: number) {
   return (value ?? 0).toLocaleString("ru-RU");
