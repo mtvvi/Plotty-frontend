@@ -2,11 +2,17 @@
 
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { likeStory, patchStorySummaryCaches, unlikeStory } from "@/entities/story/api/stories-api";
+import {
+  chapterDetailsQueryOptions,
+  likeStory,
+  patchStorySummaryCaches,
+  storyDetailsQueryOptions,
+  unlikeStory,
+} from "@/entities/story/api/stories-api";
 import type { StoryListItem } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
@@ -18,6 +24,19 @@ export function StoryCard({ story }: { story: StoryListItem }) {
   const queryClient = useQueryClient();
   const storyHref = routes.story(story.slug);
   const chaptersHref = `${storyHref}?tab=chapters`;
+  const storyDetailsQuery = useQuery({
+    ...storyDetailsQueryOptions(story.slug),
+    enabled: story.chaptersCount > 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const firstChapterId = storyDetailsQuery.data?.chapters[0]?.id ?? "";
+  const firstChapterQuery = useQuery({
+    ...chapterDetailsQueryOptions(firstChapterId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const displayCoverImage = firstChapterQuery.data?.imageUrl;
   const likeMutation = useMutation({
     mutationFn: ({ liked }: { liked: boolean }) => (liked ? unlikeStory(story.id) : likeStory(story.id)),
   });
@@ -70,6 +89,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
           <div className="h-full border-b border-[rgba(35,33,30,0.08)] md:border-b-0 md:border-r">
             <StoryCoverPreview
               title={story.title}
+              imageUrl={displayCoverImage}
               compact
               className="h-full rounded-none border-0"
               imageClassName="h-full"
