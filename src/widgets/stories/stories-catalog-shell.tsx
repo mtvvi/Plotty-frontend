@@ -74,7 +74,7 @@ export function StoriesCatalogShell() {
     refetchOnWindowFocus: false,
   });
   const tagsQuery = useQuery(storyTagsQueryOptions());
-  const rawListItems = storiesQuery.data?.items ?? [];
+  const rawListItems = useMemo(() => storiesQuery.data?.items ?? [], [storiesQuery.data?.items]);
   const catalogStories = useMemo(() => rawListItems.filter(isStoryInPublicCatalog), [rawListItems]);
   const groupedTags = useMemo(() => groupStoryTags(tagsQuery.data?.items ?? []), [tagsQuery.data?.items]);
   const orderedGroups = storyTagCategoryOrder
