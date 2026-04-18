@@ -4,12 +4,15 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { loginMockUser, resetMockAuthDb } from "@/mocks/data/auth";
 import { StoryEditorScreen } from "@/widgets/stories/story-editor-screen";
 
 const push = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn() }),
+  usePathname: () => "/write/stories/story-1/chapters/chapter-1",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 function renderEditor() {
@@ -27,6 +30,8 @@ function renderEditor() {
 describe("StoryEditorScreen", () => {
   beforeEach(() => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
+    resetMockAuthDb();
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
   });
 
   it("saves the chapter and updates the mock API state", async () => {
@@ -34,7 +39,11 @@ describe("StoryEditorScreen", () => {
 
     renderEditor();
 
-    await waitFor(() => expect(screen.getByDisplayValue("После полуночи снег не тает")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+
+    expect(screen.queryByLabelText("Название истории")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Удалить историю" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Обновить иллюстрацию|Сгенерировать картинку/i })).toBeInTheDocument();
 
     const chapterTitle = screen.getByDisplayValue("Глава 1. Архив под лестницей");
     await user.clear(chapterTitle);
@@ -57,8 +66,23 @@ describe("StoryEditorScreen", () => {
     await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Проверить орфографию" }));
 
-    await waitFor(() => expect(screen.getByText(/Найдено 1 замечание/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Найдено 1 замечание/i)).toBeInTheDocument(), {
+      timeout: 4_000,
+    });
     expect(screen.getByText(/нечаянно/i)).toBeInTheDocument();
+  });
+
+  it("runs logic check and renders the verdict", async () => {
+    const user = userEvent.setup();
+
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Проверить логику" }));
+
+    await waitFor(() => expect(screen.getByText(/Логических нестыковок не найдено/i)).toBeInTheDocument(), {
+      timeout: 4_000,
+    });
   });
 
   it("deletes the current chapter and navigates back to the story page", async () => {
@@ -71,19 +95,6 @@ describe("StoryEditorScreen", () => {
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/stories/after-midnight-the-snow-does-not-melt"));
     const response = await fetch("http://localhost/chapters/chapter-1");
-    expect(response.status).toBe(404);
-  });
-
-  it("deletes the whole story", async () => {
-    const user = userEvent.setup();
-
-    renderEditor();
-
-    await waitFor(() => expect(screen.getByDisplayValue("После полуночи снег не тает")).toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: "Удалить историю" }));
-
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
-    const response = await fetch("http://localhost/stories/after-midnight-the-snow-does-not-melt");
     expect(response.status).toBe(404);
   });
 });

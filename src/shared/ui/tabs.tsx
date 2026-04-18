@@ -10,14 +10,13 @@ export function TabButton({ className, isActive, ...props }: TabButtonProps) {
   return (
     <button
       className={cn(
-        "rounded-full px-3.5 py-2 text-sm font-semibold transition-colors",
+        "rounded-full px-4 py-2.5 text-sm font-semibold transition-[background-color,color,box-shadow]",
         isActive
-          ? "bg-[var(--plotty-ink)] text-[var(--plotty-paper)]"
-          : "bg-white/60 text-[var(--plotty-muted)] hover:bg-white/80",
+          ? "bg-[var(--plotty-accent)] text-white shadow-[0_8px_18px_rgba(188,95,61,0.16)]"
+          : "bg-transparent text-[var(--plotty-muted)] hover:bg-white/70 hover:text-[var(--plotty-ink)]",
         className,
       )}
       {...props}
     />
   );
 }
-

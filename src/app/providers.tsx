@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
+import { AuthProvider } from "@/entities/auth/model/auth-context";
 import { initializeMocks } from "@/mocks/browser";
 import { AppShellSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
 
@@ -44,7 +45,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {isReady ? children : <AppShellSkeleton />}
+      {isReady ? <AuthProvider>{children}</AuthProvider> : <AppShellSkeleton />}
     </QueryClientProvider>
   );
 }

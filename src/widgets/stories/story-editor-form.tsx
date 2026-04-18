@@ -1,33 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import type {
-  ChapterListItem,
-  SpellcheckResult,
-  StoryTag,
-} from "@/entities/story/model/types";
-import { storyTags } from "@/shared/config/story-tags";
+import type { ChapterListItem, LogicCheckResult, SpellcheckResult } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
-import { Button } from "@/shared/ui/button";
+import { Button, ButtonLink } from "@/shared/ui/button";
+import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 
 import { ShellCard } from "./plotty-shell";
-import { StoryTagChip } from "./story-tag-chip";
 
 export interface StoryEditorValues {
-  storyTitle: string;
-  storyDescription: string;
-  storyExcerpt: string;
-  selectedTagSlugs: string[];
   chapterTitle: string;
   chapterContent: string;
 }
 
 export interface StoryEditorFormProps {
-  mode: "create" | "edit";
   values: StoryEditorValues;
   storyId?: string;
   storySlug?: string;
@@ -36,19 +25,24 @@ export interface StoryEditorFormProps {
   chapters?: ChapterListItem[];
   spellcheckResult?: SpellcheckResult;
   aiStatusLabel?: string;
-  saveLabel?: string;
+  logicCheckResult?: LogicCheckResult;
+  logicStatusLabel?: string;
   isSaving?: boolean;
   isSpellchecking?: boolean;
+  isLogicChecking?: boolean;
+  imagePanel?: React.ReactNode;
   onChange: (next: StoryEditorValues) => void;
   onSave: () => void;
+  onPublish?: () => void;
+  isPublishing?: boolean;
+  chapterPublished?: boolean;
   onCreateNextChapter?: () => void;
   onDeleteChapter?: () => void;
-  onDeleteStory?: () => void;
   onSpellcheck: () => void;
+  onLogicCheck: () => void;
 }
 
 export function StoryEditorForm({
-  mode,
   values,
   storyId,
   storySlug,
@@ -57,158 +51,125 @@ export function StoryEditorForm({
   chapters = [],
   spellcheckResult,
   aiStatusLabel,
-  saveLabel = "Сохранить",
+  logicCheckResult,
+  logicStatusLabel,
   isSaving,
   isSpellchecking,
+  isLogicChecking,
+  imagePanel,
   onChange,
   onSave,
+  onPublish,
+  isPublishing,
+  chapterPublished,
   onCreateNextChapter,
   onDeleteChapter,
-  onDeleteStory,
   onSpellcheck,
+  onLogicCheck,
 }: StoryEditorFormProps) {
-  const [draftValues, setDraftValues] = useState(values);
-
-  useEffect(() => {
-    setDraftValues(values);
-  }, [values]);
-
-  function update<K extends keyof StoryEditorValues>(key: K, value: StoryEditorValues[K]) {
-    const next = { ...draftValues, [key]: value };
-    setDraftValues(next);
-    onChange(next);
-  }
-
-  function toggleTag(tag: StoryTag) {
-    const nextTags = draftValues.selectedTagSlugs.includes(tag.slug)
-      ? draftValues.selectedTagSlugs.filter((slug) => slug !== tag.slug)
-      : [...draftValues.selectedTagSlugs, tag.slug];
-
-    update("selectedTagSlugs", nextTags);
-  }
-
   const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
   const previousChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : undefined;
   const nextChapter =
     currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1 ? chapters[currentChapterIndex + 1] : undefined;
 
+  function update<K extends keyof StoryEditorValues>(key: K, value: StoryEditorValues[K]) {
+    onChange({
+      ...values,
+      [key]: value,
+    });
+  }
+
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-5">
-        <ShellCard title="История" description="Метаданные истории сохраняются отдельно от текста главы.">
-          <div className="grid gap-4">
-            <label className="space-y-2">
-              <span className="text-sm font-semibold">Название истории</span>
-              <Input
-                value={draftValues.storyTitle}
-                onChange={(event) => update("storyTitle", event.target.value)}
-                placeholder="Название истории"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold">Короткий тизер</span>
-              <Textarea
-                value={draftValues.storyExcerpt}
-                onChange={(event) => update("storyExcerpt", event.target.value)}
-                placeholder="Короткое описание для каталога"
-                className="min-h-28"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-semibold">Полное описание</span>
-              <Textarea
-                value={draftValues.storyDescription}
-                onChange={(event) => update("storyDescription", event.target.value)}
-                placeholder="Описание истории"
-                className="min-h-36"
-              />
-            </label>
-
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Теги</div>
-              <div className="flex flex-wrap gap-2">
-                {storyTags.map((tag) => (
-                  <StoryTagChip
-                    key={tag.id}
-                    tag={tag}
-                    active={draftValues.selectedTagSlugs.includes(tag.slug)}
-                    onClick={() => toggleTag(tag)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </ShellCard>
-
         <ShellCard
-          title={mode === "create" ? "Первая глава" : `Глава ${chapterNumber ?? "—"}`}
-          description="Базовый редактор главы с отдельной отправкой текста на орфографическую проверку."
+          title={`Глава ${chapterNumber ?? "—"}`}
+          description="Редактируйте только текущую главу: текст, название, иллюстрацию и AI-инструменты."
         >
-          <div className="grid gap-4">
-            {mode === "edit" && storyId ? (
+          <div className="grid gap-5">
+            {storyId ? (
               <div className="flex flex-wrap gap-3">
                 {previousChapter ? (
-                  <Link href={routes.chapterEditor(storyId, previousChapter.id)}>
-                    <Button variant="secondary">Предыдущая глава</Button>
-                  </Link>
+                  <ButtonLink href={routes.chapterEditor(storyId, previousChapter.id)} variant="secondary">
+                    Предыдущая глава
+                  </ButtonLink>
                 ) : null}
                 {nextChapter ? (
-                  <Link href={routes.chapterEditor(storyId, nextChapter.id)}>
-                    <Button variant="secondary">Следующая глава</Button>
-                  </Link>
+                  <ButtonLink href={routes.chapterEditor(storyId, nextChapter.id)} variant="secondary">
+                    Следующая глава
+                  </ButtonLink>
+                ) : null}
+                {storySlug ? (
+                  <ButtonLink href={routes.story(storySlug)} variant="secondary">
+                    К странице истории
+                  </ButtonLink>
                 ) : null}
               </div>
             ) : null}
 
-            <label className="space-y-2">
-              <span className="text-sm font-semibold">Название главы</span>
-              <Input
-                value={draftValues.chapterTitle}
-                onChange={(event) => update("chapterTitle", event.target.value)}
-                placeholder="Название главы"
-              />
-            </label>
+            <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.58)] p-4">
+              <Field>
+                <FieldLabel htmlFor="chapter-title">Название главы</FieldLabel>
+                <Input
+                  id="chapter-title"
+                  value={values.chapterTitle}
+                  onChange={(event) => update("chapterTitle", event.target.value)}
+                  placeholder="Название главы"
+                />
+              </Field>
 
-            <label className="space-y-2">
-              <span className="text-sm font-semibold">Текст главы</span>
-              <Textarea
-                value={draftValues.chapterContent}
-                onChange={(event) => update("chapterContent", event.target.value)}
-                placeholder="Начните писать главу"
-                className="min-h-[420px]"
-              />
-            </label>
+              <Field>
+                <FieldLabel htmlFor="chapter-content">Текст главы</FieldLabel>
+                <Textarea
+                  id="chapter-content"
+                  value={values.chapterContent}
+                  onChange={(event) => update("chapterContent", event.target.value)}
+                  placeholder="Начните писать главу"
+                  className="min-h-[420px] bg-[rgba(255,255,255,0.9)]"
+                />
+              </Field>
+            </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 border-t border-[var(--plotty-line)] pt-4">
               <Button variant="primary" onClick={onSave} disabled={isSaving}>
-                {isSaving ? "Сохраняем..." : saveLabel}
+                {isSaving ? "Сохраняем..." : "Сохранить"}
               </Button>
-              {mode === "edit" ? (
+              {typeof onPublish === "function" ? (
                 <Button
-                  onClick={onSpellcheck}
-                  disabled={!chapterId || isSpellchecking || !draftValues.chapterContent.trim()}
+                  variant="secondary"
+                  onClick={onPublish}
+                  disabled={
+                    isPublishing ||
+                    chapterPublished ||
+                    !chapterId ||
+                    !values.chapterContent.trim()
+                  }
                 >
-                  {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
+                  {chapterPublished
+                    ? "Опубликовано"
+                    : isPublishing
+                      ? "Публикуем..."
+                      : "Опубликовать"}
                 </Button>
               ) : null}
-              {mode === "edit" ? (
-                <Button
-                  variant="soft"
-                  onClick={onCreateNextChapter}
-                  disabled={isSaving || typeof onCreateNextChapter !== "function"}
-                >
-                  Новая глава
-                </Button>
-              ) : null}
+              <Button variant="secondary" onClick={onSpellcheck} disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}>
+                {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
+              </Button>
+              <Button variant="secondary" onClick={onLogicCheck} disabled={!chapterId || isLogicChecking || !values.chapterContent.trim()}>
+                {isLogicChecking ? "Проверяем логику..." : "Проверить логику"}
+              </Button>
+              <Button variant="ghost" onClick={onCreateNextChapter} disabled={isSaving || typeof onCreateNextChapter !== "function"}>
+                Новая глава
+              </Button>
             </div>
           </div>
         </ShellCard>
       </div>
 
       <div className="space-y-5">
-        {mode === "edit" ? (
+        {imagePanel}
+
+        <div className="space-y-5">
           <ShellCard title="Орфография" description={aiStatusLabel ?? "Проверка запускается вручную после сохранения текста."}>
             {spellcheckResult ? (
               <div className="space-y-3">
@@ -235,54 +196,55 @@ export function StoryEditorForm({
               </p>
             )}
           </ShellCard>
-        ) : (
-          <ShellCard title="Что будет дальше" description="После создания истории вы сразу попадёте в редактор первой главы.">
-            <div className="space-y-3 text-sm leading-6 text-[var(--plotty-muted)]">
-              <p>Сначала создается карточка истории с описанием и выбранными тегами.</p>
-              <p>Затем автоматически создается первая глава и открывается маршрут редактирования.</p>
-              <p>Орфографическую проверку можно запускать уже внутри редактора конкретной главы.</p>
-            </div>
+
+          <ShellCard
+            title="Логика и лор"
+            description={
+              logicStatusLabel ??
+              "Сервис сравнивает текст с базой знаний по опубликованным главам."
+            }
+          >
+            {logicCheckResult ? (
+              <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
+            ) : (
+              <p className="text-sm leading-6 text-[var(--plotty-muted)]">
+                Отправьте главу на проверку, и здесь появится список замечаний.
+              </p>
+            )}
           </ShellCard>
-        )}
+        </div>
 
-        {mode === "edit" ? (
-          <ShellCard title="Навигация по истории" description="Переход по главам и destructive actions.">
-            <div className="space-y-3">
-              {storySlug && chapters.length ? (
-                <div className="space-y-2">
-                  {chapters.map((chapter) => (
-                    <Link
-                      key={chapter.id}
-                      href={routes.chapterEditor(storyId ?? "", chapter.id)}
-                      className={`block rounded-[18px] border px-3 py-3 text-sm ${
-                        chapter.id === chapterId
-                          ? "border-[var(--plotty-accent)] bg-[var(--plotty-accent-soft)] text-[var(--plotty-ink)]"
-                          : "border-[var(--plotty-line)] bg-white/70 text-[var(--plotty-muted)]"
-                      }`}
-                    >
-                      Глава {chapter.number}. {chapter.title}
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-[var(--plotty-muted)]">Главы появятся после первого сохранения.</p>
-              )}
-
-              <div className="flex flex-wrap gap-3 pt-2">
-                {onDeleteChapter ? (
-                  <Button variant="ghost" onClick={onDeleteChapter}>
-                    Удалить главу
-                  </Button>
-                ) : null}
-                {onDeleteStory ? (
-                  <Button variant="ghost" onClick={onDeleteStory}>
-                    Удалить историю
-                  </Button>
-                ) : null}
+        <ShellCard title="Навигация по главам" description="Быстрый переход между главами и действия над текущей главой.">
+          <div className="space-y-3">
+            {storySlug && chapters.length ? (
+              <div className="space-y-2">
+                {chapters.map((chapter) => (
+                  <Link
+                    key={chapter.id}
+                    href={routes.chapterEditor(storyId ?? "", chapter.id)}
+                    className={`block rounded-[18px] border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,color] duration-150 ${
+                      chapter.id === chapterId
+                        ? "border-[rgba(188,95,61,0.16)] bg-[rgba(188,95,61,0.08)] text-[var(--plotty-ink)]"
+                        : "border-[var(--plotty-line)] bg-white/70 text-[var(--plotty-muted)] hover:bg-white hover:text-[var(--plotty-ink)]"
+                    }`}
+                  >
+                    Глава {chapter.number ?? "—"}. {chapter.title}
+                  </Link>
+                ))}
               </div>
+            ) : (
+              <p className="text-sm text-[var(--plotty-muted)]">Главы появятся после первого сохранения.</p>
+            )}
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              {onDeleteChapter ? (
+                <Button variant="destructive" onClick={onDeleteChapter}>
+                  Удалить главу
+                </Button>
+              ) : null}
             </div>
-          </ShellCard>
-        ) : null}
+          </div>
+        </ShellCard>
       </div>
     </div>
   );

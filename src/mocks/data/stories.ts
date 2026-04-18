@@ -6,30 +6,37 @@ import type {
   AiJobType,
   ChapterDetails,
   ChapterListItem,
+  CreateStoryCommentPayload,
   CreateChapterPayload,
   CreateStoryPayload,
   GeneratedImage,
   ImageGenerationPayload,
   ImageGenerationResult,
+  LogicCheckResult,
   SpellcheckIssue,
   SpellcheckPayload,
   SpellcheckResult,
+  StoryComment,
   StoriesQuery,
   StoriesResponse,
+  StoryAuthor,
   StoryDetails,
   StoryListItem,
   StoryStatus,
   StoryTag,
+  ToggleLikeResult,
   UpdateChapterPayload,
   UpdateStoryPayload,
 } from "@/entities/story/model/types";
+import type { AuthUser } from "@/entities/auth/model/types";
 
 interface StoryRecord {
   id: string;
   slug: string;
   title: string;
+  authorId: number;
+  coverImageUrl?: string;
   description: string;
-  excerpt: string;
   status: StoryStatus;
   tagSlugs: string[];
   createdAt: string;
@@ -42,10 +49,23 @@ interface StoryRecord {
   likesCount: number;
   commentsCount: number;
   bookmarksCount: number;
+  viewsCount: number;
+  likedByUserIds: number[];
   aiHint: string;
   summaryLabel: string;
   readLabel: string;
   updatedLabel: string;
+}
+
+interface CommentRecord {
+  id: string;
+  chapterId: string;
+  authorId: number;
+  authorUsername: string;
+  authorEmail: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ChapterRecord {
@@ -54,6 +74,7 @@ interface ChapterRecord {
   number: number;
   title: string;
   content: string;
+  status?: "draft" | "published";
   imageUrl?: string;
   imagePrompt?: string;
   createdAt: string;
@@ -68,21 +89,56 @@ interface AiJobRecord {
   createdAt: number;
   readyAt: number;
   payload: SpellcheckPayload | ImageGenerationPayload;
-  result?: SpellcheckResult | ImageGenerationResult;
+  result?: SpellcheckResult | ImageGenerationResult | LogicCheckResult;
   errorMessage?: string;
 }
 
 interface MockStoriesDb {
   stories: StoryRecord[];
   chapters: ChapterRecord[];
+  comments: CommentRecord[];
   aiJobs: AiJobRecord[];
   jobSeed: number;
   storySeed: number;
   chapterSeed: number;
+  commentSeed: number;
   imageSeed: number;
 }
 
 const tagMap = new Map(storyTags.map((tag) => [tag.slug, tag]));
+const multiMatchAnyCategories = new Set(["rating", "completion", "size"]);
+const storyTagCategoryBySlug = new Map(storyTags.map((tag) => [tag.slug, tag.category ?? "other"]));
+const storyAuthors: Record<number, StoryAuthor> = {
+  1: {
+    id: 1,
+    username: "writer",
+    avatarUrl: null,
+  },
+  101: {
+    id: 101,
+    username: "reader_one",
+    avatarUrl: null,
+  },
+  102: {
+    id: 102,
+    username: "snowowl",
+    avatarUrl: null,
+  },
+};
+
+function normalizeTagLabel(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function resolveTagSlugsFromPayload(payload: { tagIds?: string[] }) {
+  if (payload.tagIds?.length) {
+    return payload.tagIds
+      .map((tagId) => storyTags.find((tag) => tag.id === tagId)?.slug)
+      .filter((slug): slug is string => Boolean(slug));
+  }
+
+  return [];
+}
 
 function createInitialDb(): MockStoriesDb {
   return {
@@ -91,10 +147,9 @@ function createInitialDb(): MockStoriesDb {
         id: "story-1",
         slug: "after-midnight-the-snow-does-not-melt",
         title: "После полуночи снег не тает",
+        authorId: 1,
         description:
           "Гермиона пытается пережить восьмой курс, пока архив старого факультета вскрывает неудобные связи между прошлым и настоящим.",
-        excerpt:
-          "Восьмой курс начинается как вынужденное перемирие, но каждое письмо из архива Хогвартса поднимает старые долги. История тянется медленно, через библиотеку, снег и слишком внятные паузы в диалогах.",
         status: "published",
         tagSlugs: ["drama", "fantasy", "ooc"],
         createdAt: "2026-03-19T18:00:00.000Z",
@@ -107,6 +162,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 3482,
         commentsCount: 412,
         bookmarksCount: 1096,
+        viewsCount: 12891,
+        likedByUserIds: [],
         aiHint: "AI автора: 2 замечания по канону",
         summaryLabel: "Сводка для читателя",
         readLabel: "Читать",
@@ -116,10 +173,9 @@ function createInitialDb(): MockStoriesDb {
         id: "story-2",
         slug: "ashes-and-salt",
         title: "Пепел для Белого Волка",
+        authorId: 102,
         description:
           "Йеннифэр и Геральт снова идут по следу пропавшей карты, которая ведет к старому долгу и новым решениям.",
-        excerpt:
-          "После охоты на стрыгу Геральт едет не туда, куда собирался, и весь маршрут превращается в спор о том, кто кому семья, если никто не умеет это произносить вслух.",
         status: "published",
         tagSlugs: ["adventure", "humor", "violence"],
         createdAt: "2026-03-18T14:00:00.000Z",
@@ -132,6 +188,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 1904,
         commentsCount: 188,
         bookmarksCount: 703,
+        viewsCount: 7420,
+        likedByUserIds: [],
         aiHint: "AI автора: читателю неясен переход сцены 4",
         summaryLabel: "Кратко по сюжету",
         readLabel: "Открыть",
@@ -141,10 +199,9 @@ function createInitialDb(): MockStoriesDb {
         id: "story-3",
         slug: "seventh-lantern-on-shadow-street",
         title: "Седьмой фонарь на Тенистой улице",
+        authorId: 101,
         description:
           "Детективная линия в Средиземье, где почти каждый разговор одновременно допрос и попытка защитить близкого человека.",
-        excerpt:
-          "Минас-Тирит, утро, протокол, разбитые витрины. Следствие тянется через коридоры власти, где любой неверный шаг звучит громче меча.",
         status: "published",
         tagSlugs: ["mysticism", "fantasy", "character-death"],
         createdAt: "2026-03-20T09:30:00.000Z",
@@ -157,6 +214,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 4122,
         commentsCount: 531,
         bookmarksCount: 1544,
+        viewsCount: 15984,
+        likedByUserIds: [],
         aiHint: "AI автора: диалог можно сделать жёстче",
         summaryLabel: "Сводка по арке",
         readLabel: "Читать",
@@ -166,10 +225,9 @@ function createInitialDb(): MockStoriesDb {
         id: "story-4",
         slug: "letters-without-an-owl-address",
         title: "Письма без адреса обратной совы",
+        authorId: 102,
         description:
           "Эпистолярная история о доверии, памяти и аккуратно спрятанных чувствах в мире Гарри Поттера.",
-        excerpt:
-          "Текст держится на письмах, в которых важнее не сказанное, а то, как меняется тон между строками. Автор явно работает на длинную дистанцию и аккуратно собирает доверие из мелочей.",
         status: "published",
         tagSlugs: ["drama", "slice-of-life", "profanity"],
         createdAt: "2026-03-17T14:20:00.000Z",
@@ -182,6 +240,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 2116,
         commentsCount: 276,
         bookmarksCount: 930,
+        viewsCount: 8105,
+        likedByUserIds: [],
         aiHint: "AI автора: сводка прошлых глав обновлена",
         summaryLabel: "Что было раньше",
         readLabel: "Читать",
@@ -191,10 +251,9 @@ function createInitialDb(): MockStoriesDb {
         id: "story-5",
         slug: "warmth-under-the-crystal-dome",
         title: "Тепло под кристальным куполом",
+        authorId: 1,
         description:
           "История о деревне скрытого листа, где официальные поручения и личная верность постоянно ломают друг друга.",
-        excerpt:
-          "Каждая миссия выглядит как формальность, пока не становится ясно, что приказ и привязанность ведут героев в разные стороны.",
         status: "published",
         tagSlugs: ["adventure", "fantasy", "violence"],
         createdAt: "2026-03-16T14:20:00.000Z",
@@ -207,6 +266,8 @@ function createInitialDb(): MockStoriesDb {
         likesCount: 5003,
         commentsCount: 624,
         bookmarksCount: 1982,
+        viewsCount: 18360,
+        likedByUserIds: [],
         aiHint: "AI автора: OOC не найден",
         summaryLabel: "Сюжет за минуту",
         readLabel: "Открыть",
@@ -222,7 +283,7 @@ function createInitialDb(): MockStoriesDb {
         content:
           "Гермиона открыла архив слишком поздно, почти на ощупь. Внутри пахло пылью, сургучом и чем-то нечаяно забытым. Драко ждал у двери и делал вид, что это не его касается.",
         imageUrl:
-          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='960' height='540'%3E%3Crect width='100%25' height='100%25' fill='%23253349'/%3E%3Ctext x='56' y='140' fill='%23f7f2ea' font-size='44' font-family='Georgia'%3EПосле полуночи снег не тает%3C/text%3E%3Ctext x='56' y='220' fill='%23d9d2c4' font-size='28' font-family='Arial'%3EАрхив под лестницей%3C/text%3E%3C/svg%3E",
+          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'%3E%3Crect width='100%25' height='100%25' fill='%23253349'/%3E%3Ccircle cx='760' cy='264' r='156' fill='%23f7f2ea' fill-opacity='.14'/%3E%3Ctext x='72' y='160' fill='%23f7f2ea' font-size='50' font-family='Georgia'%3EПосле полуночи снег не тает%3C/text%3E%3Ctext x='72' y='248' fill='%23d9d2c4' font-size='30' font-family='Arial'%3EАрхив под лестницей%3C/text%3E%3C/svg%3E",
         imagePrompt: "Архив Хогвартса ночью, пыльный свет, кинематографично",
         createdAt: "2026-03-19T18:10:00.000Z",
         updatedAt: "2026-03-21T10:10:00.000Z",
@@ -278,10 +339,33 @@ function createInitialDb(): MockStoriesDb {
         updatedAt: "2026-03-19T21:10:00.000Z",
       },
     ],
+    comments: [
+      {
+        id: "comment-1",
+        chapterId: "chapter-1",
+        authorId: 101,
+        authorUsername: "reader_one",
+        authorEmail: "reader_one@plotty.test",
+        content: "Очень хорошо держится ритм. Хочется быстрее открыть следующую главу.",
+        createdAt: "2026-03-21T08:40:00.000Z",
+        updatedAt: "2026-03-21T08:40:00.000Z",
+      },
+      {
+        id: "comment-2",
+        chapterId: "chapter-1",
+        authorId: 102,
+        authorUsername: "snowowl",
+        authorEmail: "snowowl@plotty.test",
+        content: "Архив и снег работают отлично. Было бы интересно больше напряжения в сцене у двери.",
+        createdAt: "2026-03-21T09:12:00.000Z",
+        updatedAt: "2026-03-21T09:12:00.000Z",
+      },
+    ],
     aiJobs: [],
     jobSeed: 1,
     storySeed: 6,
     chapterSeed: 7,
+    commentSeed: 3,
     imageSeed: 1,
   };
 }
@@ -309,45 +393,45 @@ function toChapterListItem(chapter: ChapterRecord): ChapterListItem {
     id: chapter.id,
     number: chapter.number,
     title: chapter.title,
-    wordCount: countWords(chapter.content),
     updatedAt: chapter.updatedAt,
-    hasImage: Boolean(chapter.imageUrl),
-    imageUrl: chapter.imageUrl,
+    status: chapter.status,
   };
 }
 
-function toStoryListItem(story: StoryRecord): StoryListItem {
+function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListItem {
+  const chapters = getChaptersForStory(story.id);
+  const visibleChapters = story.status === "published" ? chapters.filter((ch) => isChapterPublishedMock(ch)) : chapters;
+  const tags = resolveTags(story.tagSlugs);
+
   return {
     id: story.id,
     slug: story.slug,
     title: story.title,
-    description: story.description,
-    excerpt: story.excerpt,
+    createdAt: story.createdAt,
     status: story.status,
-    tags: resolveTags(story.tagSlugs),
-    chaptersCount: getChaptersForStory(story.id).length,
+    tags,
+    chaptersCount: visibleChapters.length,
     updatedAt: story.updatedAt,
-    fandom: story.fandom,
-    pairing: story.pairing,
-    ratingLabel: story.ratingLabel,
-    statusLabel: story.statusLabel,
-    sizeLabel: story.sizeLabel,
+    fandom: tags.find((tag) => tag.category === "directionality")?.name,
+    ratingLabel: tags.find((tag) => tag.category === "rating")?.name,
+    statusLabel: tags.find((tag) => tag.category === "completion")?.name,
+    sizeLabel: tags.find((tag) => tag.category === "size")?.name,
     likesCount: story.likesCount,
-    commentsCount: story.commentsCount,
-    bookmarksCount: story.bookmarksCount,
+    viewerHasLiked: viewerUserId ? story.likedByUserIds.includes(viewerUserId) : false,
     aiHint: story.aiHint,
-    summaryLabel: story.summaryLabel,
-    readLabel: story.readLabel,
-    updatedLabel: story.updatedLabel,
+    author: storyAuthors[story.authorId] ?? null,
   };
 }
 
-function toStoryDetails(story: StoryRecord): StoryDetails {
+function toStoryDetails(story: StoryRecord, viewerUserId?: number): StoryDetails {
+  const chapters = getChaptersForStory(story.id);
+  const visibleChapters = story.status === "published" ? chapters.filter((chapter) => isChapterPublishedMock(chapter)) : chapters;
+
   return {
-    ...toStoryListItem(story),
+    ...toStoryListItem(story, viewerUserId),
     createdAt: story.createdAt,
     updatedAt: story.updatedAt,
-    chapters: getChaptersForStory(story.id).map(toChapterListItem),
+    chapters: visibleChapters.map(toChapterListItem),
   };
 }
 
@@ -363,8 +447,6 @@ function toChapterDetails(chapter: ChapterRecord): ChapterDetails {
     storyId: story.id,
     storySlug: story.slug,
     storyTitle: story.title,
-    storyDescription: story.description,
-    storyExcerpt: story.excerpt,
     storyTags: resolveTags(story.tagSlugs),
     storyChapters: getChaptersForStory(story.id).map(toChapterListItem),
     number: chapter.number,
@@ -410,11 +492,9 @@ function countWords(content: string) {
 
 function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
   const filtered = db.stories
-    .filter((story) => query.tags.every((tag) => story.tagSlugs.includes(tag)))
-    .filter((story) => (query.fandom ? story.fandom === query.fandom : true))
-    .filter((story) => (query.rating ? story.ratingLabel === query.rating : true))
-    .filter((story) => (query.status ? story.statusLabel === query.status : true))
-    .filter((story) => (query.size ? story.sizeLabel === query.size : true))
+    .filter((story) => story.status === "published")
+    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+    .filter((story) => matchesStoryTags(story, query.tags))
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 
   const start = (query.page - 1) * query.pageSize;
@@ -430,14 +510,116 @@ function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
   };
 }
 
-export function listStories(query: StoriesQuery) {
-  return buildStoriesQueryResult(query);
+export function listStories(query: StoriesQuery, viewerUserId?: number) {
+  const result = buildStoriesQueryResult(query);
+
+  return {
+    ...result,
+    items: result.items.map((item) => {
+      const story = db.stories.find((current) => current.id === item.id);
+
+      return story ? toStoryListItem(story, viewerUserId) : item;
+    }),
+  };
 }
 
-export function getStoryBySlug(slug: string) {
+export function listMyStories(query: StoriesQuery, viewerUserId?: number) {
+  if (!viewerUserId) {
+    return {
+      items: [],
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total: 0,
+      },
+    } satisfies StoriesResponse;
+  }
+
+  const filtered = db.stories
+    .filter((story) => story.authorId === viewerUserId)
+    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+    .filter((story) => matchesStoryTags(story, query.tags))
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+
+  const start = (query.page - 1) * query.pageSize;
+  const paged = filtered.slice(start, start + query.pageSize);
+
+  return {
+    items: paged.map((story) => toStoryListItem(story, viewerUserId)),
+    pagination: {
+      page: query.page,
+      pageSize: query.pageSize,
+      total: filtered.length,
+    },
+  };
+}
+
+function matchesStoryTags(story: StoryRecord, selectedTags: string[]) {
+  const requiredTags: string[] = [];
+  const groupedAnyTags = new Map<string, string[]>();
+
+  selectedTags.forEach((tagSlug) => {
+    const category = storyTagCategoryBySlug.get(tagSlug);
+
+    if (category && multiMatchAnyCategories.has(category)) {
+      const current = groupedAnyTags.get(category) ?? [];
+      current.push(tagSlug);
+      groupedAnyTags.set(category, current);
+      return;
+    }
+
+    requiredTags.push(tagSlug);
+  });
+
+  return (
+    requiredTags.every((tagSlug) => storyMatchesTag(story, tagSlug)) &&
+    [...groupedAnyTags.values()].every((tagGroup) => tagGroup.some((tagSlug) => storyMatchesTag(story, tagSlug)))
+  );
+}
+
+function storyMatchesTag(story: StoryRecord, tagSlug: string) {
+  if (story.tagSlugs.includes(tagSlug)) {
+    return true;
+  }
+
+  const tag = tagMap.get(tagSlug);
+
+  if (!tag) {
+    return false;
+  }
+
+  switch (tag.category) {
+    case "directionality":
+      return normalizeTagLabel(story.fandom) === normalizeTagLabel(tag.name);
+    case "rating":
+      return normalizeTagLabel(story.ratingLabel) === normalizeTagLabel(tag.name);
+    case "completion":
+      return normalizeTagLabel(story.statusLabel) === normalizeTagLabel(tag.name);
+    case "size":
+      return normalizeTagLabel(story.sizeLabel) === normalizeTagLabel(tag.name);
+    default:
+      return false;
+  }
+}
+
+export function listTags() {
+  return {
+    items: storyTags,
+  };
+}
+
+export function getStoryBySlug(slug: string, viewerUserId?: number) {
   const story = db.stories.find((item) => item.slug === slug);
 
-  return story ? toStoryDetails(story) : null;
+  if (!story) {
+    return null;
+  }
+
+  if (story.status !== "published" && viewerUserId !== story.authorId) {
+    return null;
+  }
+
+  return toStoryDetails(story, viewerUserId);
 }
 
 export function getChapterById(chapterId: string) {
@@ -446,16 +628,20 @@ export function getChapterById(chapterId: string) {
   return chapter ? toChapterDetails(chapter) : null;
 }
 
-export function createStoryRecord(payload: CreateStoryPayload) {
+export function createStoryRecord(_payload: CreateStoryPayload) {
+  throw new Error("createStoryRecord requires authorId. Use createStoryRecordForAuthor instead.");
+}
+
+export function createStoryRecordForAuthor(payload: CreateStoryPayload, authorId: number) {
   const timestamp = nowIso();
   const story: StoryRecord = {
     id: `story-${db.storySeed}`,
     slug: uniqueStorySlug(payload.title),
     title: payload.title,
-    description: payload.description,
-    excerpt: payload.excerpt,
+    authorId,
+    description: "",
     status: "draft",
-    tagSlugs: payload.tags,
+    tagSlugs: resolveTagSlugsFromPayload(payload),
     createdAt: timestamp,
     updatedAt: timestamp,
     fandom: "Гарри Поттер",
@@ -466,6 +652,8 @@ export function createStoryRecord(payload: CreateStoryPayload) {
     likesCount: 0,
     commentsCount: 0,
     bookmarksCount: 0,
+    viewsCount: 0,
+    likedByUserIds: [],
     aiHint: "AI автора: орфография ещё не запускалась",
     summaryLabel: "Кратко по сюжету",
     readLabel: "Открыть",
@@ -475,7 +663,16 @@ export function createStoryRecord(payload: CreateStoryPayload) {
   db.storySeed += 1;
   db.stories.unshift(story);
 
-  return toStoryDetails(story);
+  return {
+    id: story.id,
+    slug: story.slug,
+    title: story.title,
+    status: story.status,
+    authorId: story.authorId,
+    aiHint: story.aiHint,
+    createdAt: story.createdAt,
+    updatedAt: story.updatedAt,
+  };
 }
 
 export function updateStoryRecord(storyId: string, payload: UpdateStoryPayload) {
@@ -485,15 +682,26 @@ export function updateStoryRecord(storyId: string, payload: UpdateStoryPayload) 
     return null;
   }
 
-  story.title = payload.title;
-  story.description = payload.description;
-  story.excerpt = payload.excerpt;
-  story.tagSlugs = payload.tags;
-  story.slug = uniqueStorySlug(payload.title, story.id);
+  if (payload.title && payload.title !== story.title) {
+    story.title = payload.title;
+    story.slug = uniqueStorySlug(payload.title, story.id);
+  }
+  if (payload.tagIds) {
+    story.tagSlugs = resolveTagSlugsFromPayload(payload);
+  }
   story.updatedAt = nowIso();
   story.updatedLabel = "обновлено только что";
 
-  return toStoryDetails(story);
+  return {
+    id: story.id,
+    slug: story.slug,
+    title: story.title,
+    status: story.status,
+    authorId: story.authorId,
+    aiHint: story.aiHint,
+    createdAt: story.createdAt,
+    updatedAt: story.updatedAt,
+  };
 }
 
 export function deleteStoryRecord(storyId: string) {
@@ -503,11 +711,139 @@ export function deleteStoryRecord(storyId: string) {
     return false;
   }
 
+  const chapterIds = db.chapters.filter((chapter) => chapter.storyId === storyId).map((chapter) => chapter.id);
+
   db.stories.splice(storyIndex, 1);
+  db.comments = db.comments.filter((comment) => !chapterIds.includes(comment.chapterId));
   db.chapters = db.chapters.filter((chapter) => chapter.storyId !== storyId);
   db.aiJobs = db.aiJobs.filter((job) => db.chapters.some((chapter) => chapter.id === job.chapterId));
 
   return true;
+}
+
+function toStoryComment(comment: CommentRecord, viewerUserId?: number): StoryComment {
+  const chapter = db.chapters.find((item) => item.id === comment.chapterId);
+  const storyId = chapter?.storyId ?? "";
+
+  return {
+    id: comment.id,
+    storyId,
+    chapterId: comment.chapterId,
+    author: {
+      id: comment.authorId,
+      username: comment.authorUsername,
+      email: comment.authorEmail,
+      avatarUrl: null,
+    },
+    content: comment.content,
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+    viewerCanDelete: Boolean(viewerUserId && viewerUserId === comment.authorId),
+  };
+}
+
+export function getStoryComments(storyId: string, viewerUserId?: number) {
+  const chapterIds = db.chapters.filter((chapter) => chapter.storyId === storyId).map((chapter) => chapter.id);
+
+  return db.comments
+    .filter((comment) => chapterIds.includes(comment.chapterId))
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map((comment) => toStoryComment(comment, viewerUserId));
+}
+
+export function getChapterComments(chapterId: string, viewerUserId?: number) {
+  return db.comments
+    .filter((comment) => comment.chapterId === chapterId)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map((comment) => toStoryComment(comment, viewerUserId));
+}
+
+export function addChapterCommentRecord(chapterId: string, payload: CreateStoryCommentPayload, user: AuthUser) {
+  const chapter = db.chapters.find((item) => item.id === chapterId);
+  const story = chapter ? db.stories.find((item) => item.id === chapter.storyId) : undefined;
+  const content = payload.content.trim();
+
+  if (!chapter || !story || !content) {
+    return null;
+  }
+
+  const timestamp = nowIso();
+  const comment: CommentRecord = {
+    id: `comment-${db.commentSeed}`,
+    chapterId,
+    authorId: user.id,
+    authorUsername: user.username,
+    authorEmail: user.email,
+    content,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  db.commentSeed += 1;
+  db.comments.unshift(comment);
+  story.commentsCount += 1;
+
+  return toStoryComment(comment, user.id);
+}
+
+export function deleteStoryCommentRecord(commentId: string, viewerUserId: number) {
+  const commentIndex = db.comments.findIndex((comment) => comment.id === commentId && comment.authorId === viewerUserId);
+
+  if (commentIndex === -1) {
+    return false;
+  }
+
+  const [removed] = db.comments.splice(commentIndex, 1);
+  const chapter = db.chapters.find((item) => item.id === removed.chapterId);
+  const story = chapter ? db.stories.find((item) => item.id === chapter.storyId) : undefined;
+
+  if (story && story.commentsCount > 0) {
+    story.commentsCount -= 1;
+  }
+
+  return true;
+}
+
+function toToggleLikeResult(story: StoryRecord, viewerUserId: number): ToggleLikeResult {
+  const liked = story.likedByUserIds.includes(viewerUserId);
+
+  return {
+    storyId: story.id,
+    likesCount: story.likesCount,
+    viewerHasLiked: liked,
+  };
+}
+
+export function likeStoryRecord(storyId: string, viewerUserId: number) {
+  const story = db.stories.find((item) => item.id === storyId);
+
+  if (!story) {
+    return null;
+  }
+
+  if (!story.likedByUserIds.includes(viewerUserId)) {
+    story.likedByUserIds.push(viewerUserId);
+    story.likesCount += 1;
+  }
+
+  return toToggleLikeResult(story, viewerUserId);
+}
+
+export function unlikeStoryRecord(storyId: string, viewerUserId: number) {
+  const story = db.stories.find((item) => item.id === storyId);
+
+  if (!story) {
+    return null;
+  }
+
+  if (story.likedByUserIds.includes(viewerUserId)) {
+    story.likedByUserIds = story.likedByUserIds.filter((id) => id !== viewerUserId);
+    if (story.likesCount > 0) {
+      story.likesCount -= 1;
+    }
+  }
+
+  return toToggleLikeResult(story, viewerUserId);
 }
 
 export function createChapterRecord(storyId: string, payload: CreateChapterPayload) {
@@ -525,6 +861,7 @@ export function createChapterRecord(storyId: string, payload: CreateChapterPaylo
     number: nextNumber + 1,
     title: payload.title,
     content: payload.content,
+    status: "draft",
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -580,6 +917,42 @@ export function deleteChapterRecord(chapterId: string) {
   return true;
 }
 
+function isChapterPublishedMock(chapter: ChapterRecord) {
+  return chapter.status !== "draft";
+}
+
+export function publishChapterRecord(chapterId: string) {
+  const chapter = db.chapters.find((item) => item.id === chapterId);
+
+  if (!chapter) {
+    return null;
+  }
+
+  if (isChapterPublishedMock(chapter)) {
+    return { status: "published" as const };
+  }
+
+  chapter.status = "published";
+  chapter.updatedAt = nowIso();
+
+  const story = db.stories.find((item) => item.id === chapter.storyId);
+
+  if (story) {
+    story.status = "published";
+    story.updatedAt = chapter.updatedAt;
+    story.updatedLabel = "опубликовано только что";
+
+    const publishedForStory = getChaptersForStory(story.id).filter((ch) => isChapterPublishedMock(ch));
+
+    if (publishedForStory.length === 1 && !story.description.trim()) {
+      const excerpt = chapter.content.trim().slice(0, 280);
+      story.description = excerpt.length < chapter.content.trim().length ? `${excerpt}…` : excerpt;
+    }
+  }
+
+  return { status: "published" as const };
+}
+
 function createSpellcheckResult(payload: SpellcheckPayload): SpellcheckResult {
   const issues: SpellcheckIssue[] = [];
   const rules = [
@@ -610,14 +983,29 @@ function createSpellcheckResult(payload: SpellcheckPayload): SpellcheckResult {
   };
 }
 
+function createLogicCheckResult(payload: SpellcheckPayload): LogicCheckResult {
+  const lower = payload.content.toLowerCase();
+
+  if (lower.includes("противореч") || lower.includes("дважды умер")) {
+    return {
+      message:
+        "Возможная логическая нестыковка: перепроверьте факты относительно опубликованных глав и лора.",
+    };
+  }
+
+  return {
+    message: "Логических нестыковок не найдено.",
+  };
+}
+
 function createChapterImage(prompt: string, title: string) {
   const accent = ["#36513f", "#bc5f3d", "#253349", "#7f5a3b"][db.imageSeed % 4];
   const safePrompt = encodeURIComponent(prompt.slice(0, 80));
   const safeTitle = encodeURIComponent(title.slice(0, 48));
 
-  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='960' height='540'%3E%3Crect width='100%25' height='100%25' fill='${encodeURIComponent(
+  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'%3E%3Crect width='100%25' height='100%25' fill='${encodeURIComponent(
     accent,
-  )}'/%3E%3Ccircle cx='760' cy='120' r='92' fill='%23f7f2ea' fill-opacity='.18'/%3E%3Ctext x='56' y='120' fill='%23f7f2ea' font-size='42' font-family='Georgia'%3E${safeTitle}%3C/text%3E%3Ctext x='56' y='204' fill='%23f0e8db' font-size='26' font-family='Arial'%3E${safePrompt}%3C/text%3E%3C/svg%3E`;
+  )}'/%3E%3Ccircle cx='790' cy='240' r='148' fill='%23f7f2ea' fill-opacity='.18'/%3E%3Ctext x='72' y='156' fill='%23f7f2ea' font-size='48' font-family='Georgia'%3E${safeTitle}%3C/text%3E%3Ctext x='72' y='244' fill='%23f0e8db' font-size='28' font-family='Arial'%3E${safePrompt}%3C/text%3E%3C/svg%3E`;
 }
 
 function createImageResult(payload: ImageGenerationPayload): ImageGenerationResult {
@@ -657,6 +1045,10 @@ function getOrCompleteJob(job: AiJobRecord) {
       job.result = createSpellcheckResult(job.payload as SpellcheckPayload);
     }
 
+    if (job.type === "logic_check") {
+      job.result = createLogicCheckResult(job.payload as SpellcheckPayload);
+    }
+
     if (job.type === "image_generation") {
       job.result = createImageResult(job.payload as ImageGenerationPayload);
     }
@@ -675,6 +1067,25 @@ export function createSpellcheckJob(payload: SpellcheckPayload): AiJobAccepted {
     status: "queued",
     createdAt: Date.now(),
     readyAt: Date.now() + 250,
+    payload,
+  });
+
+  return {
+    jobId,
+    status: "queued",
+  };
+}
+
+export function createLogicCheckJob(payload: SpellcheckPayload): AiJobAccepted {
+  const jobId = `job-${db.jobSeed}`;
+  db.jobSeed += 1;
+  db.aiJobs.push({
+    id: jobId,
+    type: "logic_check",
+    chapterId: payload.chapterId,
+    status: "queued",
+    createdAt: Date.now(),
+    readyAt: Date.now() + 280,
     payload,
   });
 

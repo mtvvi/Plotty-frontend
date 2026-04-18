@@ -7,10 +7,12 @@
   --plotty-paper-strong: #fdfbf7;
   --plotty-panel: #f0e8db;
   --plotty-panel-strong: #e9e0d1;
+  --plotty-panel-muted: rgba(255, 255, 255, 0.58);
   --plotty-line: rgba(41, 38, 34, 0.12);
   --plotty-line-strong: rgba(41, 38, 34, 0.22);
   --plotty-ink: #23211e;
   --plotty-muted: #6d665d;
+  --plotty-muted-soft: #9a9088;
   --plotty-accent: #bc5f3d;
   --plotty-accent-soft: #f1d6cb;
   --plotty-olive: #36513f;
@@ -19,6 +21,7 @@
   --plotty-gold-soft: #efe4cc;
   --plotty-shadow: 0 24px 70px rgba(46, 35, 23, 0.11);
   --plotty-shadow-soft: 0 10px 30px rgba(46, 35, 23, 0.08);
+  --plotty-shadow-card: 0 16px 40px rgba(46, 35, 23, 0.08);
   --plotty-container: 1440px;
   --plotty-radius-xl: 32px;
   --plotty-radius-lg: 20px;
@@ -42,6 +45,14 @@ body {
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.45), transparent 28%),
     linear-gradient(180deg, var(--plotty-bg-highlight) 0%, var(--plotty-bg) 100%);
   font-family: var(--font-sans), sans-serif;
+}
+
+body,
+button,
+input,
+textarea,
+select {
+  font-feature-settings: "ss01" 1;
 }
 
 a {
@@ -74,7 +85,7 @@ select {
 .plotty-page-shell {
   width: 100%;
   min-height: 100vh;
-  padding: 2rem clamp(1rem, 3vw, 2rem) 5rem;
+  padding: 1.25rem clamp(1rem, 3vw, 2rem) 4.5rem;
   background-image:
     linear-gradient(rgba(41, 38, 34, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(41, 38, 34, 0.03) 1px, transparent 1px);
@@ -83,10 +94,10 @@ select {
 
 .plotty-frame {
   width: min(100%, var(--plotty-container));
-  margin: 0 auto 1.75rem;
+  margin: 0 auto 1.25rem;
   border-radius: var(--plotty-radius-xl);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(247, 242, 234, 0.95));
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(247, 242, 234, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: var(--plotty-shadow);
   overflow: hidden;
 }
@@ -100,12 +111,103 @@ select {
 .plotty-surface {
   border-radius: var(--plotty-radius-lg);
   border: 1px solid var(--plotty-line);
-  background: rgba(255, 255, 255, 0.62);
-  box-shadow: var(--plotty-shadow-soft);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: var(--plotty-shadow-card);
 }
 
 .plotty-serif {
   font-family: var(--font-serif), serif;
+}
+
+.plotty-logo {
+  font-family: var(--font-serif), serif;
+  font-size: clamp(1.7rem, 1.15rem + 1.4vw, 2.2rem);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.plotty-page-title {
+  font-family: var(--font-serif), serif;
+  font-size: clamp(2rem, 1.25rem + 2vw, 3.25rem);
+  font-weight: 600;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.plotty-section-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.plotty-card-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.plotty-body {
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.plotty-meta {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  color: var(--plotty-muted);
+}
+
+.plotty-kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--plotty-muted);
+}
+
+.plotty-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(41, 38, 34, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--plotty-muted);
+}
+
+.plotty-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(41, 38, 34, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.plotty-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.plotty-button-label {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 @media (max-width: 1200px) {
@@ -117,6 +219,10 @@ select {
 @media (max-width: 768px) {
   .plotty-page-shell {
     padding-inline: 0.75rem;
-    padding-top: 1rem;
+    padding-top: 0.85rem;
+  }
+
+  .plotty-frame {
+    margin-bottom: 1rem;
   }
 }

@@ -6,5 +6,7 @@ test-results
 vitest.workspace.ts
 *.log
 .DS_Store
+.env.local
+backend
 *.sh
 *.txt

@@ -1,83 +1,84 @@
 export type StoryStatus = "draft" | "published";
 export type AiJobStatus = "queued" | "processing" | "completed" | "failed";
-export type AiJobType = "spellcheck" | "image_generation";
+export type AiJobType = "spellcheck" | "image_generation" | "logic_check";
 
 export interface StoryTag {
   id: string;
+  category?: string;
   slug: string;
   name: string;
+}
+
+export interface StoryAuthor {
+  id: number;
+  username: string;
+  avatarUrl?: string | null;
 }
 
 export interface StoryListItem {
   id: string;
   slug: string;
   title: string;
-  description: string;
-  excerpt: string;
-  status: StoryStatus;
   tags: StoryTag[];
   chaptersCount: number;
+  createdAt: string;
   updatedAt: string;
+  status?: StoryStatus;
   fandom?: string;
-  pairing?: string;
   ratingLabel?: string;
   statusLabel?: string;
   sizeLabel?: string;
   likesCount?: number;
-  commentsCount?: number;
-  bookmarksCount?: number;
+  viewerHasLiked?: boolean;
   aiHint?: string;
-  summaryLabel?: string;
-  readLabel?: string;
-  updatedLabel?: string;
+  author?: StoryAuthor | null;
 }
 
 export interface ChapterListItem {
   id: string;
-  number: number;
   title: string;
-  wordCount: number;
   updatedAt: string;
-  hasImage: boolean;
-  imageUrl?: string;
+  number?: number;
+  status?: StoryStatus;
 }
 
 export interface StoryDetails {
   id: string;
   slug: string;
   title: string;
-  description: string;
-  excerpt: string;
-  status: StoryStatus;
   tags: StoryTag[];
   chapters: ChapterListItem[];
   createdAt: string;
   updatedAt: string;
+  status?: StoryStatus;
+  fandom?: string;
+  ratingLabel?: string;
+  statusLabel?: string;
+  sizeLabel?: string;
+  likesCount?: number;
+  viewerHasLiked?: boolean;
+  aiHint?: string;
+  author?: StoryAuthor | null;
 }
 
 export interface ChapterDetails {
   id: string;
   storyId: string;
-  storySlug: string;
-  storyTitle: string;
-  storyDescription: string;
-  storyExcerpt: string;
-  storyTags: StoryTag[];
-  storyChapters: ChapterListItem[];
-  number: number;
   title: string;
   content: string;
-  wordCount: number;
   updatedAt: string;
+  storySlug?: string;
+  storyTitle?: string;
+  storyTags?: StoryTag[];
+  storyChapters?: ChapterListItem[];
+  number?: number;
+  wordCount?: number;
   imageUrl?: string;
 }
 
 export interface StoriesQuery {
   tags: string[];
-  fandom: string;
-  rating: string;
-  status: string;
-  size: string;
+  q: string;
   page: number;
   pageSize: number;
 }
@@ -93,12 +94,13 @@ export interface StoriesResponse {
 
 export interface CreateStoryPayload {
   title: string;
-  description: string;
-  excerpt: string;
-  tags: string[];
+  tagIds?: string[];
 }
 
-export type UpdateStoryPayload = CreateStoryPayload;
+export interface UpdateStoryPayload {
+  title?: string;
+  tagIds?: string[];
+}
 
 export interface CreateChapterPayload {
   title: string;
@@ -118,6 +120,10 @@ export interface SpellcheckIssue {
 export interface SpellcheckResult {
   summary: string;
   items: SpellcheckIssue[];
+}
+
+export interface LogicCheckResult {
+  message: string;
 }
 
 export interface GeneratedImage {
@@ -140,6 +146,7 @@ export interface AiJobResponse<TResult> {
   type: AiJobType;
   status: AiJobStatus;
   result?: TResult;
+  error?: string;
   errorMessage?: string;
 }
 
@@ -150,4 +157,40 @@ export interface SpellcheckPayload {
 
 export interface ImageGenerationPayload extends SpellcheckPayload {
   prompt: string;
+}
+
+export interface StoryTagsResponse {
+  items: StoryTag[];
+}
+
+export interface StoryCommentAuthor {
+  id: number;
+  username: string;
+  email: string;
+  avatarUrl?: string | null;
+}
+
+export interface StoryComment {
+  id: string;
+  storyId: string;
+  chapterId?: string;
+  author: StoryCommentAuthor;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  viewerCanDelete?: boolean;
+}
+
+export interface StoryCommentsResponse {
+  items: StoryComment[];
+}
+
+export interface CreateStoryCommentPayload {
+  content: string;
+}
+
+export interface ToggleLikeResult {
+  storyId: string;
+  likesCount: number;
+  viewerHasLiked: boolean;
 }

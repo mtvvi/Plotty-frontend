@@ -1,40 +1,69 @@
-import {
-  storyFandoms,
-  storyRatings,
-  storySizes,
-  storyStatuses,
-  storyTags,
-} from "@/shared/config/story-tags";
+import { storyTags } from "@/shared/config/story-tags";
 
-import type { StoriesQuery } from "./types";
+import type { ChapterListItem, StoriesQuery, StoryListItem } from "./types";
 
-const validTagSlugs = new Set(storyTags.map((tag) => tag.slug));
+export function isStoryInPublicCatalog(story: StoryListItem): boolean {
+  return story.status === "published";
+}
 
-function pickValidOption(options: readonly string[], value: string | null) {
-  return value && options.includes(value) ? value : "";
+export function publicChaptersForReader(chapters: ChapterListItem[]): ChapterListItem[] {
+  const published = chapters.filter((ch) => (ch.status ?? "published") === "published");
+
+  return published.map((ch, index) => ({
+    ...ch,
+    number: index + 1,
+  }));
+}
+
+export function readerChapterNumberForChapterId(chapters: ChapterListItem[], chapterId: string): number | undefined {
+  return publicChaptersForReader(chapters).find((ch) => ch.id === chapterId)?.number;
 }
 
 export const defaultStoriesQuery: StoriesQuery = {
   tags: [],
-  fandom: "",
-  rating: "",
-  status: "",
-  size: "",
+  q: "",
   page: 1,
   pageSize: 20,
 };
+
+const legacyQueryCategories = {
+  fandom: "directionality",
+  rating: "rating",
+  status: "completion",
+  size: "size",
+} as const;
+
+function normalizeTagValue(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function resolveLegacyTagSlug(category: string, value: string) {
+  const normalizedValue = normalizeTagValue(value);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return (
+    storyTags.find(
+      (tag) =>
+        tag.category === category &&
+        (normalizeTagValue(tag.slug) === normalizedValue || normalizeTagValue(tag.name) === normalizedValue),
+    )?.slug ?? null
+  );
+}
 
 export function parseStoriesQuery(searchParams: URLSearchParams): StoriesQuery {
   const rawTags = searchParams.getAll("tag");
   const rawPage = Number(searchParams.get("page") ?? defaultStoriesQuery.page);
   const rawPageSize = Number(searchParams.get("pageSize") ?? defaultStoriesQuery.pageSize);
+  const legacyTags = Object.entries(legacyQueryCategories)
+    .map(([param, category]) => resolveLegacyTagSlug(category, searchParams.get(param) ?? ""))
+    .filter((tagSlug): tagSlug is string => Boolean(tagSlug));
 
   return {
-    tags: rawTags.filter((tag, index) => validTagSlugs.has(tag) && rawTags.indexOf(tag) === index),
-    fandom: pickValidOption(storyFandoms, searchParams.get("fandom")),
-    rating: pickValidOption(storyRatings, searchParams.get("rating")),
-    status: pickValidOption(storyStatuses, searchParams.get("status")),
-    size: pickValidOption(storySizes, searchParams.get("size")),
+    tags: [...rawTags, ...legacyTags].filter((tag, index, items) => tag.trim() && items.indexOf(tag) === index),
+    q: searchParams.get("q")?.trim() ?? "",
     page: Number.isFinite(rawPage) && rawPage > 0 ? rawPage : defaultStoriesQuery.page,
     pageSize: Number.isFinite(rawPageSize) && rawPageSize > 0 ? rawPageSize : defaultStoriesQuery.pageSize,
   };
@@ -44,10 +73,10 @@ export function serializeStoriesQuery(query: StoriesQuery) {
   const params = new URLSearchParams();
 
   query.tags.forEach((tag) => params.append("tag", tag));
-  if (query.fandom) params.set("fandom", query.fandom);
-  if (query.rating) params.set("rating", query.rating);
-  if (query.status) params.set("status", query.status);
-  if (query.size) params.set("size", query.size);
+
+  if (query.q) {
+    params.set("q", query.q);
+  }
 
   if (query.page !== defaultStoriesQuery.page) {
     params.set("page", String(query.page));

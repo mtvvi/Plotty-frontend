@@ -16,12 +16,12 @@ export function GenerateChapterImageButton({
   chapterId,
   chapterTitle,
   storySlug,
-  hasImage = false,
+  storyTitle,
 }: {
   chapterId: string;
   chapterTitle: string;
   storySlug: string;
-  hasImage?: boolean;
+  storyTitle?: string;
 }) {
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState("");
@@ -29,31 +29,39 @@ export function GenerateChapterImageButton({
   const imageMutation = useMutation({
     mutationFn: startImageGeneration,
   });
+  const chapterQuery = useQuery({
+    ...chapterDetailsQueryOptions(chapterId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
 
   const jobQuery = useQuery({
     ...aiJobQueryOptions<ImageGenerationResult>(jobId),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
 
-      return status === "completed" || status === "failed" ? false : 250;
+      return status === "completed" || status === "failed" ? false : 2_000;
     },
   });
 
   useEffect(() => {
-    if (jobQuery.data?.status !== "completed") {
+    if (!jobQuery.data?.result?.images[0]?.imageUrl) {
       return;
     }
 
-    void queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
-    void queryClient.invalidateQueries({ queryKey: storyKeys.details(storySlug) });
-  }, [chapterId, jobQuery.data?.status, queryClient, storySlug]);
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) }),
+      queryClient.invalidateQueries({ queryKey: storyKeys.details(storySlug) }),
+      queryClient.invalidateQueries({ queryKey: storyKeys.all }),
+    ]);
+  }, [chapterId, jobQuery.data?.result?.images, queryClient, storySlug]);
 
   async function handleGenerate() {
     const chapter = await queryClient.fetchQuery(chapterDetailsQueryOptions(chapterId));
     const accepted = await imageMutation.mutateAsync({
       chapterId,
       content: chapter.content,
-      prompt: `Иллюстрация к главе "${chapter.title || chapterTitle}" истории "${chapter.storyTitle}"`,
+      prompt: `Иллюстрация к главе "${chapter.title || chapterTitle}" истории "${storyTitle ?? storySlug}"`,
     });
 
     setJobId(accepted.jobId);
@@ -61,10 +69,11 @@ export function GenerateChapterImageButton({
 
   const isGenerating =
     imageMutation.isPending || jobQuery.data?.status === "queued" || jobQuery.data?.status === "processing";
+  const hasImage = Boolean(chapterQuery.data?.imageUrl || jobQuery.data?.result?.images[0]?.imageUrl);
 
   return (
-    <Button variant={hasImage ? "soft" : "secondary"} onClick={handleGenerate} disabled={isGenerating}>
-      {isGenerating ? "Генерируем..." : hasImage ? "Обновить картинку" : "Сгенерировать картинку"}
+    <Button variant="secondary" onClick={handleGenerate} disabled={isGenerating}>
+      {isGenerating ? "Генерируем..." : hasImage ? "Обновить иллюстрацию" : "Сгенерировать картинку"}
     </Button>
   );
 }

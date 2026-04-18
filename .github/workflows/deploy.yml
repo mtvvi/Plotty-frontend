@@ -1,11 +1,40 @@
 name: Deploy Frontend
 
 on:
+  pull_request:
   push:
     branches: ["main", "deploy"]
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          BACKEND_URL: https://api.plotty-stories.duckdns.org/api
+
   build-and-push:
+    if: github.event_name == 'push'
+    needs: quality
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -24,11 +53,14 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/andrey57x/plotty-frontend:latest
+          tags: |
+            ghcr.io/andrey57x/plotty-frontend:latest
+            ghcr.io/andrey57x/plotty-frontend:${{ github.sha }}
           build-args: |
-            NEXT_PUBLIC_API_URL=https://api.plotty-stories.duckdns.org
+            BACKEND_URL=https://api.plotty-stories.duckdns.org/api
 
   deploy:
+    if: github.event_name == 'push'
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:

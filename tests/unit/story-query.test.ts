@@ -1,12 +1,57 @@
 import { describe, expect, it } from "vitest";
 
+import type { StoryListItem } from "@/entities/story/model/types";
 import {
   defaultStoriesQuery,
+  isStoryInPublicCatalog,
   parseStoriesQuery,
+  publicChaptersForReader,
+  readerChapterNumberForChapterId,
   serializeStoriesQuery,
 } from "@/entities/story/model/story-query";
 
+function minimalStory(overrides: Partial<StoryListItem>): StoryListItem {
+  return {
+    id: "1",
+    slug: "s",
+    title: "T",
+    tags: [],
+    chaptersCount: 0,
+    createdAt: "",
+    updatedAt: "",
+    ...overrides,
+  };
+}
+
 describe("story query helpers", () => {
+  it("isStoryInPublicCatalog is true only for published", () => {
+    expect(isStoryInPublicCatalog(minimalStory({ status: "published" }))).toBe(true);
+    expect(isStoryInPublicCatalog(minimalStory({ status: "draft" }))).toBe(false);
+    expect(isStoryInPublicCatalog(minimalStory({}))).toBe(false);
+  });
+
+  it("publicChaptersForReader drops drafts and renumbers", () => {
+    const chapters = [
+      { id: "a", title: "A", updatedAt: "", status: "draft" as const },
+      { id: "b", title: "B", updatedAt: "", status: "published" as const },
+      { id: "c", title: "C", updatedAt: "", status: "published" as const },
+    ];
+    const pub = publicChaptersForReader(chapters);
+    expect(pub.map((ch) => ch.id)).toEqual(["b", "c"]);
+    expect(pub.map((ch) => ch.number)).toEqual([1, 2]);
+  });
+
+  it("readerChapterNumberForChapterId maps id to public reader index", () => {
+    const chapters = [
+      { id: "a", title: "A", updatedAt: "", status: "draft" as const },
+      { id: "b", title: "B", updatedAt: "", status: "published" as const },
+      { id: "c", title: "C", updatedAt: "", status: "published" as const },
+    ];
+    expect(readerChapterNumberForChapterId(chapters, "a")).toBeUndefined();
+    expect(readerChapterNumberForChapterId(chapters, "b")).toBe(1);
+    expect(readerChapterNumberForChapterId(chapters, "c")).toBe(2);
+  });
+
   it("serializes repeated tag params and omits defaults", () => {
     const params = serializeStoriesQuery({
       ...defaultStoriesQuery,
@@ -16,40 +61,47 @@ describe("story query helpers", () => {
     expect(params.toString()).toBe("tag=drama&tag=ooc");
   });
 
-  it("parses supported tags and drops unknown values", () => {
+  it("parses repeated tags, keeps order and includes q/page", () => {
     const params = new URLSearchParams([
       ["tag", "drama"],
       ["tag", "wrong-tag"],
       ["tag", "ooc"],
+      ["q", "архив"],
       ["page", "2"],
     ]);
 
     expect(parseStoriesQuery(params)).toEqual({
-      tags: ["drama", "ooc"],
-      fandom: "",
-      rating: "",
-      status: "",
-      size: "",
+      tags: ["drama", "wrong-tag", "ooc"],
+      q: "архив",
       page: 2,
       pageSize: 20,
     });
   });
 
-  it("serializes secondary filters", () => {
+  it("serializes normalized tag filters", () => {
     const params = serializeStoriesQuery({
       ...defaultStoriesQuery,
-      fandom: "Гарри Поттер",
-      rating: "R",
-      status: "в процессе",
-      size: "миди",
+      tags: ["harry-potter", "r", "in-progress", "midi"],
     });
 
-    expect(params.toString()).toBe(
-      "fandom=%D0%93%D0%B0%D1%80%D1%80%D0%B8+%D0%9F%D0%BE%D1%82%D1%82%D0%B5%D1%80&rating=R&status=%D0%B2+%D0%BF%D1%80%D0%BE%D1%86%D0%B5%D1%81%D1%81%D0%B5&size=%D0%BC%D0%B8%D0%B4%D0%B8",
-    );
+    expect(params.toString()).toBe("tag=harry-potter&tag=r&tag=in-progress&tag=midi");
   });
 
-  it("drops unsupported secondary filters", () => {
+  it("maps legacy secondary filters into normalized tags", () => {
+    const params = new URLSearchParams([
+      ["fandom", "Гарри Поттер"],
+      ["rating", "R"],
+      ["status", "в процессе"],
+      ["size", "миди"],
+    ]);
+
+    expect(parseStoriesQuery(params)).toEqual({
+      ...defaultStoriesQuery,
+      tags: ["harry-potter", "r", "in-progress", "midi"],
+    });
+  });
+
+  it("ignores unknown legacy secondary filters safely", () => {
     const params = new URLSearchParams([
       ["fandom", "Аркейн"],
       ["rating", "NC-99"],
@@ -57,6 +109,8 @@ describe("story query helpers", () => {
       ["size", "супер-макси"],
     ]);
 
-    expect(parseStoriesQuery(params)).toEqual(defaultStoriesQuery);
+    expect(parseStoriesQuery(params)).toEqual({
+      ...defaultStoriesQuery,
+    });
   });
 });

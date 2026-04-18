@@ -6,30 +6,31 @@ import { useEffect, useState } from "react";
 
 import {
   aiJobQueryOptions,
+  chapterEditorDetailsQueryOptions,
   createChapter,
   deleteChapter,
-  deleteStory,
-  chapterDetailsQueryOptions,
+  publishChapter,
+  startLogicCheck,
   startSpellcheck,
   storyKeys,
   updateChapter,
-  updateStory,
 } from "@/entities/story/api/stories-api";
-import type { SpellcheckResult } from "@/entities/story/model/types";
+import type { LogicCheckResult, SpellcheckResult } from "@/entities/story/model/types";
+import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { EmptyState } from "@/shared/ui/empty-state";
 
+import { ChapterImageFrame } from "./chapter-image-frame";
+import { GenerateChapterImageButton } from "./generate-chapter-image-button";
 import { PlottyShell } from "./plotty-shell";
 import { StoryEditorForm, type StoryEditorValues } from "./story-editor-form";
 
 const emptyValues: StoryEditorValues = {
-  storyTitle: "",
-  storyDescription: "",
-  storyExcerpt: "",
-  selectedTagSlugs: [],
   chapterTitle: "",
   chapterContent: "",
 };
+
+const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
 
 export function StoryEditorScreen({
   storyId,
@@ -40,9 +41,11 @@ export function StoryEditorScreen({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const chapterQuery = useQuery(chapterDetailsQueryOptions(chapterId));
+  const chapterQuery = useQuery(chapterEditorDetailsQueryOptions(storyId, chapterId));
   const [values, setValues] = useState<StoryEditorValues>(emptyValues);
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
+  const [logicCheckJobId, setLogicCheckJobId] = useState("");
+  const [chapterPublishedThisSession, setChapterPublishedThisSession] = useState(false);
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -50,43 +53,38 @@ export function StoryEditorScreen({
     }
 
     setValues({
-      storyTitle: chapterQuery.data.storyTitle,
-      storyDescription: chapterQuery.data.storyDescription,
-      storyExcerpt: chapterQuery.data.storyExcerpt,
-      selectedTagSlugs: chapterQuery.data.storyTags.map((tag) => tag.slug),
       chapterTitle: chapterQuery.data.title,
       chapterContent: chapterQuery.data.content,
     });
   }, [chapterQuery.data]);
 
-  const updateStoryMutation = useMutation({
-    mutationFn: ({ targetStoryId, targetPayload }: { targetStoryId: string; targetPayload: StoryEditorValues }) =>
-      updateStory(targetStoryId, {
-        title: targetPayload.storyTitle,
-        description: targetPayload.storyDescription,
-        excerpt: targetPayload.storyExcerpt,
-        tags: targetPayload.selectedTagSlugs,
-      }),
-  });
+  useEffect(() => {
+    setChapterPublishedThisSession(false);
+    setLogicCheckJobId("");
+  }, [chapterId]);
+
   const updateChapterMutation = useMutation({
     mutationFn: ({ targetChapterId, targetPayload }: { targetChapterId: string; targetPayload: StoryEditorValues }) =>
       updateChapter(targetChapterId, {
-        title: targetPayload.chapterTitle,
-        content: targetPayload.chapterContent,
+        title: targetPayload.chapterTitle.trim(),
+        content: targetPayload.chapterContent.trim(),
       }),
   });
   const createChapterMutation = useMutation({
     mutationFn: ({ nextStoryId, nextTitle }: { nextStoryId: string; nextTitle: string }) =>
-      createChapter(nextStoryId, { title: nextTitle, content: "" }),
+      createChapter(nextStoryId, { title: nextTitle, content: emptyChapterDraft }),
   });
   const deleteChapterMutation = useMutation({
     mutationFn: deleteChapter,
   });
-  const deleteStoryMutation = useMutation({
-    mutationFn: deleteStory,
+  const publishChapterMutation = useMutation({
+    mutationFn: publishChapter,
   });
   const spellcheckMutation = useMutation({
     mutationFn: startSpellcheck,
+  });
+  const logicCheckMutation = useMutation({
+    mutationFn: startLogicCheck,
   });
 
   const spellcheckJobQuery = useQuery({
@@ -94,23 +92,38 @@ export function StoryEditorScreen({
     refetchInterval: (query) => {
       const status = query.state.data?.status;
 
-      return status === "completed" || status === "failed" ? false : 250;
+      return status === "completed" || status === "failed" ? false : 2_000;
+    },
+  });
+
+  const logicCheckJobQuery = useQuery({
+    ...aiJobQueryOptions<LogicCheckResult>(logicCheckJobId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+
+      return status === "completed" || status === "failed" ? false : 2_000;
     },
   });
 
   async function handleSave() {
-    await updateStoryMutation.mutateAsync({
-      targetStoryId: storyId,
-      targetPayload: values,
-    });
-    const chapter = await updateChapterMutation.mutateAsync({
-      targetChapterId: chapterId,
-      targetPayload: values,
-    });
+    try {
+      await updateChapterMutation.mutateAsync({
+        targetChapterId: chapterId,
+        targetPayload: values,
+      });
 
-    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-    await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
-    await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapter.storySlug) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
+
+      if (chapterQuery.data?.storySlug) {
+        await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      }
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
+    }
   }
 
   async function handleCreateNextChapter() {
@@ -118,14 +131,23 @@ export function StoryEditorScreen({
       return;
     }
 
-    const nextNumber = (chapterQuery.data.storyChapters.at(-1)?.number ?? 0) + 1;
-    const chapter = await createChapterMutation.mutateAsync({
-      nextStoryId: storyId,
-      nextTitle: `Глава ${nextNumber}`,
-    });
+    try {
+      const nextNumber = (chapterQuery.data.storyChapters?.at(-1)?.number ?? 0) + 1;
+      const chapter = await createChapterMutation.mutateAsync({
+        nextStoryId: storyId,
+        nextTitle: `Глава ${nextNumber}`,
+      });
 
-    await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapter.storySlug) });
-    router.push(routes.chapterEditor(storyId, chapter.id));
+      if (chapterQuery.data.storySlug) {
+        await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      }
+
+      router.push(routes.chapterEditor(storyId, chapter.id));
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
+    }
   }
 
   async function handleDeleteChapter() {
@@ -133,18 +155,21 @@ export function StoryEditorScreen({
       return;
     }
 
-    await deleteChapterMutation.mutateAsync(chapterId);
-    router.push(routes.story(chapterQuery.data?.storySlug ?? ""));
-  }
-
-  async function handleDeleteStory() {
-    if (!window.confirm("Удалить историю целиком?")) {
+    try {
+      await deleteChapterMutation.mutateAsync(chapterId);
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
       return;
     }
 
-    await deleteStoryMutation.mutateAsync(storyId);
-    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-    router.push(routes.home);
+    if (chapterQuery.data?.storySlug) {
+      router.push(routes.story(chapterQuery.data.storySlug));
+      return;
+    }
+
+    router.push(routes.write);
   }
 
   async function handleSpellcheck() {
@@ -154,6 +179,40 @@ export function StoryEditorScreen({
     });
 
     setSpellcheckJobId(accepted.jobId);
+  }
+
+  async function handleLogicCheck() {
+    try {
+      const accepted = await logicCheckMutation.mutateAsync({
+        chapterId,
+        content: values.chapterContent,
+      });
+
+      setLogicCheckJobId(accepted.jobId);
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
+    }
+  }
+
+  async function handlePublish() {
+    try {
+      await publishChapterMutation.mutateAsync(chapterId);
+      setChapterPublishedThisSession(true);
+
+      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
+
+      if (chapterQuery.data?.storySlug) {
+        await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      }
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
+    }
   }
 
   if (chapterQuery.isLoading) {
@@ -174,16 +233,30 @@ export function StoryEditorScreen({
 
   const aiStatusLabel =
     spellcheckJobQuery.data?.status === "processing" || spellcheckJobQuery.data?.status === "queued"
-      ? "Нейронка сейчас проверяет главу."
-      : "После сохранения главу можно отправить на орфографическую проверку.";
+      ? "Наш бета-ридер работает над выявлением ошибок."
+      : "";
+
+  const logicStatusLabel =
+    logicCheckJobQuery.data?.status === "processing" || logicCheckJobQuery.data?.status === "queued"
+      ? "Сверяем текст с лором и опубликованными главами..."
+      : "";
+
+  const isSpellcheckBusy =
+    spellcheckMutation.isPending ||
+    spellcheckJobQuery.data?.status === "queued" ||
+    spellcheckJobQuery.data?.status === "processing";
+
+  const isLogicCheckBusy =
+    logicCheckMutation.isPending ||
+    logicCheckJobQuery.data?.status === "queued" ||
+    logicCheckJobQuery.data?.status === "processing";
 
   return (
     <PlottyShell
-      title={`Редактор: ${chapterQuery.data.storyTitle}`}
-      description={`Глава ${chapterQuery.data.number}. ${chapterQuery.data.title}`}
+      title={chapterQuery.data.title}
+      description={`Глава ${chapterQuery.data.number ?? "—"} истории ${chapterQuery.data.storyTitle ?? "без названия"}`}
     >
       <StoryEditorForm
-        mode="edit"
         values={values}
         storyId={storyId}
         storySlug={chapterQuery.data.storySlug}
@@ -192,14 +265,39 @@ export function StoryEditorScreen({
         chapters={chapterQuery.data.storyChapters}
         spellcheckResult={spellcheckJobQuery.data?.result}
         aiStatusLabel={aiStatusLabel}
-        isSaving={updateStoryMutation.isPending || updateChapterMutation.isPending}
-        isSpellchecking={spellcheckMutation.isPending || spellcheckJobQuery.data?.status === "queued"}
+        logicCheckResult={logicCheckJobQuery.data?.result}
+        logicStatusLabel={logicStatusLabel}
+        isSaving={updateChapterMutation.isPending}
+        isSpellchecking={isSpellcheckBusy}
+        isLogicChecking={isLogicCheckBusy}
+        imagePanel={
+          <div className="space-y-5">
+            <div className="rounded-[26px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.8)] p-4 shadow-[var(--plotty-shadow-card)]">
+              <div className="space-y-3">
+                <div>
+                  <div className="plotty-section-title">Иллюстрация главы</div>
+                  <p className="plotty-meta">Сгенерируйте изображение для этой главы.</p>
+                </div>
+                <ChapterImageFrame title={chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl} />
+                <GenerateChapterImageButton
+                  chapterId={chapterId}
+                  chapterTitle={chapterQuery.data.title}
+                  storySlug={chapterQuery.data.storySlug ?? ""}
+                  storyTitle={chapterQuery.data.storyTitle}
+                />
+              </div>
+            </div>
+          </div>
+        }
         onChange={setValues}
         onSave={handleSave}
+        onPublish={handlePublish}
+        isPublishing={publishChapterMutation.isPending}
+        chapterPublished={chapterPublishedThisSession}
         onCreateNextChapter={handleCreateNextChapter}
         onDeleteChapter={handleDeleteChapter}
-        onDeleteStory={handleDeleteStory}
         onSpellcheck={handleSpellcheck}
+        onLogicCheck={handleLogicCheck}
       />
     </PlottyShell>
   );
