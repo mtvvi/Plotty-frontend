@@ -9,32 +9,29 @@ export interface StoryTag {
   name: string;
 }
 
+export interface StoryAuthor {
+  id: number;
+  username: string;
+  avatarUrl?: string | null;
+}
+
 export interface StoryListItem {
   id: string;
   slug: string;
   title: string;
-  coverImageUrl?: string;
-  firstChapterId?: string;
   tags: StoryTag[];
   chaptersCount: number;
   createdAt: string;
   updatedAt: string;
-  description?: string;
   status?: StoryStatus;
   fandom?: string;
-  pairing?: string;
   ratingLabel?: string;
   statusLabel?: string;
   sizeLabel?: string;
   likesCount?: number;
-  commentsCount?: number;
-  bookmarksCount?: number;
-  viewsCount?: number;
   viewerHasLiked?: boolean;
   aiHint?: string;
-  summaryLabel?: string;
-  readLabel?: string;
-  updatedLabel?: string;
+  author?: StoryAuthor | null;
 }
 
 export interface ChapterListItem {
@@ -43,36 +40,25 @@ export interface ChapterListItem {
   updatedAt: string;
   number?: number;
   status?: StoryStatus;
-  wordCount?: number;
-  hasImage?: boolean;
-  imageUrl?: string;
 }
 
 export interface StoryDetails {
   id: string;
   slug: string;
   title: string;
-  coverImageUrl?: string;
   tags: StoryTag[];
   chapters: ChapterListItem[];
   createdAt: string;
   updatedAt: string;
-  description?: string;
   status?: StoryStatus;
   fandom?: string;
-  pairing?: string;
   ratingLabel?: string;
   statusLabel?: string;
   sizeLabel?: string;
   likesCount?: number;
-  commentsCount?: number;
-  bookmarksCount?: number;
-  viewsCount?: number;
   viewerHasLiked?: boolean;
   aiHint?: string;
-  summaryLabel?: string;
-  readLabel?: string;
-  updatedLabel?: string;
+  author?: StoryAuthor | null;
 }
 
 export interface ChapterDetails {
@@ -83,7 +69,6 @@ export interface ChapterDetails {
   updatedAt: string;
   storySlug?: string;
   storyTitle?: string;
-  storyDescription?: string;
   storyTags?: StoryTag[];
   storyChapters?: ChapterListItem[];
   number?: number;
@@ -110,13 +95,11 @@ export interface StoriesResponse {
 export interface CreateStoryPayload {
   title: string;
   tagIds?: string[];
-  tags?: string[];
 }
 
 export interface UpdateStoryPayload {
   title?: string;
   tagIds?: string[];
-  tags?: string[];
 }
 
 export interface CreateChapterPayload {
@@ -209,9 +192,5 @@ export interface CreateStoryCommentPayload {
 export interface ToggleLikeResult {
   storyId: string;
   likesCount: number;
-  likedByMe?: boolean;
-  commentsCount?: number;
-  bookmarksCount?: number;
-  viewsCount?: number;
   viewerHasLiked: boolean;
 }

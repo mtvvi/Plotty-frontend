@@ -151,6 +151,12 @@ export const handlers = [
   }),
 
   http.patch("*/stories/:storyId", async ({ params, request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const payload = (await request.json()) as UpdateStoryPayload;
     const story = updateStoryRecord(String(params.storyId), payload);
 
@@ -162,13 +168,19 @@ export const handlers = [
   }),
 
   http.delete("*/stories/:storyId", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const deleted = deleteStoryRecord(String(params.storyId));
 
     if (!deleted) {
       return HttpResponse.json({ message: "Story not found" }, { status: 404 });
     }
 
-    return HttpResponse.json({ ok: true });
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get("*/stories/:slug", ({ params }) => {
@@ -229,7 +241,7 @@ export const handlers = [
       return HttpResponse.json({ message: "Comment not found" }, { status: 404 });
     }
 
-    return HttpResponse.json({ ok: true });
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.post("*/stories/:storyId/like", ({ params }) => {
@@ -265,6 +277,12 @@ export const handlers = [
   }),
 
   http.post("*/stories/:storyId/chapters", async ({ params, request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const payload = (await request.json()) as CreateChapterPayload;
     const chapter = createChapterRecord(String(params.storyId), payload);
 
@@ -276,6 +294,12 @@ export const handlers = [
   }),
 
   http.patch("*/chapters/:chapterId", async ({ params, request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const payload = (await request.json()) as UpdateChapterPayload;
     const chapter = updateChapterRecord(String(params.chapterId), payload);
 
@@ -287,13 +311,19 @@ export const handlers = [
   }),
 
   http.delete("*/chapters/:chapterId", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const deleted = deleteChapterRecord(String(params.chapterId));
 
     if (!deleted) {
       return HttpResponse.json({ message: "Chapter not found" }, { status: 404 });
     }
 
-    return HttpResponse.json({ ok: true });
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.post("*/chapters/:chapterId/publish", ({ params }) => {

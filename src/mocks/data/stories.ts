@@ -19,6 +19,7 @@ import type {
   StoryComment,
   StoriesQuery,
   StoriesResponse,
+  StoryAuthor,
   StoryDetails,
   StoryListItem,
   StoryStatus,
@@ -107,16 +108,29 @@ interface MockStoriesDb {
 const tagMap = new Map(storyTags.map((tag) => [tag.slug, tag]));
 const multiMatchAnyCategories = new Set(["rating", "completion", "size"]);
 const storyTagCategoryBySlug = new Map(storyTags.map((tag) => [tag.slug, tag.category ?? "other"]));
+const storyAuthors: Record<number, StoryAuthor> = {
+  1: {
+    id: 1,
+    username: "writer",
+    avatarUrl: null,
+  },
+  101: {
+    id: 101,
+    username: "reader_one",
+    avatarUrl: null,
+  },
+  102: {
+    id: 102,
+    username: "snowowl",
+    avatarUrl: null,
+  },
+};
 
 function normalizeTagLabel(value: string) {
   return value.trim().toLowerCase();
 }
 
-function resolveTagSlugsFromPayload(payload: { tags?: string[]; tagIds?: string[] }) {
-  if (payload.tags?.length) {
-    return payload.tags;
-  }
-
+function resolveTagSlugsFromPayload(payload: { tagIds?: string[] }) {
   if (payload.tagIds?.length) {
     return payload.tagIds
       .map((tagId) => storyTags.find((tag) => tag.id === tagId)?.slug)
@@ -374,63 +388,50 @@ function getChaptersForStory(storyId: string): ChapterRecord[] {
   return db.chapters.filter((chapter) => chapter.storyId === storyId).sort((a, b) => a.number - b.number);
 }
 
-function getStoryCoverImage(story: StoryRecord) {
-  return story.coverImageUrl ?? getChaptersForStory(story.id).find((chapter) => chapter.imageUrl)?.imageUrl;
-}
-
 function toChapterListItem(chapter: ChapterRecord): ChapterListItem {
   return {
     id: chapter.id,
     number: chapter.number,
     title: chapter.title,
-    wordCount: countWords(chapter.content),
     updatedAt: chapter.updatedAt,
-    hasImage: Boolean(chapter.imageUrl),
-    imageUrl: chapter.imageUrl,
     status: chapter.status,
   };
 }
 
 function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListItem {
   const chapters = getChaptersForStory(story.id);
-  const publishedChapters = chapters.filter((ch) => isChapterPublishedMock(ch));
-  const firstChapter = publishedChapters[0] ?? chapters[0];
+  const visibleChapters = story.status === "published" ? chapters.filter((ch) => isChapterPublishedMock(ch)) : chapters;
+  const tags = resolveTags(story.tagSlugs);
 
   return {
     id: story.id,
     slug: story.slug,
     title: story.title,
-    coverImageUrl: getStoryCoverImage(story),
-    firstChapterId: firstChapter?.id,
     createdAt: story.createdAt,
-    description: story.description,
     status: story.status,
-    tags: resolveTags(story.tagSlugs),
-    chaptersCount: publishedChapters.length,
+    tags,
+    chaptersCount: visibleChapters.length,
     updatedAt: story.updatedAt,
-    fandom: story.fandom,
-    pairing: story.pairing,
-    ratingLabel: story.ratingLabel,
-    statusLabel: story.statusLabel,
-    sizeLabel: story.sizeLabel,
+    fandom: tags.find((tag) => tag.category === "directionality")?.name,
+    ratingLabel: tags.find((tag) => tag.category === "rating")?.name,
+    statusLabel: tags.find((tag) => tag.category === "completion")?.name,
+    sizeLabel: tags.find((tag) => tag.category === "size")?.name,
     likesCount: story.likesCount,
-    commentsCount: story.commentsCount,
-    bookmarksCount: story.bookmarksCount,
-    viewsCount: story.viewsCount,
     viewerHasLiked: viewerUserId ? story.likedByUserIds.includes(viewerUserId) : false,
     aiHint: story.aiHint,
-    summaryLabel: story.summaryLabel,
-    readLabel: story.readLabel,
-    updatedLabel: story.updatedLabel,
+    author: storyAuthors[story.authorId] ?? null,
   };
 }
 
 function toStoryDetails(story: StoryRecord, viewerUserId?: number): StoryDetails {
+  const chapters = getChaptersForStory(story.id);
+  const visibleChapters = story.status === "published" ? chapters.filter((chapter) => isChapterPublishedMock(chapter)) : chapters;
+
   return {
     ...toStoryListItem(story, viewerUserId),
     createdAt: story.createdAt,
     updatedAt: story.updatedAt,
-    chapters: getChaptersForStory(story.id).map(toChapterListItem),
+    chapters: visibleChapters.map(toChapterListItem),
   };
 }
 
@@ -446,7 +447,6 @@ function toChapterDetails(chapter: ChapterRecord): ChapterDetails {
     storyId: story.id,
     storySlug: story.slug,
     storyTitle: story.title,
-    storyDescription: story.description,
     storyTags: resolveTags(story.tagSlugs),
     storyChapters: getChaptersForStory(story.id).map(toChapterListItem),
     number: chapter.number,
@@ -611,7 +611,15 @@ export function listTags() {
 export function getStoryBySlug(slug: string, viewerUserId?: number) {
   const story = db.stories.find((item) => item.slug === slug);
 
-  return story ? toStoryDetails(story, viewerUserId) : null;
+  if (!story) {
+    return null;
+  }
+
+  if (story.status !== "published" && viewerUserId !== story.authorId) {
+    return null;
+  }
+
+  return toStoryDetails(story, viewerUserId);
 }
 
 export function getChapterById(chapterId: string) {
@@ -655,7 +663,16 @@ export function createStoryRecordForAuthor(payload: CreateStoryPayload, authorId
   db.storySeed += 1;
   db.stories.unshift(story);
 
-  return toStoryDetails(story);
+  return {
+    id: story.id,
+    slug: story.slug,
+    title: story.title,
+    status: story.status,
+    authorId: story.authorId,
+    aiHint: story.aiHint,
+    createdAt: story.createdAt,
+    updatedAt: story.updatedAt,
+  };
 }
 
 export function updateStoryRecord(storyId: string, payload: UpdateStoryPayload) {
@@ -669,13 +686,22 @@ export function updateStoryRecord(storyId: string, payload: UpdateStoryPayload) 
     story.title = payload.title;
     story.slug = uniqueStorySlug(payload.title, story.id);
   }
-  if (payload.tags || payload.tagIds) {
+  if (payload.tagIds) {
     story.tagSlugs = resolveTagSlugsFromPayload(payload);
   }
   story.updatedAt = nowIso();
   story.updatedLabel = "обновлено только что";
 
-  return toStoryDetails(story);
+  return {
+    id: story.id,
+    slug: story.slug,
+    title: story.title,
+    status: story.status,
+    authorId: story.authorId,
+    aiHint: story.aiHint,
+    createdAt: story.createdAt,
+    updatedAt: story.updatedAt,
+  };
 }
 
 export function deleteStoryRecord(storyId: string) {
@@ -784,10 +810,6 @@ function toToggleLikeResult(story: StoryRecord, viewerUserId: number): ToggleLik
   return {
     storyId: story.id,
     likesCount: story.likesCount,
-    likedByMe: liked,
-    commentsCount: story.commentsCount,
-    bookmarksCount: story.bookmarksCount,
-    viewsCount: story.viewsCount,
     viewerHasLiked: liked,
   };
 }

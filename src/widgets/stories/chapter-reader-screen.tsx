@@ -10,7 +10,6 @@ import {
   chapterCommentsQueryOptions,
   chapterDetailsQueryOptions,
   deleteStoryComment,
-  patchStorySummaryCaches,
   storyDetailsQueryOptions,
   storyKeys,
 } from "@/entities/story/api/stories-api";
@@ -150,9 +149,6 @@ export function ChapterReaderScreen({
       queryClient.setQueryData<StoryCommentsResponse | undefined>(storyKeys.chapterComments(chapterId), (current) => ({
         items: [comment, ...(current?.items ?? [])],
       }));
-      patchStorySummaryCaches(queryClient, story.id, {
-        commentsCount: (story.commentsCount ?? 0) + 1,
-      });
       setCommentDraft("");
     } catch (error) {
       if (isAuthError(error)) {
@@ -167,17 +163,11 @@ export function ChapterReaderScreen({
     queryClient.setQueryData<StoryCommentsResponse | undefined>(storyKeys.chapterComments(chapterId), {
       items: currentComments.filter((c) => c.id !== commentId),
     });
-    patchStorySummaryCaches(queryClient, story.id, {
-      commentsCount: Math.max((story.commentsCount ?? 0) - 1, 0),
-    });
 
     try {
       await deleteCommentMutation.mutateAsync(commentId);
     } catch (error) {
       queryClient.setQueryData(storyKeys.chapterComments(chapterId), { items: currentComments });
-      patchStorySummaryCaches(queryClient, story.id, {
-        commentsCount: story.commentsCount,
-      });
 
       if (isAuthError(error)) {
         router.push(routes.auth({ next: `${pathname}#comments` }));

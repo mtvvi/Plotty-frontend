@@ -41,44 +41,31 @@ interface BackendStory {
 interface BackendStoryListItem extends BackendStory {
   tags?: StoryTag[];
   chaptersCount: number;
-  coverImageUrl?: string;
-  firstChapterId?: string;
-  description?: string;
-  aiHint?: string;
   status?: StoryDetails["status"];
   likesCount?: number;
-  commentsCount?: number;
-  bookmarksCount?: number;
-  viewsCount?: number;
-  viewerHasLiked?: boolean;
-  likedByMe?: boolean;
-  updatedLabel?: string;
+  aiHint?: string;
+  author?: {
+    id: number;
+    username: string;
+    avatarUrl?: string | null;
+  };
 }
 
 interface BackendStoryDetails extends BackendStory {
   tags?: StoryTag[];
-  coverImageUrl?: string;
-  description?: string;
   aiHint?: string;
   status?: StoryDetails["status"];
-  fandom?: string;
-  pairing?: string;
-  ratingLabel?: string;
-  statusLabel?: string;
-  sizeLabel?: string;
   likesCount?: number;
-  commentsCount?: number;
-  bookmarksCount?: number;
-  summaryLabel?: string;
-  readLabel?: string;
-  updatedLabel?: string;
   likedByMe?: boolean;
-  viewerHasLiked?: boolean;
+  author?: {
+    id: number;
+    username: string;
+    avatarUrl?: string | null;
+  };
   chapters?: Array<{
     id: string;
     title: string;
     updatedAt: string;
-    imageUrl?: string;
     status?: string;
   }>;
 }
@@ -114,6 +101,17 @@ interface BackendChapterComment {
   createdAt: string;
 }
 
+interface BackendStoryMutationResponse {
+  id: string;
+  slug: string;
+  title: string;
+  status?: StoryDetails["status"];
+  authorId?: number | null;
+  aiHint?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const STORY_LOOKUP_PAGE_SIZE = 100;
 
 export const storyKeys = {
@@ -143,25 +141,18 @@ function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
     id: item.id,
     slug: item.slug,
     title: item.title,
-    coverImageUrl: item.coverImageUrl,
-    firstChapterId: item.firstChapterId,
     tags,
     chaptersCount: item.chaptersCount,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
-    description: item.description ?? item.aiHint,
     status: item.status,
     fandom: getTagName(tags, "directionality"),
     ratingLabel: getTagName(tags, "rating"),
     statusLabel: getTagName(tags, "completion"),
     sizeLabel: getTagName(tags, "size"),
     likesCount: item.likesCount,
-    commentsCount: item.commentsCount,
-    // bookmarksCount: item.bookmarksCount,
-    viewsCount: item.viewsCount,
-    viewerHasLiked: item.viewerHasLiked ?? item.likedByMe,
-    updatedLabel: item.updatedLabel,
     aiHint: item.aiHint,
+    author: item.author,
   };
 }
 
@@ -173,8 +164,6 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     number: index + 1,
     title: chapter.title,
     updatedAt: chapter.updatedAt,
-    imageUrl: chapter.imageUrl,
-    hasImage: Boolean(chapter.imageUrl),
     status: chapter.status === "draft" || chapter.status === "published" ? chapter.status : undefined,
   }));
 
@@ -182,26 +171,19 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     id: item.id,
     slug: item.slug,
     title: item.title,
-    coverImageUrl: item.coverImageUrl ?? chapterRows.find((chapter) => chapter.imageUrl)?.imageUrl,
     tags,
     chapters,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
-    description: item.description ?? item.aiHint,
     status: item.status,
-    fandom: item.fandom ?? getTagName(tags, "directionality"),
-    pairing: item.pairing,
-    ratingLabel: item.ratingLabel ?? getTagName(tags, "rating"),
-    statusLabel: item.statusLabel ?? getTagName(tags, "completion"),
-    sizeLabel: item.sizeLabel ?? getTagName(tags, "size"),
+    fandom: getTagName(tags, "directionality"),
+    ratingLabel: getTagName(tags, "rating"),
+    statusLabel: getTagName(tags, "completion"),
+    sizeLabel: getTagName(tags, "size"),
     likesCount: item.likesCount,
-    commentsCount: item.commentsCount,
-    // bookmarksCount: item.bookmarksCount,
     aiHint: item.aiHint,
-    summaryLabel: item.summaryLabel,
-    readLabel: item.readLabel,
-    updatedLabel: item.updatedLabel,
-    viewerHasLiked: item.viewerHasLiked ?? item.likedByMe,
+    viewerHasLiked: item.likedByMe,
+    author: item.author,
   };
 }
 
@@ -408,13 +390,13 @@ export function aiJobQueryOptions<TResult>(jobId: string) {
 }
 
 export function createStory(payload: CreateStoryPayload) {
-  return fetchJson<BackendStoryDetails>("/stories", {
+  return fetchJson<BackendStoryMutationResponse>("/stories", {
     method: "POST",
     body: JSON.stringify({
       title: payload.title,
       tagIds: payload.tagIds ?? [],
     }),
-  }).then(mapStoryDetails);
+  }).then((story) => fetchStoryDetails(story.slug));
 }
 
 export function updateStory(storyId: string, payload: UpdateStoryPayload) {
@@ -428,10 +410,10 @@ export function updateStory(storyId: string, payload: UpdateStoryPayload) {
     body.tagIds = payload.tagIds;
   }
 
-  return fetchJson<BackendStoryDetails>(`/stories/${storyId}`, {
+  return fetchJson<BackendStoryMutationResponse>(`/stories/${storyId}`, {
     method: "PATCH",
     body: JSON.stringify(body),
-  }).then(mapStoryDetails);
+  }).then((story) => fetchStoryDetails(story.slug));
 }
 
 export function deleteStory(storyId: string) {
@@ -471,8 +453,8 @@ export function likeStory(storyId: string) {
     method: "POST",
   }).then((response) => ({
     likesCount: response.likesCount,
-    viewerHasLiked: response.likedByMe,
     storyId,
+    viewerHasLiked: response.likedByMe,
   }));
 }
 
@@ -481,8 +463,8 @@ export function unlikeStory(storyId: string) {
     method: "DELETE",
   }).then((response) => ({
     likesCount: response.likesCount,
-    viewerHasLiked: response.likedByMe,
     storyId,
+    viewerHasLiked: response.likedByMe,
   }));
 }
 
@@ -522,11 +504,7 @@ export function startImageGeneration(payload: ImageGenerationPayload) {
 
 type StorySummaryFields = Pick<
   StoryListItem,
-  | "likesCount"
-  | "commentsCount"
-  // | "bookmarksCount"
-  | "viewsCount"
-  | "viewerHasLiked"
+  "likesCount" | "viewerHasLiked"
 >;
 
 export function patchStorySummaryCaches(

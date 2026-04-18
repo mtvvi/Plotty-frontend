@@ -285,7 +285,7 @@ export function StoryCreateFlowScreen() {
                 <div className="space-y-1.5">
                   <div className="plotty-kicker">Аннотация</div>
                   <p className="text-sm leading-6 text-[var(--plotty-muted)]">
-                    {createdStory.description?.trim() ? createdStory.description : STORY_ANNOTATION_PLACEHOLDER}
+                    {createdStory.aiHint?.trim() ? createdStory.aiHint : STORY_ANNOTATION_PLACEHOLDER}
                   </p>
                 </div>
 

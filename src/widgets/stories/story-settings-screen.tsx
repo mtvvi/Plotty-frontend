@@ -237,8 +237,8 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
               <div className="rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
                 <div className="plotty-kicker">Аннотация</div>
                 <p className="mt-2 text-sm leading-6 text-[var(--plotty-muted)]">
-                  {storyQuery.data.description?.trim()
-                    ? storyQuery.data.description
+                  {storyQuery.data.aiHint?.trim()
+                    ? storyQuery.data.aiHint
                     : STORY_ANNOTATION_PLACEHOLDER}
                 </p>
               </div>
@@ -292,8 +292,8 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
                     <div className="space-y-1.5">
                       <div className="plotty-kicker">Аннотация</div>
                       <p className="text-sm leading-6 text-[var(--plotty-muted)]">
-                        {storyQuery.data.description?.trim()
-                          ? storyQuery.data.description
+                        {storyQuery.data.aiHint?.trim()
+                          ? storyQuery.data.aiHint
                           : STORY_ANNOTATION_PLACEHOLDER}
                       </p>
                     </div>
