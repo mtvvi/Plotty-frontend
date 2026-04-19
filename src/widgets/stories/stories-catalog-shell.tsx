@@ -74,14 +74,14 @@ export function StoriesCatalogShell() {
     refetchOnWindowFocus: false,
   });
   const tagsQuery = useQuery(storyTagsQueryOptions());
-  const rawListItems = storiesQuery.data?.items;
-  const catalogStories = useMemo(() => (rawListItems ?? []).filter(isStoryInPublicCatalog), [rawListItems]);
+  const rawListItems = storiesQuery.data?.items ?? [];
+  const catalogStories = useMemo(() => rawListItems.filter(isStoryInPublicCatalog), [rawListItems]);
   const groupedTags = useMemo(() => groupStoryTags(tagsQuery.data?.items ?? []), [tagsQuery.data?.items]);
   const orderedGroups = storyTagCategoryOrder
     .map((category) => [category, groupedTags[category] ?? []] as const)
     .filter(([, tags]) => tags.length);
   const totalStories = catalogStories.length.toLocaleString("ru-RU");
-  const pageHasOnlyDraftStories = (rawListItems?.length ?? 0) > 0 && catalogStories.length === 0;
+  const pageHasOnlyDraftStories = rawListItems.length > 0 && catalogStories.length === 0;
   const hasInitialLoading = storiesQuery.isLoading && !storiesQuery.data;
   const appliedActiveTags = (tagsQuery.data?.items ?? []).filter((tag) => appliedQuery.tags.includes(tag.slug));
 
