@@ -154,6 +154,27 @@ select {
   line-height: 1.65;
 }
 
+.plotty-reader-settings-scope {
+  font-size: var(--plotty-reader-font-size, 16px);
+  line-height: var(--plotty-reader-line-height, 1.6);
+}
+
+.plotty-reader-settings-scope .plotty-body {
+  font-size: var(--plotty-reader-font-size, 16px);
+  line-height: var(--plotty-reader-line-height, 1.6);
+}
+
+.plotty-reader-settings-scope :where(p, li, textarea) {
+  font-size: var(--plotty-reader-font-size, 16px);
+  line-height: var(--plotty-reader-line-height, 1.6);
+}
+
+.plotty-reader-settings-scope [data-reader-theme="dark"],
+.plotty-reader-settings-scope[data-reader-theme="dark"] {
+  background: #171513;
+  color: #f6eadb;
+}
+
 .plotty-meta {
   font-size: 0.8125rem;
   font-weight: 600;

@@ -7,9 +7,11 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
+import { readerThemeShellClasses, useReaderSettings } from "@/shared/model/reader-settings";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { AuthStatus } from "@/widgets/auth/auth-status";
+import { ReaderSettingsControl } from "@/widgets/layout/reader-settings-control";
 
 export const plottyPrimaryNavItems = [
   { href: routes.home, label: "Каталог" },
@@ -26,6 +28,7 @@ function isPrimaryNavItemActive(pathname: string, href: string) {
 
 export function PlottyPageShell({
   children,
+  variant = "default",
   pageTitle,
   pageDescription,
   pageMeta,
@@ -36,13 +39,14 @@ export function PlottyPageShell({
   showMobileBack = false,
   mobileBackHref,
   contentClassName,
-  showBottomNav = true,
+  showBottomNav,
   menuContent,
   onMenuOpenChange,
   suppressPageIntro = false,
   className,
 }: {
   children: ReactNode;
+  variant?: "default" | "reader";
   pageTitle?: string;
   pageDescription?: string;
   pageMeta?: ReactNode;
@@ -62,6 +66,8 @@ export function PlottyPageShell({
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { settings } = useReaderSettings();
+  const shouldShowBottomNav = showBottomNav ?? variant !== "reader";
 
   useEffect(() => {
     onMenuOpenChange?.(isMobileMenuOpen);
@@ -80,7 +86,8 @@ export function PlottyPageShell({
     <div
       className={cn(
         "plotty-page-shell !pt-0 lg:!pt-6",
-        showBottomNav && menuContent ? "!pb-[calc(7rem+env(safe-area-inset-bottom))]" : "!pb-12",
+        shouldShowBottomNav && menuContent ? "!pb-[calc(7rem+env(safe-area-inset-bottom))]" : "!pb-12",
+        readerThemeShellClasses[settings.theme],
         className,
       )}
     >
@@ -137,17 +144,24 @@ export function PlottyPageShell({
                       })}
                     </div>
                   </nav>
-                  {desktopActions}
                 </div>
               </div>
 
               {mobileHeaderActions ? (
                 <div className="ml-auto flex items-center gap-2 lg:hidden">
+                  <ReaderSettingsControl />
                   {mobileHeaderActions}
                 </div>
-              ) : <div className="ml-auto lg:hidden" />}
+              ) : (
+                <div className="ml-auto flex items-center gap-2 lg:hidden">
+                  <ReaderSettingsControl />
+                </div>
+              )}
 
-              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
+              <div className="hidden items-center justify-end gap-2 lg:flex lg:flex-1">
+                <ReaderSettingsControl />
+                {desktopActions}
+              </div>
             </div>
 
             {mobileToolbar ? <div className="border-t border-[rgba(41,38,34,0.08)] py-3 lg:hidden">{mobileToolbar}</div> : null}
@@ -180,7 +194,7 @@ export function PlottyPageShell({
         ) : null}
       </section>
 
-      {showBottomNav && menuContent ? (
+      {shouldShowBottomNav && menuContent ? (
         <PlottyBottomNav activeCatalog={pathname === routes.home} onMenuOpen={() => setIsMobileMenuOpen(true)} />
       ) : null}
     </div>
