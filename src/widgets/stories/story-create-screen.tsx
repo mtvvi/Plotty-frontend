@@ -11,7 +11,7 @@ import {
   storyDetailsQueryOptions,
   storyKeys,
 } from "@/entities/story/api/stories-api";
-import { defaultStoriesQuery, publicChaptersForReader, readerChapterNumberForChapterId } from "@/entities/story/model/story-query";
+import { defaultStoriesQuery, readerChapterNumberForChapterId } from "@/entities/story/model/story-query";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { isAuthError } from "@/shared/api/fetch-json";
@@ -57,10 +57,6 @@ export function StoryCreateScreen() {
       setSelectedStorySlug(storiesQuery.data.items[0].slug);
     }
   }, [selectedStorySlug, storiesQuery.data?.items]);
-
-  const selectedStoryPublishedCount = selectedStoryQuery.data
-    ? publicChaptersForReader(selectedStoryQuery.data.chapters).length
-    : 0;
 
   const selectedStoryDisplayCover = selectedStoryFirstChapterQuery.data?.imageUrl;
   const selectedStoryDescription = selectedStoryQuery.data?.aiHint?.trim() ? selectedStoryQuery.data.aiHint : STORY_ANNOTATION_PLACEHOLDER;
@@ -187,7 +183,6 @@ export function StoryCreateScreen() {
                   <div className="space-y-2">
                     <div className="plotty-kicker">Активная история</div>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-[var(--plotty-muted)]">
-                      <span>{formatChapterCount(selectedStoryPublishedCount)}</span>
                       <span>{`Обновлена ${new Date(selectedStoryQuery.data.updatedAt).toLocaleDateString("ru-RU")}`}</span>
                     </div>
                   </div>
@@ -227,7 +222,6 @@ export function StoryCreateScreen() {
               <div className="space-y-3 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="plotty-section-title">Главы</h2>
-                  <span className="plotty-meta">{formatChapterCount(selectedStoryPublishedCount)}</span>
                 </div>
 
                 {selectedStoryQuery.data.chapters.length ? (
