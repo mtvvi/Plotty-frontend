@@ -11,17 +11,20 @@ export interface PublicProfileResponse {
   profile: PublicUserProfile;
 }
 
-export interface UserCollectionSummary {
+export interface UserCollectionBase {
   id: string;
   userId: number;
   title: string;
   description?: string | null;
-  storiesCount: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface UserCollectionDetail extends Omit<UserCollectionSummary, "storiesCount"> {
+export interface UserCollectionSummary extends UserCollectionBase {
+  storiesCount: number;
+}
+
+export interface UserCollectionDetail extends UserCollectionBase {
   stories: StoryListItem[];
 }
 

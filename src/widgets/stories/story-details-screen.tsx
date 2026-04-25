@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   chapterDetailsQueryOptions,
+  chaptersViewedQueryOptions,
   likeStory,
   patchStorySummaryCaches,
   storyDetailsQueryOptions,
@@ -23,6 +24,7 @@ import { TabButton } from "@/shared/ui/tabs";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCoverPreview } from "./story-cover-preview";
+import { StoryCollectionControl } from "./story-collection-control";
 import { StoryShelfControl } from "./story-shelf-control";
 import { StoryTagChip } from "./story-tag-chip";
 
@@ -44,6 +46,15 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
+  const chaptersViewedQuery = useQuery({
+    ...chaptersViewedQueryOptions(slug),
+    enabled: Boolean(storyQuery.data && readerChapters.length),
+  });
+  const viewedByChapterId = useMemo(() => {
+    const items = chaptersViewedQuery.data?.items ?? [];
+
+    return new Map(items.map((item) => [item.chapterId, item.viewed]));
+  }, [chaptersViewedQuery.data?.items]);
   const likeMutation = useMutation({
     mutationFn: ({ liked, storyId }: { liked: boolean; storyId: string }) => (liked ? unlikeStory(storyId) : likeStory(storyId)),
   });
@@ -169,25 +180,23 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                       Комментарии
                     </ButtonLink>
                   ) : null}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => void handleToggleLike()}
                     disabled={likeMutation.isPending}
-                    className={`plotty-stat transition-colors ${
-                      viewerHasLiked
-                        ? "!border-transparent !bg-[var(--plotty-accent)] !text-white shadow-[0_10px_22px_rgba(188,95,61,0.2)]"
-                        : "!bg-white !text-[var(--plotty-ink)]"
-                    }`}
+                    variant={viewerHasLiked ? "primary" : "secondary"}
+                    className="gap-2 px-4"
                     aria-pressed={viewerHasLiked}
                     aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
                   >
                     <StatHeartIcon filled={viewerHasLiked} />
                     <span>{formatCount(story.likesCount)}</span>
-                  </button>
-                  <StoryShelfControl storyId={story.id} className="min-w-[10.5rem]" />
+                  </Button>
+                </div>
+
+                <div className="grid w-full gap-3 sm:w-[18rem]">
+                  <StoryShelfControl storyId={story.id} className="max-w-none" />
+                  <StoryCollectionControl storyId={story.id} className="max-w-none" />
                 </div>
               </div>
 
@@ -259,6 +268,15 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                         <div className="plotty-meta text-sm">
                           {`Обновлена ${new Date(chapter.updatedAt).toLocaleString("ru-RU")}`}
                         </div>
+                        <span
+                          className={
+                            viewedByChapterId.get(chapter.id)
+                              ? "inline-flex rounded-full bg-[rgba(54,81,63,0.1)] px-2.5 py-1 text-[12px] font-semibold text-[var(--plotty-olive)]"
+                              : "inline-flex rounded-full border border-[rgba(41,38,34,0.09)] bg-white/70 px-2.5 py-1 text-[12px] font-semibold text-[var(--plotty-muted)]"
+                          }
+                        >
+                          {viewedByChapterId.get(chapter.id) ? "Прочитана" : "Не прочитана"}
+                        </span>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-3">

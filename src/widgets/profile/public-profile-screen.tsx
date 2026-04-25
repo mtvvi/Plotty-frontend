@@ -27,6 +27,8 @@ import { Textarea } from "@/shared/ui/textarea";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
 
+import { ProfileCollectionsManager } from "./profile-collections-manager";
+
 type ProfileTab = "works" | "library";
 type LibraryTab = "all" | ReaderShelf;
 
@@ -255,7 +257,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
         {activeTab === "works" ? (
           <PlottySectionCard
             title="Творчество"
-            description={isOwnProfile ? "Ваши работы. Нажатие открывает мастерскую." : "Публичный список опубликованных работ автора."}
+            description={isOwnProfile ? "Ваши работы." : "Публичный список опубликованных работ автора."}
           >
             {(isOwnProfile ? ownStories.isLoading : publicStoriesQuery.isLoading) ? (
               <div className="space-y-3">
@@ -268,7 +270,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   <StoryCard
                     key={story.id}
                     story={story}
-                    storyHref={isOwnProfile ? routes.storySettings(story.id) : undefined}
                     showShelfControl={!isOwnProfile}
                   />
                 ))}
@@ -280,35 +281,41 @@ export function PublicProfileScreen({ username }: { username: string }) {
         ) : null}
 
         {activeTab === "library" && isOwnProfile ? (
-          <PlottySectionCard title="Библиотека" description="Ваши приватные статусы чтения.">
-            <div className="mb-4 flex flex-wrap gap-2">
-              <TabButton type="button" isActive={libraryTab === "all"} onClick={() => setLibraryTab("all")}>
-                Все
-              </TabButton>
-              {readerShelfOptions.map((option) => (
-                <TabButton key={option.value} type="button" isActive={libraryTab === option.value} onClick={() => setLibraryTab(option.value)}>
-                  {option.label}
+          <>
+            <PlottySectionCard>
+              <ProfileCollectionsManager username={profile.username} />
+            </PlottySectionCard>
+
+            <PlottySectionCard title="Библиотека" description="Ваши приватные статусы чтения.">
+              <div className="mb-4 flex flex-wrap gap-2">
+                <TabButton type="button" isActive={libraryTab === "all"} onClick={() => setLibraryTab("all")}>
+                  Все
                 </TabButton>
-              ))}
-            </div>
-            {shelfQuery.isLoading ? (
-              <div className="space-y-3">
-                <div className="h-44 rounded-[22px] bg-white/50" />
-                <div className="h-44 rounded-[22px] bg-white/50" />
-              </div>
-            ) : visibleShelfEntries.length ? (
-              <div className="space-y-4">
-                {visibleShelfEntries.map((entry) => (
-                  <div key={`${entry.storyId}-${entry.shelf}`} className="space-y-2">
-                    <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]}`}</div>
-                    <StoryCard story={entry.story} />
-                  </div>
+                {readerShelfOptions.map((option) => (
+                  <TabButton key={option.value} type="button" isActive={libraryTab === option.value} onClick={() => setLibraryTab(option.value)}>
+                    {option.label}
+                  </TabButton>
                 ))}
               </div>
-            ) : (
-              <EmptyState title="Здесь пока пусто" description="Добавьте статус чтения на странице истории или в каталоге." />
-            )}
-          </PlottySectionCard>
+              {shelfQuery.isLoading ? (
+                <div className="space-y-3">
+                  <div className="h-44 rounded-[22px] bg-white/50" />
+                  <div className="h-44 rounded-[22px] bg-white/50" />
+                </div>
+              ) : visibleShelfEntries.length ? (
+                <div className="space-y-4">
+                  {visibleShelfEntries.map((entry) => (
+                    <div key={`${entry.storyId}-${entry.shelf}`} className="space-y-2">
+                      <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]}`}</div>
+                      <StoryCard story={entry.story} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="Здесь пока пусто" description="Добавьте статус чтения на странице истории или в каталоге." />
+              )}
+            </PlottySectionCard>
+          </>
         ) : null}
 
         {activeTab === "library" && !isOwnProfile ? (

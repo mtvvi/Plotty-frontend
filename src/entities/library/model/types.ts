@@ -12,3 +12,13 @@ export interface ReaderShelfEntry {
 export interface ReaderShelfResponse {
   items: ReaderShelfEntry[];
 }
+
+export interface CreateCollectionPayload {
+  title: string;
+  description?: string | null;
+}
+
+export interface UpdateCollectionPayload {
+  title?: string;
+  description?: string | null;
+}

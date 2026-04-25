@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 
 import { parseStoriesQuery } from "@/entities/story/model/story-query";
+import type { ReaderShelf } from "@/entities/library/model/types";
 import { isValidUsername } from "@/shared/lib/username";
 import type {
   CreateStoryCommentPayload,
@@ -18,22 +19,39 @@ import {
   createLogicCheckJob,
   createSpellcheckJob,
   createStoryRecordForAuthor,
+  createUserCollection,
   deleteStoryCommentRecord,
   deleteChapterRecord,
   deleteStoryRecord,
+  deleteUserCollection,
+  getPublicProfile,
   getChapterComments,
   getAiJob,
   getChapterById,
   getStoryBySlug,
+  getMyCollection,
+  getUserCollectionByUsername,
+  isChapterViewed,
   likeStoryRecord,
+  listMyCollections,
+  listPublicStoriesByUsername,
+  listReaderShelf,
+  listStoryChaptersViewed,
   listTags,
   listStories,
   listMyStories,
+  listUserCollectionsByUsername,
+  markChapterViewed,
+  removeReaderShelf,
+  removeStoryFromUserCollection,
   addChapterCommentRecord,
+  addStoryToUserCollection,
+  setReaderShelf,
   unlikeStoryRecord,
   publishChapterRecord,
   updateChapterRecord,
   updateStoryRecord,
+  updateUserCollection,
 } from "./data/stories";
 import { getMockSession, loginMockUser, logoutMockUser, registerMockUser, updateMockUserProfile } from "./data/auth";
 
@@ -113,6 +131,54 @@ export const handlers = [
     return HttpResponse.json(result);
   }),
 
+  http.get("*/users/:username", ({ params }) => {
+    const profile = getPublicProfile(String(params.username));
+
+    if (!profile) {
+      return HttpResponse.json({ message: "User not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json({ profile });
+  }),
+
+  http.get("*/users/:username/stories", ({ request, params }) => {
+    const url = new URL(request.url);
+    const query = parseStoriesQuery(url.searchParams);
+    const session = getMockSession();
+    const response = listPublicStoriesByUsername(String(params.username), query, session?.user.id);
+
+    if (!response) {
+      return HttpResponse.json({ message: "User not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(response);
+  }),
+
+  http.get("*/users/:username/collections", ({ params }) => {
+    const response = listUserCollectionsByUsername(String(params.username));
+
+    if (!response) {
+      return HttpResponse.json({ message: "User not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(response);
+  }),
+
+  http.get("*/users/:username/collections/:collectionId", ({ params }) => {
+    const session = getMockSession();
+    const response = getUserCollectionByUsername(
+      String(params.username),
+      String(params.collectionId),
+      session?.user.id,
+    );
+
+    if (!response) {
+      return HttpResponse.json({ message: "Collection not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(response);
+  }),
+
   http.get("*/tags", () => {
     return HttpResponse.json(listTags());
   }),
@@ -136,6 +202,151 @@ export const handlers = [
     const query = parseStoriesQuery(url.searchParams);
 
     return HttpResponse.json(listMyStories(query, session.user.id));
+  }),
+
+  http.get("*/me/library/shelf", ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const shelf = url.searchParams.get("shelf") as ReaderShelf | null;
+
+    return HttpResponse.json(listReaderShelf(session.user.id, shelf));
+  }),
+
+  http.put("*/me/library/shelf/:storyId", async ({ params, request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as { shelf: ReaderShelf };
+
+    if (!setReaderShelf(session.user.id, String(params.storyId), payload.shelf)) {
+      return HttpResponse.json({ message: "Story not found" }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.delete("*/me/library/shelf/:storyId", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    removeReaderShelf(session.user.id, String(params.storyId));
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get("*/me/collections", () => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    return HttpResponse.json(listMyCollections(session.user.id));
+  }),
+
+  http.post("*/me/collections", async ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as { title?: string; description?: string | null };
+    const response = createUserCollection(session.user.id, payload);
+
+    if (!response) {
+      return HttpResponse.json({ error: "invalid collection" }, { status: 400 });
+    }
+
+    return HttpResponse.json(response, { status: 201 });
+  }),
+
+  http.get("*/me/collections/:collectionId", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const response = getMyCollection(session.user.id, String(params.collectionId));
+
+    if (!response) {
+      return HttpResponse.json({ message: "Collection not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(response);
+  }),
+
+  http.patch("*/me/collections/:collectionId", async ({ params, request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as { title?: string; description?: string | null };
+    const response = updateUserCollection(session.user.id, String(params.collectionId), payload);
+
+    if (!response) {
+      return HttpResponse.json({ message: "Collection not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(response);
+  }),
+
+  http.delete("*/me/collections/:collectionId", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    if (!deleteUserCollection(session.user.id, String(params.collectionId))) {
+      return HttpResponse.json({ message: "Collection not found" }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post("*/me/collections/:collectionId/stories", async ({ params, request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as { storyId?: string };
+
+    if (!payload.storyId || !addStoryToUserCollection(session.user.id, String(params.collectionId), payload.storyId)) {
+      return HttpResponse.json({ message: "Collection or story not found" }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.delete("*/me/collections/:collectionId/stories/:storyId", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    if (!removeStoryFromUserCollection(session.user.id, String(params.collectionId), String(params.storyId))) {
+      return HttpResponse.json({ message: "Collection not found" }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.post("*/stories", async ({ request }) => {
@@ -183,6 +394,17 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  http.get("*/stories/:slug/chapters/viewed", ({ params }) => {
+    const session = getMockSession();
+    const response = listStoryChaptersViewed(String(params.slug), session?.user.id);
+
+    if (!response) {
+      return HttpResponse.json({ message: "Story not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(response);
+  }),
+
   http.get("*/stories/:slug", ({ params }) => {
     const session = getMockSession();
     const story = getStoryBySlug(String(params.slug), session?.user.id);
@@ -192,6 +414,20 @@ export const handlers = [
     }
 
     return HttpResponse.json(story);
+  }),
+
+  http.post("*/chapters/:chapterId/view", ({ params }) => {
+    const session = getMockSession();
+
+    markChapterViewed(String(params.chapterId), session?.user.id);
+
+    return new HttpResponse(null, { status: 200 });
+  }),
+
+  http.get("*/chapters/:chapterId/viewed", ({ params }) => {
+    const session = getMockSession();
+
+    return HttpResponse.json({ viewed: isChapterViewed(String(params.chapterId), session?.user.id) });
   }),
 
   http.get("*/chapters/:chapterId/comments", ({ request, params }) => {

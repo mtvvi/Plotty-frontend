@@ -18,6 +18,7 @@ import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 
 import { StoryCoverPreview } from "./story-cover-preview";
+import { StoryCollectionControl } from "./story-collection-control";
 import { StoryShelfControl } from "./story-shelf-control";
 
 export function StoryCard({
@@ -161,7 +162,12 @@ export function StoryCard({
                     ))}
                   </MetaGroup>
                 ) : null}
-                {showShelfControl ? <StoryShelfControl storyId={story.id} /> : null}
+                {showShelfControl ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <StoryShelfControl storyId={story.id} className="max-w-none" />
+                    <StoryCollectionControl storyId={story.id} className="max-w-none" />
+                  </div>
+                ) : null}
                 {extraTags.length ? (
                   <MetaGroup label="Дополнительно">
                     {extraTags.map((tag) => (
