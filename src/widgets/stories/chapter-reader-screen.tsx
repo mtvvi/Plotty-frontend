@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
@@ -11,6 +12,7 @@ import {
   chapterDetailsQueryOptions,
   chapterWikiQueryOptions,
   deleteStoryComment,
+  markChapterViewed,
   storyDetailsQueryOptions,
   storyKeys,
 } from "@/entities/story/api/stories-api";
@@ -40,7 +42,7 @@ export function ChapterReaderScreen({
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const chapterNumberFromUrl = number !== undefined ? Number(number) : NaN;
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const readerChapters = useMemo(
@@ -97,6 +99,17 @@ export function ChapterReaderScreen({
       el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [chapterId, commentsQuery.isSuccess]);
+
+  useEffect(() => {
+    if (!chapterId || !chapterPublished || !chapterQuery.data) {
+      return;
+    }
+
+    void markChapterViewed(chapterId).finally(() => {
+      void queryClient.invalidateQueries({ queryKey: storyKeys.chaptersViewed(slug) });
+      void queryClient.invalidateQueries({ queryKey: storyKeys.chapterViewed(chapterId) });
+    });
+  }, [chapterId, chapterPublished, chapterQuery.data, queryClient, slug]);
 
   if (storyQuery.isLoading || (chapterId && chapterQuery.isLoading)) {
     return (
@@ -180,7 +193,14 @@ export function ChapterReaderScreen({
 
   return (
     <PlottyShell
-      title={`${story.title} • Глава ${displayChapterNumber}`}
+      title={
+        <>
+          <Link href={routes.story(story.slug)} className="transition-colors hover:text-[var(--plotty-accent)] hover:underline">
+            {story.title}
+          </Link>
+          <span>{` • Глава ${displayChapterNumber}`}</span>
+        </>
+      }
       description={`Обновлена ${new Date(chapter.updatedAt).toLocaleString("ru-RU")}`}
       actions={
         chapterPublished ? (
@@ -259,11 +279,19 @@ export function ChapterReaderScreen({
                 {commentsQuery.data.items.map((comment) => (
                   <div key={comment.id} className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-[var(--plotty-ink)]">{comment.author.username}</div>
-                        <div className="plotty-meta">{new Date(comment.createdAt).toLocaleString("ru-RU")}</div>
-                      </div>
-                      {comment.viewerCanDelete ? (
+                      <Link
+                        href={routes.user(comment.author.username)}
+                        className="flex min-w-0 items-start gap-3 rounded-[14px] transition-colors hover:bg-[rgba(41,38,34,0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                      >
+                        <CommentAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} />
+                        <span className="min-w-0 space-y-1">
+                          <span className="block truncate text-sm font-semibold text-[var(--plotty-ink)]">
+                            {comment.author.username}
+                          </span>
+                          <span className="plotty-meta block">{new Date(comment.createdAt).toLocaleString("ru-RU")}</span>
+                        </span>
+                      </Link>
+                      {(comment.viewerCanDelete ?? Boolean(user?.id === comment.author.id)) ? (
                         <Button
                           variant="ghost"
                           className="min-h-9 px-2.5 text-sm"
@@ -367,11 +395,34 @@ function ChapterWikiDrawer({
               )}
             </div>
           ) : (
-            <EmptyState title="Справочник пока пуст" description="Для этой точки истории еще нет открытых персонажей, локаций или предметов." />
+            <EmptyState title="Справочник пока пуст" />
           )}
         </div>
       </aside>
     </div>
+  );
+}
+
+function CommentAvatar({
+  username,
+  avatarUrl,
+}: {
+  username: string;
+  avatarUrl?: string | null;
+}) {
+  const className = "size-10 shrink-0 rounded-full border border-[rgba(41,38,34,0.08)]";
+
+  if (avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={avatarUrl} alt={`Аватар ${username}`} className={`${className} object-cover`} />
+    );
+  }
+
+  return (
+    <span className={`${className} flex items-center justify-center bg-[rgba(188,95,61,0.12)] text-sm font-bold text-[var(--plotty-accent)]`}>
+      {username.slice(0, 1).toUpperCase()}
+    </span>
   );
 }
 

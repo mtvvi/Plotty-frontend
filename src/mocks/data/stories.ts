@@ -29,6 +29,8 @@ import type {
   UpdateStoryPayload,
 } from "@/entities/story/model/types";
 import type { AuthUser } from "@/entities/auth/model/types";
+import type { ReaderShelf } from "@/entities/library/model/types";
+import type { PublicUserProfile, UserCollectionDetail, UserCollectionSummary } from "@/entities/profile/model/types";
 
 interface StoryRecord {
   id: string;
@@ -93,15 +95,36 @@ interface AiJobRecord {
   errorMessage?: string;
 }
 
+interface ReaderShelfRecord {
+  userId: number;
+  storyId: string;
+  shelf: ReaderShelf;
+  updatedAt: string;
+}
+
+interface UserCollectionRecord {
+  id: string;
+  userId: number;
+  title: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface MockStoriesDb {
   stories: StoryRecord[];
   chapters: ChapterRecord[];
   comments: CommentRecord[];
+  shelves: ReaderShelfRecord[];
+  collections: UserCollectionRecord[];
+  collectionStories: Array<{ collectionId: string; storyId: string; createdAt: string }>;
+  chapterViews: Array<{ chapterId: string; userId: number; createdAt: string }>;
   aiJobs: AiJobRecord[];
   jobSeed: number;
   storySeed: number;
   chapterSeed: number;
   commentSeed: number;
+  collectionSeed: number;
   imageSeed: number;
 }
 
@@ -361,11 +384,49 @@ function createInitialDb(): MockStoriesDb {
         updatedAt: "2026-03-21T09:12:00.000Z",
       },
     ],
+    shelves: [
+      {
+        userId: 1,
+        storyId: "story-1",
+        shelf: "reading",
+        updatedAt: "2026-03-21T11:00:00.000Z",
+      },
+    ],
+    collections: [
+      {
+        id: "collection-1",
+        userId: 1,
+        title: "Фанфики по Гарри Поттеру от лица Драко",
+        description: "Истории с камерной атмосферой, школьными архивами и фокусом на Драко.",
+        createdAt: "2026-03-21T11:00:00.000Z",
+        updatedAt: "2026-03-21T11:00:00.000Z",
+      },
+    ],
+    collectionStories: [
+      {
+        collectionId: "collection-1",
+        storyId: "story-1",
+        createdAt: "2026-03-21T11:05:00.000Z",
+      },
+      {
+        collectionId: "collection-1",
+        storyId: "story-4",
+        createdAt: "2026-03-21T11:06:00.000Z",
+      },
+    ],
+    chapterViews: [
+      {
+        chapterId: "chapter-1",
+        userId: 1,
+        createdAt: "2026-03-21T11:10:00.000Z",
+      },
+    ],
     aiJobs: [],
     jobSeed: 1,
     storySeed: 6,
     chapterSeed: 7,
     commentSeed: 3,
+    collectionSeed: 2,
     imageSeed: 1,
   };
 }
@@ -455,6 +516,286 @@ function toChapterDetails(chapter: ChapterRecord): ChapterDetails {
     wordCount: countWords(chapter.content),
     updatedAt: chapter.updatedAt,
     imageUrl: chapter.imageUrl,
+  };
+}
+
+function getStoryAuthorByUsername(username: string) {
+  const normalized = username.trim().toLowerCase();
+
+  return Object.values(storyAuthors).find((author) => author.username.toLowerCase() === normalized) ?? null;
+}
+
+export function getPublicProfile(username: string): PublicUserProfile | null {
+  const author = getStoryAuthorByUsername(username);
+
+  if (!author) {
+    return null;
+  }
+
+  return {
+    id: author.id,
+    username: author.username,
+    avatarUrl: author.avatarUrl,
+    bio: author.username === "writer" ? "Автор и читатель Plotty." : null,
+  };
+}
+
+export function listPublicStoriesByUsername(username: string, query: StoriesQuery, viewerUserId?: number) {
+  const author = getStoryAuthorByUsername(username);
+
+  if (!author) {
+    return null;
+  }
+
+  const filtered = db.stories
+    .filter((story) => story.authorId === author.id && story.status === "published")
+    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+    .filter((story) => matchesStoryTags(story, query.tags))
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  const start = (query.page - 1) * query.pageSize;
+  const paged = filtered.slice(start, start + query.pageSize);
+
+  return {
+    items: paged.map((story) => toStoryListItem(story, viewerUserId)),
+    pagination: {
+      page: query.page,
+      pageSize: query.pageSize,
+      total: filtered.length,
+    },
+  };
+}
+
+function toCollectionSummary(collection: UserCollectionRecord): UserCollectionSummary {
+  return {
+    ...collection,
+    storiesCount: db.collectionStories.filter((item) => item.collectionId === collection.id).length,
+  };
+}
+
+function toCollectionDetail(collection: UserCollectionRecord, viewerUserId?: number): UserCollectionDetail {
+  const stories = db.collectionStories
+    .filter((item) => item.collectionId === collection.id)
+    .map((item) => db.stories.find((story) => story.id === item.storyId))
+    .filter((story): story is StoryRecord => Boolean(story && story.status === "published"))
+    .map((story) => toStoryListItem(story, viewerUserId));
+
+  return {
+    ...collection,
+    stories,
+  };
+}
+
+export function listUserCollectionsByUsername(username: string) {
+  const author = getStoryAuthorByUsername(username);
+
+  if (!author) {
+    return null;
+  }
+
+  return {
+    items: db.collections
+      .filter((collection) => collection.userId === author.id)
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+      .map(toCollectionSummary),
+  };
+}
+
+export function getUserCollectionByUsername(username: string, collectionId: string, viewerUserId?: number) {
+  const author = getStoryAuthorByUsername(username);
+  const collection = db.collections.find((item) => item.id === collectionId);
+
+  if (!author || !collection || collection.userId !== author.id) {
+    return null;
+  }
+
+  return {
+    collection: toCollectionDetail(collection, viewerUserId),
+  };
+}
+
+export function listReaderShelf(userId: number, shelf?: ReaderShelf | null) {
+  return {
+    items: db.shelves
+      .filter((entry) => entry.userId === userId && (!shelf || entry.shelf === shelf))
+      .map((entry) => {
+        const story = db.stories.find((item) => item.id === entry.storyId);
+
+        return story
+          ? {
+              storyId: entry.storyId,
+              shelf: entry.shelf,
+              updatedAt: entry.updatedAt,
+              story: toStoryListItem(story, userId),
+            }
+          : null;
+      })
+      .filter(Boolean),
+  };
+}
+
+export function setReaderShelf(userId: number, storyId: string, shelf: ReaderShelf) {
+  const story = db.stories.find((item) => item.id === storyId && item.status === "published");
+
+  if (!story) {
+    return false;
+  }
+
+  const existing = db.shelves.find((entry) => entry.userId === userId && entry.storyId === storyId);
+  const timestamp = nowIso();
+
+  if (existing) {
+    existing.shelf = shelf;
+    existing.updatedAt = timestamp;
+  } else {
+    db.shelves.push({ userId, storyId, shelf, updatedAt: timestamp });
+  }
+
+  return true;
+}
+
+export function removeReaderShelf(userId: number, storyId: string) {
+  db.shelves = db.shelves.filter((entry) => !(entry.userId === userId && entry.storyId === storyId));
+}
+
+export function listMyCollections(userId: number) {
+  return {
+    items: db.collections
+      .filter((collection) => collection.userId === userId)
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+      .map(toCollectionSummary),
+  };
+}
+
+export function getMyCollection(userId: number, collectionId: string) {
+  const collection = db.collections.find((item) => item.id === collectionId && item.userId === userId);
+
+  return collection ? { collection: toCollectionDetail(collection, userId) } : null;
+}
+
+export function createUserCollection(userId: number, payload: { title?: string; description?: string | null }) {
+  const title = payload.title?.trim() ?? "";
+
+  if (!title || title.length > 200) {
+    return null;
+  }
+
+  const description = payload.description?.trim() ? payload.description.trim() : null;
+  const timestamp = nowIso();
+  const collection: UserCollectionRecord = {
+    id: `collection-${db.collectionSeed}`,
+    userId,
+    title,
+    description,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  db.collectionSeed += 1;
+  db.collections.unshift(collection);
+
+  return { collection };
+}
+
+export function updateUserCollection(
+  userId: number,
+  collectionId: string,
+  payload: { title?: string; description?: string | null },
+) {
+  const collection = db.collections.find((item) => item.id === collectionId && item.userId === userId);
+
+  if (!collection) {
+    return null;
+  }
+
+  if (payload.title !== undefined) {
+    const title = payload.title.trim();
+
+    if (!title || title.length > 200) {
+      return null;
+    }
+
+    collection.title = title;
+  }
+
+  if (payload.description !== undefined) {
+    collection.description = payload.description?.trim() ? payload.description.trim() : null;
+  }
+
+  collection.updatedAt = nowIso();
+
+  return { collection };
+}
+
+export function deleteUserCollection(userId: number, collectionId: string) {
+  const before = db.collections.length;
+
+  db.collections = db.collections.filter((item) => !(item.id === collectionId && item.userId === userId));
+  db.collectionStories = db.collectionStories.filter((item) => item.collectionId !== collectionId);
+
+  return db.collections.length !== before;
+}
+
+export function addStoryToUserCollection(userId: number, collectionId: string, storyId: string) {
+  const collection = db.collections.find((item) => item.id === collectionId && item.userId === userId);
+  const story = db.stories.find((item) => item.id === storyId && item.status === "published");
+
+  if (!collection || !story) {
+    return false;
+  }
+
+  if (!db.collectionStories.some((item) => item.collectionId === collectionId && item.storyId === storyId)) {
+    db.collectionStories.push({ collectionId, storyId, createdAt: nowIso() });
+  }
+
+  collection.updatedAt = nowIso();
+
+  return true;
+}
+
+export function removeStoryFromUserCollection(userId: number, collectionId: string, storyId: string) {
+  const collection = db.collections.find((item) => item.id === collectionId && item.userId === userId);
+
+  if (!collection) {
+    return false;
+  }
+
+  db.collectionStories = db.collectionStories.filter(
+    (item) => !(item.collectionId === collectionId && item.storyId === storyId),
+  );
+  collection.updatedAt = nowIso();
+
+  return true;
+}
+
+export function markChapterViewed(chapterId: string, userId?: number) {
+  if (!userId || !db.chapters.some((chapter) => chapter.id === chapterId)) {
+    return;
+  }
+
+  if (!db.chapterViews.some((view) => view.chapterId === chapterId && view.userId === userId)) {
+    db.chapterViews.push({ chapterId, userId, createdAt: nowIso() });
+  }
+}
+
+export function isChapterViewed(chapterId: string, userId?: number) {
+  return Boolean(userId && db.chapterViews.some((view) => view.chapterId === chapterId && view.userId === userId));
+}
+
+export function listStoryChaptersViewed(slug: string, userId?: number) {
+  const story = db.stories.find((item) => item.slug === slug);
+
+  if (!story) {
+    return null;
+  }
+
+  return {
+    items: getChaptersForStory(story.id)
+      .filter(isChapterPublishedMock)
+      .map((chapter) => ({
+        chapterId: chapter.id,
+        title: chapter.title,
+        viewed: isChapterViewed(chapter.id, userId),
+      })),
   };
 }
 
@@ -716,6 +1057,9 @@ export function deleteStoryRecord(storyId: string) {
   db.stories.splice(storyIndex, 1);
   db.comments = db.comments.filter((comment) => !chapterIds.includes(comment.chapterId));
   db.chapters = db.chapters.filter((chapter) => chapter.storyId !== storyId);
+  db.shelves = db.shelves.filter((entry) => entry.storyId !== storyId);
+  db.collectionStories = db.collectionStories.filter((entry) => entry.storyId !== storyId);
+  db.chapterViews = db.chapterViews.filter((entry) => !chapterIds.includes(entry.chapterId));
   db.aiJobs = db.aiJobs.filter((job) => db.chapters.some((chapter) => chapter.id === job.chapterId));
 
   return true;
@@ -733,7 +1077,7 @@ function toStoryComment(comment: CommentRecord, viewerUserId?: number): StoryCom
       id: comment.authorId,
       username: comment.authorUsername,
       email: comment.authorEmail,
-      avatarUrl: null,
+      avatarUrl: storyAuthors[comment.authorId]?.avatarUrl ?? null,
     },
     content: comment.content,
     createdAt: comment.createdAt,
@@ -906,6 +1250,7 @@ export function deleteChapterRecord(chapterId: string) {
 
   db.chapters.splice(chapterIndex, 1);
   db.aiJobs = db.aiJobs.filter((job) => job.chapterId !== chapterId);
+  db.chapterViews = db.chapterViews.filter((view) => view.chapterId !== chapterId);
 
   const story = db.stories.find((item) => item.id === chapter.storyId);
 

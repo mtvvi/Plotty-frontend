@@ -42,6 +42,16 @@ export interface ChapterListItem {
   status?: StoryStatus;
 }
 
+export interface ChapterViewed {
+  chapterId: string;
+  title: string;
+  viewed: boolean;
+}
+
+export interface ChaptersViewedResponse {
+  items: ChapterViewed[];
+}
+
 export interface StoryDetails {
   id: string;
   slug: string;

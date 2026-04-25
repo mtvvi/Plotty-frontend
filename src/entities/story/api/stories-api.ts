@@ -7,6 +7,7 @@ import type {
   AiJobAccepted,
   AiJobResponse,
   ChapterDetails,
+  ChaptersViewedResponse,
   ChapterWiki,
   ChapterListItem,
   CreateStoryCommentPayload,
@@ -124,6 +125,8 @@ export const storyKeys = {
   detailsById: (storyId: string) => ["stories", "details-by-id", storyId] as const,
   chapterComments: (chapterId: string) => ["stories", "chapter-comments", chapterId] as const,
   chapter: (chapterId: string) => ["stories", "chapter", chapterId] as const,
+  chaptersViewed: (slug: string) => ["stories", "chapters-viewed", slug] as const,
+  chapterViewed: (chapterId: string) => ["stories", "chapter-viewed", chapterId] as const,
   chapterWiki: (chapterId: string) => ["stories", "chapter-wiki", chapterId] as const,
   chapterEditor: (storyId: string, chapterId: string) => ["stories", "chapter-editor", storyId, chapterId] as const,
   aiJob: (jobId: string) => ["stories", "ai-job", jobId] as const,
@@ -360,6 +363,28 @@ export function chapterDetailsQueryOptions(chapterId: string) {
     queryKey: storyKeys.chapter(chapterId),
     queryFn: async () => mapChapterDetails(await fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`)),
     enabled: Boolean(chapterId),
+  });
+}
+
+export function chaptersViewedQueryOptions(slug: string) {
+  return queryOptions({
+    queryKey: storyKeys.chaptersViewed(slug),
+    queryFn: () => fetchJson<ChaptersViewedResponse>(`/stories/${slug}/chapters/viewed`),
+    enabled: Boolean(slug),
+  });
+}
+
+export function chapterViewedQueryOptions(chapterId: string) {
+  return queryOptions({
+    queryKey: storyKeys.chapterViewed(chapterId),
+    queryFn: () => fetchJson<{ viewed: boolean }>(`/chapters/${chapterId}/viewed`),
+    enabled: Boolean(chapterId),
+  });
+}
+
+export function markChapterViewed(chapterId: string) {
+  return fetchJson<null>(`/chapters/${chapterId}/view`, {
+    method: "POST",
   });
 }
 

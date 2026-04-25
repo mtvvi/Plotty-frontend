@@ -43,7 +43,7 @@ export function PlottyPageShell({
   className,
 }: {
   children: ReactNode;
-  pageTitle?: string;
+  pageTitle?: ReactNode;
   pageDescription?: string;
   pageMeta?: ReactNode;
   pageActions?: ReactNode;
