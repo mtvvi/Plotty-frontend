@@ -4,7 +4,8 @@ import { cn } from "@/shared/lib/utils";
 
 export function chipClassName(selected = false, className?: string) {
   return cn(
-    "inline-flex min-h-[36px] items-center justify-center rounded-full border px-3.5 py-2 text-sm font-semibold leading-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out",
+    "plotty-tag-chip inline-flex min-h-[36px] items-center justify-center rounded-full border px-3.5 py-2 text-sm font-semibold leading-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out",
+    selected && "plotty-tag-chip-selected",
     selected
       ? "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_8px_18px_rgba(188,95,61,0.14)] visited:!text-white hover:-translate-y-[1px] hover:bg-[#a65434]"
       : "border-[rgba(41,38,34,0.09)] bg-white/84 text-[var(--plotty-muted)] hover:-translate-y-[1px] hover:border-[var(--plotty-line-strong)] hover:bg-white hover:text-[var(--plotty-ink)]",

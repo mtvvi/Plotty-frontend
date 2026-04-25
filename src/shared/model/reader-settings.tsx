@@ -35,13 +35,13 @@ export const readerThemePageClasses: Record<ReaderTheme, string> = {
 export const readerThemeShellClasses: Record<ReaderTheme, string> = {
   light: "bg-[rgba(255,255,255,0.74)]",
   sepia: "bg-[#fbf4e8]",
-  dark: "!bg-[#171513] ![background-image:none] [&_.plotty-frame]:!border-[rgba(246,234,219,0.14)] [&_.plotty-frame]:!bg-[#171513] [&_.plotty-frame>header]:!border-[rgba(246,234,219,0.10)] [&_.plotty-frame>header]:!bg-[rgba(23,21,19,0.92)] [&_.plotty-logo]:!text-[#f6eadb] [&_.plotty-frame_header_nav>div]:!border-[rgba(246,234,219,0.10)] [&_.plotty-frame_header_nav>div]:!bg-[#26231f] [&_.plotty-frame_header_nav_a]:!text-[#f6eadb] [&_.plotty-frame_header_nav_a:hover]:!bg-[#302b26] [&_.plotty-frame_header_nav_a:hover]:!text-[#f6eadb] [&_.plotty-frame_header_a:not(.plotty-logo)]:!border-[rgba(246,234,219,0.12)] [&_.plotty-frame_header_a:not(.plotty-logo)]:!bg-[#26231f] [&_.plotty-frame_header_a:not(.plotty-logo)]:!text-[#f6eadb] [&_.plotty-frame_header_button]:!border-[rgba(246,234,219,0.12)] [&_.plotty-frame_header_button]:!bg-[#26231f] [&_.plotty-frame_header_button]:!text-[#f6eadb]",
+  dark: "!bg-[#171513] ![background-image:none] [&_.plotty-frame]:!border-transparent [&_.plotty-frame]:!bg-[#171513] [&_.plotty-frame>header]:!border-[rgba(246,234,219,0.10)] [&_.plotty-frame>header]:!bg-[rgba(23,21,19,0.92)] [&_.plotty-logo]:!text-[#f6eadb] [&_.plotty-frame_header_nav>div]:!border-[rgba(246,234,219,0.10)] [&_.plotty-frame_header_nav>div]:!bg-[#26231f] [&_.plotty-frame_header_nav_a]:!text-[#f6eadb] [&_.plotty-frame_header_nav_a:hover]:!bg-[#302b26] [&_.plotty-frame_header_nav_a:hover]:!text-[#f6eadb] [&_.plotty-frame_header_a:not(.plotty-logo)]:!border-[rgba(246,234,219,0.12)] [&_.plotty-frame_header_a:not(.plotty-logo)]:!bg-[#26231f] [&_.plotty-frame_header_a:not(.plotty-logo)]:!text-[#f6eadb] [&_.plotty-frame_header_button]:!border-[rgba(246,234,219,0.12)] [&_.plotty-frame_header_button]:!bg-[#26231f] [&_.plotty-frame_header_button]:!text-[#f6eadb]",
 };
 
 export const readerThemeSurfaceClasses: Record<ReaderTheme, string> = {
   light: "border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.9)] text-[var(--plotty-ink)]",
   sepia: "border-[rgba(87,67,43,0.12)] bg-[#fff8eb] text-[var(--plotty-ink)]",
-  dark: "border-[rgba(246,234,219,0.10)] bg-[#26231f] text-[#f6eadb]",
+  dark: "border-[rgba(246,234,219,0.18)] bg-[#26231f] text-[#f6eadb]",
 };
 
 export const readerThemeMutedClasses: Record<ReaderTheme, string> = {
@@ -55,6 +55,28 @@ export const readerThemeButtonClasses: Record<ReaderTheme, string> = {
   sepia: "",
   dark: "!border-[rgba(246,234,219,0.14)] !bg-[#26231f] !text-[#f6eadb] hover:!border-[rgba(246,234,219,0.22)] hover:!bg-[#302b26]",
 };
+
+const readerSettingsHydrationScript = `
+(() => {
+  try {
+    const raw = window.localStorage.getItem("plotty-reader-settings");
+    if (!raw) return;
+
+    const settings = JSON.parse(raw);
+    const theme = settings.theme === "light" || settings.theme === "sepia" || settings.theme === "dark" ? settings.theme : "sepia";
+    const fontSize = settings.fontSize === "small" ? "15px" : settings.fontSize === "large" ? "18px" : "16px";
+    const lineHeight = [1.4, 1.6, 1.8].includes(settings.lineHeight) ? settings.lineHeight : 1.6;
+    const scope = document.currentScript && document.currentScript.parentElement;
+
+    if (!scope) return;
+
+    scope.dataset.readerTheme = theme;
+    scope.style.setProperty("--plotty-reader-font-size", fontSize);
+    scope.style.setProperty("--plotty-reader-line-height", String(lineHeight));
+  } catch {
+  }
+})();
+`;
 
 function parseReaderSettings(value: string | null): ReaderSettings {
   if (!value) {
@@ -82,18 +104,6 @@ function parseReaderSettings(value: string | null): ReaderSettings {
   }
 }
 
-function getInitialReaderSettings() {
-  if (typeof window === "undefined") {
-    return defaultReaderSettings;
-  }
-
-  try {
-    return parseReaderSettings(window.localStorage.getItem(readerSettingsStorageKey));
-  } catch {
-    return defaultReaderSettings;
-  }
-}
-
 interface ReaderSettingsContextValue {
   settings: ReaderSettings;
   setSettings: (settings: ReaderSettings | ((current: ReaderSettings) => ReaderSettings)) => void;
@@ -102,10 +112,16 @@ interface ReaderSettingsContextValue {
 const ReaderSettingsContext = createContext<ReaderSettingsContextValue | null>(null);
 
 export function ReaderSettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<ReaderSettings>(getInitialReaderSettings);
+  const [settings, setSettings] = useState<ReaderSettings>(defaultReaderSettings);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    try {
+      setSettings(parseReaderSettings(window.localStorage.getItem(readerSettingsStorageKey)));
+    } catch {
+      setSettings(defaultReaderSettings);
+    }
+
     setIsLoaded(true);
   }, []);
 
@@ -128,11 +144,13 @@ export function ReaderSettingsProvider({ children }: { children: ReactNode }) {
       <div
         className="plotty-reader-settings-scope min-h-screen"
         data-reader-theme={settings.theme}
+        suppressHydrationWarning
         style={{
           "--plotty-reader-font-size": readerFontSizeValues[settings.fontSize],
           "--plotty-reader-line-height": settings.lineHeight,
         } as CSSProperties}
       >
+        <script dangerouslySetInnerHTML={{ __html: readerSettingsHydrationScript }} />
         {children}
       </div>
     </ReaderSettingsContext.Provider>

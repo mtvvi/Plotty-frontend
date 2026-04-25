@@ -171,8 +171,111 @@ select {
 
 .plotty-reader-settings-scope [data-reader-theme="dark"],
 .plotty-reader-settings-scope[data-reader-theme="dark"] {
+  --plotty-bg: #171513;
+  --plotty-bg-highlight: #171513;
+  --plotty-paper: #1d1a17;
+  --plotty-paper-strong: #26231f;
+  --plotty-panel: #26231f;
+  --plotty-panel-strong: #302b26;
+  --plotty-panel-muted: rgba(246, 234, 219, 0.06);
+  --plotty-line: rgba(246, 234, 219, 0.14);
+  --plotty-line-strong: rgba(246, 234, 219, 0.22);
+  --plotty-ink: #f6eadb;
+  --plotty-muted: #b8aa99;
+  --plotty-muted-soft: #8f8376;
+  --plotty-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  --plotty-shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.22);
+  --plotty-shadow-card: 0 16px 40px rgba(0, 0, 0, 0.22);
   background: #171513;
   color: #f6eadb;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-page-shell {
+  background: #171513 !important;
+  background-image: none !important;
+  color: #f6eadb;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-frame {
+  border-color: transparent !important;
+  background: #171513 !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-frame > header {
+  border-color: rgba(246, 234, 219, 0.1) !important;
+  background: rgba(23, 21, 19, 0.92) !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] :where(.plotty-surface, .plotty-themed-surface) {
+  border-color: rgba(246, 234, 219, 0.14) !important;
+  background: #26231f !important;
+  color: #f6eadb;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-reader-settings-control [aria-pressed="true"] {
+  border-color: transparent !important;
+  background: var(--plotty-accent) !important;
+  color: #fff !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-tag-chip,
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-catalog-meta-chip {
+  border-color: rgba(246, 234, 219, 0.18) !important;
+  background: #26231f !important;
+  color: #f6eadb !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-tag-chip-selected,
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-frame header nav a[data-active="true"],
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-button-primary,
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-reader-settings-control button[aria-pressed="true"] {
+  border-color: transparent !important;
+  background: var(--plotty-accent) !important;
+  color: #fff !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-button-secondary,
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-button-ghost {
+  border-color: rgba(246, 234, 219, 0.16) !important;
+  background: #26231f !important;
+  color: #f6eadb !important;
+  box-shadow: none !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-button-secondary:hover,
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-button-ghost:hover {
+  border-color: rgba(246, 234, 219, 0.24) !important;
+  background: #302b26 !important;
+  color: #f6eadb !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-button-label:disabled,
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-button-label[aria-disabled="true"] {
+  border-color: rgba(246, 234, 219, 0.08) !important;
+  background: #1d1a17 !important;
+  color: #8f8376 !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-catalog-search {
+  border-color: rgba(246, 234, 219, 0.14) !important;
+  background: #1d1a17 !important;
+  box-shadow: none !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-catalog-search-shell {
+  border-color: rgba(246, 234, 219, 0.14) !important;
+  background: #26231f !important;
+  box-shadow: var(--plotty-shadow-card) !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] :where(input, textarea, select) {
+  border-color: rgba(246, 234, 219, 0.18) !important;
+  background: #171513 !important;
+  color: #f6eadb !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] :where(input, textarea)::placeholder {
+  color: #8f8376 !important;
 }
 
 .plotty-meta {
@@ -207,6 +310,24 @@ select {
   color: var(--plotty-muted);
 }
 
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-stat {
+  border-color: rgba(246, 234, 219, 0.16);
+  background: #302b26;
+  color: #f6eadb;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-stat[aria-pressed="true"],
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-stat[class*="text-[var(--plotty-accent)]"] {
+  border-color: transparent !important;
+  background: rgba(188, 95, 61, 0.18) !important;
+  color: #f3a17f !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-stat:hover {
+  border-color: rgba(246, 234, 219, 0.24);
+  background: #38322c;
+}
+
 .plotty-segmented {
   display: inline-flex;
   align-items: center;
@@ -216,6 +337,76 @@ select {
   border: 1px solid rgba(41, 38, 34, 0.08);
   background: rgba(255, 255, 255, 0.72);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.plotty-tab-button-active,
+.plotty-tag-chip-selected,
+.plotty-reader-setting-button-active,
+.plotty-frame header nav a[data-active="true"] {
+  border-color: transparent !important;
+  background: var(--plotty-accent) !important;
+  color: #fff !important;
+}
+
+.plotty-tab-button-active:hover,
+.plotty-tag-chip-selected:hover,
+.plotty-reader-setting-button-active:hover,
+.plotty-frame header nav a[data-active="true"]:hover {
+  background: #a65434 !important;
+  color: #fff !important;
+}
+
+.plotty-story-meta-pill {
+  border-color: var(--plotty-line);
+}
+
+.plotty-story-meta-pill-accent {
+  border-color: transparent !important;
+  background: rgba(188, 95, 61, 0.12) !important;
+  color: var(--plotty-accent) !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-segmented {
+  border-color: rgba(246, 234, 219, 0.14) !important;
+  background: #26231f !important;
+  box-shadow: none !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-tab-button:not(.plotty-tab-button-active) {
+  background: transparent !important;
+  color: #b8aa99 !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-tab-button:not(.plotty-tab-button-active):hover {
+  background: #302b26 !important;
+  color: #f6eadb !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-story-meta-pill:not(.plotty-story-meta-pill-accent) {
+  border-color: rgba(246, 234, 219, 0.18) !important;
+  background: #26231f !important;
+  color: #f6eadb !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-tab-button-active,
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-tag-chip-selected,
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-reader-setting-button-active,
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-frame header nav a[data-active="true"] {
+  border-color: transparent !important;
+  background: var(--plotty-accent) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 18px rgba(188, 95, 61, 0.22) !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-reader-setting-button:not(.plotty-reader-setting-button-active) {
+  border-color: rgba(246, 234, 219, 0.16) !important;
+  background: #26231f !important;
+  color: #f6eadb !important;
+}
+
+.plotty-reader-settings-scope[data-reader-theme="dark"] .plotty-reader-setting-button:not(.plotty-reader-setting-button-active):hover {
+  border-color: rgba(246, 234, 219, 0.24) !important;
+  background: #302b26 !important;
 }
 
 .plotty-label {

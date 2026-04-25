@@ -30,7 +30,7 @@ export function ReaderSettingsControl() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="relative">
+    <div className="plotty-reader-settings-control relative">
       <Button
         type="button"
         variant="secondary"
@@ -124,9 +124,10 @@ function ReaderSettingButton({
     <button
       type="button"
       className={cn(
-        "min-h-10 rounded-[14px] border px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+        "plotty-reader-setting-button min-h-10 rounded-[14px] border px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+        isActive && "plotty-reader-setting-button-active",
         isActive
-          ? "border-transparent bg-[var(--plotty-accent)] text-white"
+          ? "!border-transparent !bg-[var(--plotty-accent)] !text-white"
           : "border-[var(--plotty-line)] bg-white/72 text-[var(--plotty-muted)] hover:bg-white hover:text-[var(--plotty-ink)]",
         !isActive && readerThemeButtonClasses[theme],
       )}

@@ -19,6 +19,7 @@ const variantClasses: Record<ButtonVariant, string> = {
 export function buttonClassName(variant: ButtonVariant = "secondary", className?: string) {
   return cn(
     "plotty-button-label inline-flex min-h-[44px] items-center justify-center rounded-[15px] border px-4 py-2.5 transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:shadow-none disabled:opacity-60",
+    `plotty-button-${variant}`,
     variantClasses[variant],
     className,
   );

@@ -131,6 +131,7 @@ export function PlottyPageShell({
                           <Link
                             key={item.href}
                             href={item.href}
+                            data-active={isActive ? "true" : undefined}
                             className={cn(
                               "plotty-button-label inline-flex min-h-[46px] items-center justify-center rounded-full px-5 text-sm transition-[background-color,color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
                               isActive
@@ -216,7 +217,7 @@ export function PlottySectionCard({
   headerClassName?: string;
 } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <Card className={cn("space-y-4 p-4 sm:p-5 lg:p-[22px]", className)} {...props}>
+    <Card className={cn("plotty-themed-surface space-y-4 p-4 sm:p-5 lg:p-[22px]", className)} {...props}>
       {title ? (
         <div className={cn("space-y-1.5", headerClassName)}>
           <div className="plotty-section-title">{title}</div>

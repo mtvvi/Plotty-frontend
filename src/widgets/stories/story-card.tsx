@@ -79,7 +79,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
   }
 
   return (
-    <article className="overflow-hidden rounded-[26px] border border-[rgba(35,33,30,0.08)] bg-[rgba(255,255,255,0.84)] shadow-[var(--plotty-shadow-card)]">
+    <article className="plotty-themed-surface overflow-hidden rounded-[26px] border border-[var(--plotty-line)] bg-[rgba(255,255,255,0.84)] shadow-[var(--plotty-shadow-card)]">
       <div className="grid items-stretch md:grid-cols-[minmax(0,1fr)_112px]">
         <Link
           href={storyHref}
@@ -202,7 +202,7 @@ function MetaGroup({ children, label }: { children: ReactNode; label: string }) 
 
 function CatalogMetaChip({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex min-h-[34px] items-center justify-center rounded-full border border-[rgba(41,38,34,0.09)] bg-[var(--plotty-panel)] px-3.5 py-2 text-sm font-semibold leading-none text-[var(--plotty-ink)]">
+    <span className="plotty-catalog-meta-chip inline-flex min-h-[34px] items-center justify-center rounded-full border border-[var(--plotty-line)] bg-[var(--plotty-panel)] px-3.5 py-2 text-sm font-semibold leading-none text-[var(--plotty-ink)]">
       {children}
     </span>
   );

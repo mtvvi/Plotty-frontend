@@ -180,7 +180,7 @@ export function StoriesCatalogShell() {
       className="!px-3 sm:!px-4 lg:!px-6"
     >
       <div className="space-y-4 lg:space-y-5">
-        <PlottySectionCard className="p-4 sm:p-5 lg:p-6">
+        <PlottySectionCard className="plotty-catalog-search-shell p-4 sm:p-5 lg:p-6">
           <CatalogSearchField value={searchDraft} onChange={setSearchDraft} />
         </PlottySectionCard>
 
@@ -409,7 +409,7 @@ function CatalogSearchField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-[auto_1fr] items-center gap-3 rounded-[18px] border border-[rgba(35,33,30,0.08)] bg-white/88 px-4 py-1.5 shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]">
+    <div className="plotty-catalog-search grid grid-cols-[auto_1fr] items-center gap-3 rounded-[18px] border border-[rgba(35,33,30,0.08)] bg-white/88 px-4 py-1.5 shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]">
       <span className="text-base text-[var(--plotty-muted)]" aria-hidden="true">
         ⌕
       </span>

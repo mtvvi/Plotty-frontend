@@ -16,6 +16,7 @@ import { isAuthError } from "@/shared/api/fetch-json";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
+import { cn } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { TabButton } from "@/shared/ui/tabs";
@@ -276,11 +277,12 @@ function StoryMetaPill({
 }) {
   return (
     <span
-      className={
+      className={cn(
+        "plotty-story-meta-pill rounded-full px-3 py-2 text-[12px] font-semibold",
         accent
-          ? "rounded-full bg-[rgba(188,95,61,0.08)] px-3 py-2 text-[12px] font-semibold text-[var(--plotty-accent)]"
-          : "rounded-full border border-[rgba(41,38,34,0.09)] bg-white/82 px-3 py-2 text-[12px] font-semibold text-[var(--plotty-muted)]"
-      }
+          ? "plotty-story-meta-pill-accent bg-[rgba(188,95,61,0.08)] text-[var(--plotty-accent)]"
+          : "border border-[var(--plotty-line)] bg-[var(--plotty-panel)] text-[var(--plotty-ink)]",
+      )}
     >
       {children}
     </span>
