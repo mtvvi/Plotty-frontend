@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { authKeys, updateProfile, uploadAvatar } from "@/entities/auth/api/auth-api";
+import { authKeys, logout, updateProfile, uploadAvatar } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { myShelfQueryOptions, readerShelfLabels, readerShelfOptions } from "@/entities/library/api/library-api";
 import type { ReaderShelf } from "@/entities/library/model/types";
@@ -14,7 +14,7 @@ import {
   publicUserCollectionsQueryOptions,
   publicUserStoriesQueryOptions,
 } from "@/entities/profile/api/profile-api";
-import { myStoriesQueryOptions } from "@/entities/story/api/stories-api";
+import { myStoriesQueryOptions, storyKeys } from "@/entities/story/api/stories-api";
 import { ApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { usernameValidationMessage } from "@/shared/lib/username";
@@ -92,6 +92,13 @@ export function PublicProfileScreen({ username }: { username: string }) {
       setAvatarError(error instanceof ApiError ? error.message : "Не удалось загрузить аватар");
     },
   });
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: authKeys.session() });
+      queryClient.removeQueries({ queryKey: storyKeys.all });
+    },
+  });
 
   useEffect(() => {
     setActiveTab(getInitialTab(searchParams.get("tab")));
@@ -164,6 +171,12 @@ export function PublicProfileScreen({ username }: { username: string }) {
     }
   }
 
+  async function handleLogout() {
+    await logoutMutation.mutateAsync();
+    router.replace(routes.home);
+    router.refresh();
+  }
+
   return (
     <PlottyPageShell suppressPageIntro menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
       <div className="space-y-5">
@@ -182,9 +195,14 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   )}
                 </div>
                 {isOwnProfile ? (
-                  <Button type="button" variant="secondary" onClick={handleStartEdit}>
-                    Редактировать
-                  </Button>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Button type="button" variant="secondary" onClick={handleStartEdit}>
+                      Редактировать
+                    </Button>
+                    <Button type="button" variant="destructive" onClick={handleLogout} disabled={logoutMutation.isPending}>
+                      {logoutMutation.isPending ? "Выходим..." : "Выйти"}
+                    </Button>
+                  </div>
                 ) : null}
               </div>
 
