@@ -17,6 +17,9 @@ const literata = Literata({
 export const metadata: Metadata = {
   title: "Plotty",
   description: "Каталог историй Plotty с чтением, авторскими сценариями и AI-инструментами.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
