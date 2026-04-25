@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -22,6 +23,7 @@ import { TabButton } from "@/shared/ui/tabs";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCoverPreview } from "./story-cover-preview";
+import { StoryShelfControl } from "./story-shelf-control";
 import { StoryTagChip } from "./story-tag-chip";
 
 type StorySection = "description" | "chapters";
@@ -131,7 +133,11 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[14px] text-[var(--plotty-muted)]">
                   {story.fandom ? <span>{story.fandom}</span> : null}
-                  {story.author?.username ? <span>{`Автор ${story.author.username}`}</span> : null}
+                  {story.author?.username ? (
+                    <Link href={routes.user(story.author.username)} className="font-semibold text-[var(--plotty-accent)] hover:underline">
+                      {`Автор ${story.author.username}`}
+                    </Link>
+                  ) : null}
                   <span>
                     {readerChapters.length} {getChapterLabel(readerChapters.length)}
                   </span>
@@ -170,13 +176,18 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     type="button"
                     onClick={() => void handleToggleLike()}
                     disabled={likeMutation.isPending}
-                    className={`plotty-stat transition-colors ${viewerHasLiked ? "bg-[var(--plotty-accent-soft)] text-[var(--plotty-accent)]" : ""}`}
+                    className={`plotty-stat transition-colors ${
+                      viewerHasLiked
+                        ? "!border-transparent !bg-[var(--plotty-accent)] !text-white shadow-[0_10px_22px_rgba(188,95,61,0.2)]"
+                        : "!bg-white !text-[var(--plotty-ink)]"
+                    }`}
                     aria-pressed={viewerHasLiked}
                     aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
                   >
-                    <StatHeartIcon />
+                    <StatHeartIcon filled={viewerHasLiked} />
                     <span>{formatCount(story.likesCount)}</span>
                   </button>
+                  <StoryShelfControl storyId={story.id} className="min-w-[10.5rem]" />
                 </div>
               </div>
 
@@ -219,7 +230,11 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 <div className="grid gap-2 text-sm text-[var(--plotty-muted)]">
                   <span>{`Создана ${new Date(story.createdAt).toLocaleDateString("ru-RU")}`}</span>
                   <span>{`Обновлена ${new Date(story.updatedAt).toLocaleDateString("ru-RU")}`}</span>
-                  {story.author?.username ? <span>{`Автор ${story.author.username}`}</span> : null}
+                  {story.author?.username ? (
+                    <Link href={routes.user(story.author.username)} className="font-semibold text-[var(--plotty-accent)] hover:underline">
+                      {`Автор ${story.author.username}`}
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -287,9 +302,9 @@ function StoryMetaPill({
   );
 }
 
-function StatHeartIcon() {
+function StatHeartIcon({ filled = false }: { filled?: boolean }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill={filled ? "currentColor" : "none"} aria-hidden="true">
       <path d="M8 13.3 2.9 8.6a3.2 3.2 0 0 1 4.5-4.5L8 4.7l.6-.6a3.2 3.2 0 1 1 4.5 4.5L8 13.3Z" stroke="currentColor" strokeWidth="1.35" />
     </svg>
   );

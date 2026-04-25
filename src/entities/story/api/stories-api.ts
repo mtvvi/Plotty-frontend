@@ -7,6 +7,7 @@ import type {
   AiJobAccepted,
   AiJobResponse,
   ChapterDetails,
+  ChapterWiki,
   ChapterListItem,
   CreateStoryCommentPayload,
   CreateChapterPayload,
@@ -43,6 +44,7 @@ interface BackendStoryListItem extends BackendStory {
   chaptersCount: number;
   status?: StoryDetails["status"];
   likesCount?: number;
+  likedByMe?: boolean;
   aiHint?: string;
   author?: {
     id: number;
@@ -122,6 +124,7 @@ export const storyKeys = {
   detailsById: (storyId: string) => ["stories", "details-by-id", storyId] as const,
   chapterComments: (chapterId: string) => ["stories", "chapter-comments", chapterId] as const,
   chapter: (chapterId: string) => ["stories", "chapter", chapterId] as const,
+  chapterWiki: (chapterId: string) => ["stories", "chapter-wiki", chapterId] as const,
   chapterEditor: (storyId: string, chapterId: string) => ["stories", "chapter-editor", storyId, chapterId] as const,
   aiJob: (jobId: string) => ["stories", "ai-job", jobId] as const,
 };
@@ -151,6 +154,7 @@ function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
     statusLabel: getTagName(tags, "completion"),
     sizeLabel: getTagName(tags, "size"),
     likesCount: item.likesCount,
+    viewerHasLiked: item.likedByMe,
     aiHint: item.aiHint,
     author: item.author,
   };
@@ -356,6 +360,14 @@ export function chapterDetailsQueryOptions(chapterId: string) {
     queryKey: storyKeys.chapter(chapterId),
     queryFn: async () => mapChapterDetails(await fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`)),
     enabled: Boolean(chapterId),
+  });
+}
+
+export function chapterWikiQueryOptions(chapterId: string, options?: { enabled?: boolean }) {
+  return queryOptions({
+    queryKey: storyKeys.chapterWiki(chapterId),
+    queryFn: () => fetchJson<ChapterWiki>(`/chapters/${chapterId}/wiki`),
+    enabled: Boolean(chapterId) && (options?.enabled ?? true),
   });
 }
 
