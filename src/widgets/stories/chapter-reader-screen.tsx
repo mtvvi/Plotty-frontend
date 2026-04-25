@@ -9,11 +9,12 @@ import {
   addChapterComment,
   chapterCommentsQueryOptions,
   chapterDetailsQueryOptions,
+  chapterWikiQueryOptions,
   deleteStoryComment,
   storyDetailsQueryOptions,
   storyKeys,
 } from "@/entities/story/api/stories-api";
-import type { StoryCommentsResponse } from "@/entities/story/model/types";
+import type { ChapterWiki, ChapterWikiEntity, StoryCommentsResponse } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { routes } from "@/shared/config/routes";
@@ -66,6 +67,8 @@ export function ChapterReaderScreen({
     enabled: Boolean(storyQuery.data?.id && chapterId && chapterPublished),
   });
   const [commentDraft, setCommentDraft] = useState("");
+  const [wikiOpen, setWikiOpen] = useState(false);
+  const wikiQuery = useQuery(chapterWikiQueryOptions(chapterId, { enabled: wikiOpen && Boolean(chapterId) }));
 
   const addCommentMutation = useMutation({
     mutationFn: ({
@@ -179,6 +182,13 @@ export function ChapterReaderScreen({
     <PlottyShell
       title={`${story.title} • Глава ${displayChapterNumber}`}
       description={`Обновлена ${new Date(chapter.updatedAt).toLocaleString("ru-RU")}`}
+      actions={
+        chapterPublished ? (
+          <Button type="button" variant="secondary" onClick={() => setWikiOpen(true)}>
+            Справочник
+          </Button>
+        ) : undefined
+      }
     >
       <div className="mx-auto max-w-4xl space-y-5">
         {chapter.imageUrl ? <ChapterImageFrame title={chapter.title} imageUrl={chapter.imageUrl} /> : null}
@@ -276,6 +286,120 @@ export function ChapterReaderScreen({
           <p className="plotty-meta text-center text-sm">Комментарии будут доступны после публикации главы.</p>
         )}
       </div>
+      {wikiOpen ? (
+        <ChapterWikiDrawer
+          wiki={wikiQuery.data}
+          isLoading={wikiQuery.isLoading}
+          isError={wikiQuery.isError}
+          onClose={() => setWikiOpen(false)}
+        />
+      ) : null}
     </PlottyShell>
   );
+}
+
+function ChapterWikiDrawer({
+  wiki,
+  isLoading,
+  isError,
+  onClose,
+}: {
+  wiki?: ChapterWiki;
+  isLoading: boolean;
+  isError: boolean;
+  onClose: () => void;
+}) {
+  const sections = [
+    { title: "Персонажи", items: normalizeWikiItems(wiki?.characters) },
+    { title: "Локации", items: normalizeWikiItems(wiki?.locations) },
+    { title: "Предметы", items: normalizeWikiItems(wiki?.items) },
+  ];
+  const hasItems = sections.some((section) => section.items.length > 0);
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Закрыть справочник"
+        className="absolute inset-0 bg-[rgba(35,33,30,0.38)] backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <aside className="absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col border-l border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-5 shadow-[var(--plotty-shadow)] sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="plotty-kicker">Бесспойлерно</div>
+            <h2 className="plotty-section-title">Справочник</h2>
+            <p className="plotty-meta">Состояние мира доступно только по уже опубликованным ранее главам.</p>
+          </div>
+          <Button type="button" variant="secondary" className="min-h-10 px-3 text-sm" onClick={onClose}>
+            Закрыть
+          </Button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          {isLoading ? (
+            <div className="space-y-3">
+              <div className="h-24 rounded-[18px] bg-white/60" />
+              <div className="h-24 rounded-[18px] bg-white/60" />
+              <div className="h-24 rounded-[18px] bg-white/60" />
+            </div>
+          ) : isError ? (
+            <EmptyState title="Справочник недоступен" description="Не удалось загрузить состояние персонажей для этой главы." />
+          ) : hasItems ? (
+            <div className="space-y-5">
+              {sections.map((section) =>
+                section.items.length ? (
+                  <section key={section.title} className="space-y-3">
+                    <h3 className="plotty-section-title text-[1rem]">{section.title}</h3>
+                    <div className="space-y-2">
+                      {section.items.map((item, index) => (
+                        <div
+                          key={`${section.title}-${item.name}-${index}`}
+                          className="rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4"
+                        >
+                          <div className="text-sm font-semibold text-[var(--plotty-ink)]">{item.name}</div>
+                          {item.state ? <p className="mt-2 text-sm leading-6 text-[var(--plotty-muted)]">{item.state}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null,
+              )}
+            </div>
+          ) : (
+            <EmptyState title="Справочник пока пуст" description="Для этой точки истории еще нет открытых персонажей, локаций или предметов." />
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function normalizeWikiItems(value: unknown): Array<{ name: string; state?: string }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const items: Array<{ name: string; state?: string }> = [];
+
+  value.forEach((item: ChapterWikiEntity | unknown) => {
+    if (!item || typeof item !== "object") {
+      return;
+    }
+
+    const entity = item as ChapterWikiEntity;
+    const name = typeof entity.name === "string" ? entity.name.trim() : "";
+    const state =
+      typeof entity.state === "string"
+        ? entity.state.trim()
+        : typeof entity.description === "string"
+          ? entity.description.trim()
+          : "";
+
+    if (name) {
+      items.push({ name, state });
+    }
+  });
+
+  return items;
 }

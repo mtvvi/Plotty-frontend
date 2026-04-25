@@ -18,15 +18,24 @@ import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 
 import { StoryCoverPreview } from "./story-cover-preview";
+import { StoryShelfControl } from "./story-shelf-control";
 
-export function StoryCard({ story }: { story: StoryListItem }) {
+export function StoryCard({
+  story,
+  storyHref,
+  showShelfControl = true,
+}: {
+  story: StoryListItem;
+  storyHref?: string;
+  showShelfControl?: boolean;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const storyHref = routes.story(story.slug);
-  const chaptersHref = `${storyHref}?tab=chapters`;
+  const resolvedStoryHref = storyHref ?? routes.story(story.slug);
+  const chaptersHref = `${routes.story(story.slug)}?tab=chapters`;
   const storyDetailsQuery = useQuery({
     ...storyDetailsQueryOptions(story.slug),
-    enabled: story.chaptersCount > 0,
+    enabled: Boolean(story.slug),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
@@ -40,7 +49,8 @@ export function StoryCard({ story }: { story: StoryListItem }) {
   const likeMutation = useMutation({
     mutationFn: ({ liked }: { liked: boolean }) => (liked ? unlikeStory(story.id) : likeStory(story.id)),
   });
-  const viewerHasLiked = Boolean(story.viewerHasLiked);
+  const viewerHasLiked = Boolean(storyDetailsQuery.data?.viewerHasLiked ?? story.viewerHasLiked);
+  const likesCount = storyDetailsQuery.data?.likesCount ?? story.likesCount;
   const updatedLabel = `Обновлена ${new Date(story.updatedAt).toLocaleDateString("ru-RU")}`;
   const genres = useMemo(() => story.tags.filter((tag) => tag.category === "genre"), [story.tags]);
   const warnings = useMemo(() => story.tags.filter((tag) => tag.category === "warning"), [story.tags]);
@@ -52,7 +62,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
 
   async function handleToggleLike() {
     const nextLiked = !viewerHasLiked;
-    const previousLikesCount = story.likesCount ?? 0;
+    const previousLikesCount = likesCount ?? 0;
 
     patchStorySummaryCaches(queryClient, story.id, {
       likesCount: Math.max(previousLikesCount + (nextLiked ? 1 : -1), 0),
@@ -73,7 +83,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
       });
 
       if (isAuthError(error)) {
-        router.push(routes.auth({ next: storyHref }));
+        router.push(routes.auth({ next: routes.story(story.slug) }));
       }
     }
   }
@@ -81,12 +91,12 @@ export function StoryCard({ story }: { story: StoryListItem }) {
   return (
     <article className="overflow-hidden rounded-[26px] border border-[rgba(35,33,30,0.08)] bg-[rgba(255,255,255,0.84)] shadow-[var(--plotty-shadow-card)]">
       <div className="grid items-stretch md:grid-cols-[minmax(0,1fr)_112px]">
-        <Link
-          href={storyHref}
-          aria-label={`Открыть историю ${story.title}`}
-          className="grid transition-[box-shadow,transform] duration-150 hover:-translate-y-[1px] hover:shadow-[0_22px_44px_rgba(46,35,23,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] md:grid-cols-[320px_minmax(0,1fr)]"
-        >
-          <div className="h-full border-b border-[rgba(35,33,30,0.08)] md:border-b-0 md:border-r">
+        <div className="grid md:grid-cols-[320px_minmax(0,1fr)]">
+          <Link
+            href={resolvedStoryHref}
+            aria-label={`Открыть историю ${story.title}`}
+            className="block h-full border-b border-[rgba(35,33,30,0.08)] transition-[box-shadow,transform] duration-150 hover:-translate-y-[1px] hover:shadow-[0_22px_44px_rgba(46,35,23,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] md:border-b-0 md:border-r"
+          >
             <StoryCoverPreview
               title={story.title}
               imageUrl={displayCoverImage}
@@ -95,7 +105,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
               imageClassName="h-full"
               fullHeight
             />
-          </div>
+          </Link>
 
           <div className="min-w-0 space-y-4 p-4 sm:p-5 lg:p-6">
             <div className="space-y-4">
@@ -107,9 +117,15 @@ export function StoryCard({ story }: { story: StoryListItem }) {
               </div>
 
               <div className="space-y-2">
-                <h2 className="plotty-card-title text-[1.35rem] sm:text-[1.55rem]">{story.title}</h2>
+                <Link href={resolvedStoryHref} className="block hover:underline">
+                  <h2 className="plotty-card-title text-[1.35rem] sm:text-[1.55rem]">{story.title}</h2>
+                </Link>
                 <div className="flex flex-wrap gap-x-2.5 gap-y-1 text-[13px] text-[var(--plotty-muted)]">
-                  {story.author?.username ? <span>Автор {story.author.username}</span> : null}
+                  {story.author?.username ? (
+                    <Link href={routes.user(story.author.username)} className="font-semibold text-[var(--plotty-accent)] hover:underline">
+                      Автор {story.author.username}
+                    </Link>
+                  ) : null}
                   <span>
                     {story.chaptersCount} {getChapterLabel(story.chaptersCount)}
                   </span>
@@ -145,6 +161,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
                     ))}
                   </MetaGroup>
                 ) : null}
+                {showShelfControl ? <StoryShelfControl storyId={story.id} /> : null}
                 {extraTags.length ? (
                   <MetaGroup label="Дополнительно">
                     {extraTags.map((tag) => (
@@ -155,7 +172,7 @@ export function StoryCard({ story }: { story: StoryListItem }) {
               </div>
             </div>
           </div>
-        </Link>
+        </div>
 
         <aside
           aria-label="Действия карточки"
@@ -173,12 +190,16 @@ export function StoryCard({ story }: { story: StoryListItem }) {
               type="button"
               onClick={() => void handleToggleLike()}
               disabled={likeMutation.isPending}
-              className={`plotty-stat min-w-[4.25rem] justify-center ${viewerHasLiked ? "bg-[var(--plotty-accent-soft)] text-[var(--plotty-accent)]" : ""}`}
+              className={`plotty-stat min-w-[4.25rem] justify-center transition-colors ${
+                viewerHasLiked
+                  ? "!border-transparent !bg-[var(--plotty-accent)] !text-white shadow-[0_10px_22px_rgba(188,95,61,0.2)]"
+                  : "!bg-white !text-[var(--plotty-ink)]"
+              }`}
               aria-pressed={viewerHasLiked}
               aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
             >
-              <StatHeartIcon />
-              <span>{formatCount(story.likesCount)}</span>
+              <StatHeartIcon filled={viewerHasLiked} />
+              <span>{formatCount(likesCount)}</span>
             </button>
             <Link href={chaptersHref} className="plotty-stat min-w-[4.25rem] justify-center" aria-label="Главы">
               <StatChapterIcon />
@@ -216,9 +237,9 @@ function CatalogStatusPill({ children }: { children: ReactNode }) {
   );
 }
 
-function StatHeartIcon() {
+function StatHeartIcon({ filled = false }: { filled?: boolean }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill={filled ? "currentColor" : "none"} aria-hidden="true">
       <path d="M8 13.3 2.9 8.6a3.2 3.2 0 0 1 4.5-4.5L8 4.7l.6-.6a3.2 3.2 0 1 1 4.5 4.5L8 13.3Z" stroke="currentColor" strokeWidth="1.35" />
     </svg>
   );

@@ -76,6 +76,20 @@ export interface ChapterDetails {
   imageUrl?: string;
 }
 
+export interface ChapterWikiEntity {
+  name?: string;
+  state?: string;
+  description?: string;
+  [key: string]: unknown;
+}
+
+export interface ChapterWiki {
+  characters?: ChapterWikiEntity[];
+  locations?: ChapterWikiEntity[];
+  items?: ChapterWikiEntity[];
+  [key: string]: unknown;
+}
+
 export interface StoriesQuery {
   tags: string[];
   q: string;
