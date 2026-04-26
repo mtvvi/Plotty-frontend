@@ -130,7 +130,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
           : current,
       );
 
-      const updatedStory = await updateStoryMutation.mutateAsync({
+      await updateStoryMutation.mutateAsync({
         targetStoryId: storyId,
         targetPayload: {
           ...values,
@@ -144,8 +144,6 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
       if (storyQuery.data?.slug) {
         await queryClient.invalidateQueries({ queryKey: storyKeys.details(storyQuery.data.slug) });
       }
-
-      router.push(`${routes.write}?story=${encodeURIComponent(updatedStory.slug)}`);
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.storySettings(storyId) }));

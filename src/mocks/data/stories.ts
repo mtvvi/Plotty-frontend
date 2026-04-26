@@ -547,13 +547,11 @@ export function listPublicStoriesByUsername(username: string, query: StoriesQuer
     return null;
   }
 
-  const filtered = sortStoryRecords(
-    db.stories
-      .filter((story) => story.authorId === author.id && story.status === "published")
-      .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
-      .filter((story) => matchesStoryTags(story, query.tags)),
-    query,
-  );
+  const filtered = db.stories
+    .filter((story) => story.authorId === author.id && story.status === "published")
+    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+    .filter((story) => matchesStoryTags(story, query.tags))
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
   const start = (query.page - 1) * query.pageSize;
   const paged = filtered.slice(start, start + query.pageSize);
 
@@ -833,34 +831,12 @@ function countWords(content: string) {
   return trimmed.split(/\s+/).length;
 }
 
-function sortStoryRecords(stories: StoryRecord[], query: StoriesQuery) {
-  const sort = query.sort ?? "updated-desc";
-
-  return [...stories].sort((a, b) => {
-    if (sort === "updated-asc") {
-      return a.updatedAt.localeCompare(b.updatedAt);
-    }
-
-    if (sort === "title-asc") {
-      return a.title.localeCompare(b.title, "ru");
-    }
-
-    if (sort === "title-desc") {
-      return b.title.localeCompare(a.title, "ru");
-    }
-
-    return b.updatedAt.localeCompare(a.updatedAt);
-  });
-}
-
 function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
-  const filtered = sortStoryRecords(
-    db.stories
-      .filter((story) => story.status === "published")
-      .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
-      .filter((story) => matchesStoryTags(story, query.tags)),
-    query,
-  );
+  const filtered = db.stories
+    .filter((story) => story.status === "published")
+    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+    .filter((story) => matchesStoryTags(story, query.tags))
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 
   const start = (query.page - 1) * query.pageSize;
   const paged = filtered.slice(start, start + query.pageSize);
@@ -900,13 +876,11 @@ export function listMyStories(query: StoriesQuery, viewerUserId?: number) {
     } satisfies StoriesResponse;
   }
 
-  const filtered = sortStoryRecords(
-    db.stories
-      .filter((story) => story.authorId === viewerUserId)
-      .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
-      .filter((story) => matchesStoryTags(story, query.tags)),
-    query,
-  );
+  const filtered = db.stories
+    .filter((story) => story.authorId === viewerUserId)
+    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+    .filter((story) => matchesStoryTags(story, query.tags))
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 
   const start = (query.page - 1) * query.pageSize;
   const paged = filtered.slice(start, start + query.pageSize);

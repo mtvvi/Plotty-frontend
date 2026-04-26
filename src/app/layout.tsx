@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Literata, Manrope } from "next/font/google";
 
 import { AppProviders } from "./providers";
 import "./globals.css";
 
-const inter = Inter({
+const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
   variable: "--font-sans",
 });
 
-const playfair = Playfair_Display({
+const literata = Literata({
   subsets: ["latin", "cyrillic"],
   variable: "--font-serif",
 });
@@ -29,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body className={`${inter.variable} ${playfair.variable}`}>
+      <body className={`${manrope.variable} ${literata.variable}`}>
         <AppProviders>{children}</AppProviders>
       </body>
     </html>
