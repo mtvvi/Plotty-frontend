@@ -47,6 +47,7 @@ interface BackendStoryDetails extends BackendStory {
   status?: StoryDetails["status"];
   likesCount?: number;
   likedByMe?: boolean;
+  coverImageUrl?: string | null;
   author?: {
     id: number;
     username: string;
@@ -142,6 +143,7 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     aiHint: item.aiHint,
     viewerHasLiked: item.likedByMe,
     author: item.author,
+    coverImageUrl: item.coverImageUrl ?? null,
   };
 }
 

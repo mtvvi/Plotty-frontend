@@ -5,19 +5,19 @@ import { cn } from "@/shared/lib/utils";
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_12px_26px_rgba(188,95,61,0.2)] hover:-translate-y-[1px] hover:bg-[#a65434]",
+    "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_12px_24px_rgba(195,79,50,0.2)] hover:-translate-y-[1px] hover:bg-[var(--plotty-accent-strong)]",
   secondary:
-    "border-[var(--plotty-line)] bg-white/84 text-[var(--plotty-ink)] shadow-[0_3px_12px_rgba(46,35,23,0.04)] hover:-translate-y-[1px] hover:border-[var(--plotty-line-strong)] hover:bg-white",
+    "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.78)] text-[var(--plotty-ink)] shadow-[0_4px_14px_rgba(58,43,27,0.04)] hover:-translate-y-[1px] hover:border-[var(--plotty-line-strong)] hover:bg-[var(--plotty-paper-strong)]",
   ghost:
     "border-transparent bg-transparent text-[var(--plotty-muted)] hover:bg-black/5 hover:text-[var(--plotty-ink)]",
   destructive:
-    "border-[rgba(188,95,61,0.16)] bg-[#fff4ee] text-[var(--plotty-accent)] shadow-[0_3px_12px_rgba(188,95,61,0.06)] hover:border-[rgba(188,95,61,0.26)] hover:bg-[#fee5da]",
+    "border-[rgba(189,63,50,0.16)] bg-[var(--plotty-danger-soft)] text-[var(--plotty-danger)] shadow-[0_3px_12px_rgba(189,63,50,0.06)] hover:border-[rgba(189,63,50,0.26)] hover:bg-[#fbd7cd]",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "size-10 rounded-[13px]",
-  md: "size-11 rounded-[15px]",
-  lg: "size-12 rounded-[16px]",
+  sm: "size-10 rounded-[var(--plotty-radius-sm)]",
+  md: "size-11 rounded-[var(--plotty-radius-md)]",
+  lg: "size-12 rounded-[var(--plotty-radius-md)]",
 };
 
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

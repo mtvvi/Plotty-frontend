@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { BookOpen, Heart, List, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -14,9 +14,8 @@ import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
 import type { StoryListItem } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
-import { getStoryTagCategoryLabel } from "@/shared/config/story-tags";
-import { Badge } from "@/shared/ui/badge";
-import { Button } from "@/shared/ui/button";
+import { Button, ButtonLink } from "@/shared/ui/button";
+import { Chip } from "@/shared/ui/chip";
 
 import { StoryCoverPreview } from "./story-cover-preview";
 import { StoryCollectionControl } from "./story-collection-control";
@@ -33,20 +32,22 @@ export function StoryCard({
 }) {
   const router = useRouter();
   const resolvedStoryHref = storyHref ?? routes.story(story.slug);
-  const chaptersHref = `${routes.story(story.slug)}?tab=chapters`;
   const storyDetailsQuery = useQuery({
     ...storyDetailsQueryOptions(story.slug),
     enabled: Boolean(story.slug),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
-  const firstChapterId = storyDetailsQuery.data?.chapters[0]?.id ?? "";
+  const firstChapter = storyDetailsQuery.data?.chapters[0];
   const firstChapterQuery = useQuery({
-    ...chapterDetailsQueryOptions(firstChapterId),
+    ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
+    enabled: Boolean(firstChapter?.id && !story.coverImageUrl),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
-  const displayCoverImage = firstChapterQuery.data?.imageUrl;
+  const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
+  const chaptersHref = `${routes.story(story.slug)}?tab=chapters`;
+  const readHref = firstChapter ? routes.chapter(story.slug, firstChapter.number ?? 1) : resolvedStoryHref;
   const viewerHasLiked = Boolean(storyDetailsQuery.data?.viewerHasLiked ?? story.viewerHasLiked);
   const likesCount = storyDetailsQuery.data?.likesCount ?? story.likesCount;
   const likeMutation = useStoryLikeMutation({
@@ -74,120 +75,144 @@ export function StoryCard({
   }
 
   return (
-    <article className="plotty-story-card overflow-hidden rounded-[26px] border border-[rgba(35,33,30,0.08)] bg-[rgba(255,255,255,0.86)] shadow-[var(--plotty-shadow-card)]">
-      <div className="grid md:grid-cols-[minmax(20rem,42%)_minmax(0,1fr)] xl:grid-cols-[minmax(24rem,42%)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col border-b border-[rgba(35,33,30,0.08)] md:border-b-0 md:border-r">
-          <Link
-            href={resolvedStoryHref}
-            aria-label={`Открыть историю ${story.title}`}
-            className="relative block aspect-square overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
-          >
-            <StoryCoverPreview
-              title={story.title}
-              imageUrl={displayCoverImage}
-              compact
-              className="h-full rounded-none border-0"
-              imageClassName="h-full"
-              fullHeight
-            />
-            <div className="absolute bottom-4 left-4 flex flex-wrap gap-2">
-              {story.statusLabel ? (
-                <span className="rounded-full bg-[rgba(247,242,234,0.94)] px-3 py-1.5 text-xs font-bold text-[var(--plotty-accent)] shadow-[0_8px_24px_rgba(46,35,23,0.14)] backdrop-blur-xl">
-                  {story.statusLabel}
-                </span>
+    <article className="plotty-story-card overflow-hidden rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] shadow-[var(--plotty-shadow-card)]">
+      <div className="grid min-w-0 md:min-h-[15rem] md:grid-cols-[minmax(16rem,19rem)_minmax(0,1fr)_minmax(10rem,12rem)] xl:grid-cols-[20rem_minmax(0,1fr)_minmax(11rem,13rem)]">
+        <Link
+          href={resolvedStoryHref}
+          aria-label={`Открыть историю ${story.title}`}
+          className="relative block min-w-0 aspect-video overflow-hidden border-b border-[var(--plotty-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] md:aspect-auto md:min-h-[13.5rem] md:border-b-0 md:border-r"
+        >
+          <StoryCoverPreview
+            title={story.title}
+            imageUrl={displayCoverImage}
+            compact
+            className="h-full rounded-none border-0"
+            imageClassName="h-full min-h-[18rem] max-md:!min-h-0"
+            fullHeight
+          />
+        </Link>
+
+        <div className="min-w-0 space-y-3 p-4 md:space-y-4 md:p-5 lg:p-6">
+          <div className="space-y-1.5 md:space-y-2">
+            <Link href={resolvedStoryHref} className="plotty-story-title-anchor">
+              <h2 className="plotty-card-title text-[1.28rem] leading-[1.05] md:text-[1.8rem] md:leading-none lg:text-[2.25rem]">
+                <span className="plotty-story-title-text">{story.title}</span>
+              </h2>
+            </Link>
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs leading-5 text-[var(--plotty-muted)] md:gap-x-2.5 md:gap-y-1 md:text-sm">
+              {story.author?.username ? (
+                <Link href={routes.user(story.author.username)} className="font-semibold hover:text-[var(--plotty-accent)]">
+                  Автор {story.author.username}
+                </Link>
               ) : null}
-              {story.sizeLabel ? (
-                <span className="rounded-full bg-[rgba(247,242,234,0.9)] px-3 py-1.5 text-xs font-bold text-[var(--plotty-ink)] shadow-[0_8px_24px_rgba(46,35,23,0.1)] backdrop-blur-xl">
-                  {story.sizeLabel}
-                </span>
-              ) : null}
+              <span aria-hidden="true">•</span>
+              <span>{updatedLabel}</span>
+              <span aria-hidden="true">•</span>
+              <span>
+                {story.chaptersCount} {getChapterLabel(story.chaptersCount)}
+              </span>
             </div>
-          </Link>
+          </div>
 
-          <aside
-            aria-label="Действия карточки"
-            className="grid gap-3 bg-[rgba(240,232,219,0.38)] p-4 sm:p-5"
-          >
-            {showShelfControl ? (
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1">
-                <StoryShelfControl storyId={story.id} className="max-w-none" />
-                <StoryCollectionControl storyId={story.id} className="max-w-none" />
-              </div>
-            ) : null}
+          {story.aiHint ? (
+            <p
+              className="plotty-body text-[13px] leading-5 text-[var(--plotty-ink-soft)] md:text-[14px] md:leading-6 lg:text-[15px]"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {story.aiHint}
+            </p>
+          ) : null}
 
-            <div className="flex flex-wrap gap-2">
+          <CatalogStoryTags
+            fandom={story.fandom}
+            rating={story.ratingLabel}
+            status={story.statusLabel}
+            size={story.sizeLabel}
+            genres={genres}
+            warnings={warnings}
+            extraTags={extraTags}
+          />
+          <div className="grid gap-2 pt-1 md:hidden">
+            <div className="grid grid-cols-2 gap-2">
+              <ButtonLink href={readHref} variant="primary" size="sm" className="w-full" aria-label="Читать историю">
+                <BookOpen className="size-4" aria-hidden="true" />
+                Читать
+              </ButtonLink>
+              <ButtonLink href={chaptersHref} variant="secondary" size="sm" className="w-full" aria-label="Открыть главы">
+                <List className="size-4" aria-hidden="true" />
+                Главы
+              </ButtonLink>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 onClick={() => void handleToggleLike()}
                 disabled={likeMutation.isPending}
                 variant={viewerHasLiked ? "primary" : "secondary"}
                 size="sm"
-                className="plotty-stat min-w-[4.25rem] flex-1 justify-center gap-2 sm:flex-none"
+                className="w-full"
                 aria-pressed={viewerHasLiked}
                 aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
               >
-                <StatHeartIcon filled={viewerHasLiked} />
-                <span>{formatCount(likesCount)}</span>
+                <Heart className="size-4" fill={viewerHasLiked ? "currentColor" : "none"} aria-hidden="true" />
+                {formatCount(likesCount)}
               </Button>
-              <Link href={chaptersHref} className="plotty-stat min-w-[4.25rem] flex-1 justify-center sm:flex-none" aria-label="Главы">
-                <StatChapterIcon />
-                <span>{story.chaptersCount}</span>
+              <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
+                <MessageCircle className="size-4" aria-hidden="true" />
+                {story.chaptersCount}
               </Link>
             </div>
-          </aside>
-        </div>
-
-        <div className="flex min-w-0 flex-col">
-          <div className="min-w-0 flex-1 space-y-4 p-4 sm:p-5 lg:p-6">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="plotty-story-eyebrow-kind">История</span>
-                <span className="size-1 rounded-full bg-[var(--plotty-muted-soft)]" aria-hidden="true" />
-                <span className="plotty-story-eyebrow-date">{updatedLabel}</span>
+            {showShelfControl ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <StoryShelfControl storyId={story.id} className="max-w-none" compact />
+                <StoryCollectionControl storyId={story.id} className="max-w-none" compact />
               </div>
-              <Link href={resolvedStoryHref} className="plotty-story-title-anchor">
-                <h2 className="plotty-story-title">
-                  <span className="plotty-story-title-text">{story.title}</span>
-                </h2>
-              </Link>
-              <div className="flex flex-wrap gap-x-2.5 gap-y-1 text-[13px] text-[var(--plotty-muted)]">
-                {story.author?.username ? (
-                  <Link href={routes.user(story.author.username)} className="font-semibold text-[var(--plotty-accent)] hover:underline">
-                    Автор {story.author.username}
-                  </Link>
-                ) : null}
-                <span>
-                  {story.chaptersCount} {getChapterLabel(story.chaptersCount)}
-                </span>
-                {story.createdAt ? <span>{`С ${new Date(story.createdAt).toLocaleDateString("ru-RU")}`}</span> : null}
-              </div>
-            </div>
-
-            {story.aiHint ? (
-              <p
-                className="plotty-body text-[14px] leading-6 text-[var(--plotty-muted)] sm:text-[15px]"
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 3,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {story.aiHint}
-              </p>
             ) : null}
-
-            <CatalogStoryTags
-              fandom={story.fandom}
-              rating={story.ratingLabel}
-              status={story.statusLabel}
-              size={story.sizeLabel}
-              genres={genres}
-              warnings={warnings}
-              extraTags={extraTags}
-            />
           </div>
         </div>
+
+        <aside
+          aria-label="Действия карточки"
+          className="hidden min-w-0 content-start gap-3 overflow-hidden border-t border-[var(--plotty-line)] bg-[rgba(245,238,229,0.48)] p-4 md:grid md:border-l md:border-t-0 lg:p-5"
+        >
+          <ButtonLink href={readHref} variant="primary" className="min-w-0 w-full">
+            <BookOpen className="size-4" aria-hidden="true" />
+            Читать
+          </ButtonLink>
+          <ButtonLink href={chaptersHref} variant="secondary" className="min-w-0 w-full">
+            <List className="size-4" aria-hidden="true" />
+            Главы
+          </ButtonLink>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              onClick={() => void handleToggleLike()}
+              disabled={likeMutation.isPending}
+              variant={viewerHasLiked ? "primary" : "secondary"}
+              size="sm"
+              aria-pressed={viewerHasLiked}
+              aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
+            >
+              <Heart className="size-4" fill={viewerHasLiked ? "currentColor" : "none"} aria-hidden="true" />
+              {formatCount(likesCount)}
+            </Button>
+            <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
+              <MessageCircle className="size-4" aria-hidden="true" />
+              {story.chaptersCount}
+            </Link>
+          </div>
+          {showShelfControl ? (
+            <div className="hidden space-y-2 border-t border-[var(--plotty-line)] pt-3 md:block">
+              <StoryShelfControl storyId={story.id} className="max-w-none min-w-0" compact />
+              <StoryCollectionControl storyId={story.id} className="max-w-none min-w-0" compact />
+            </div>
+          ) : null}
+        </aside>
       </div>
     </article>
   );
@@ -210,84 +235,28 @@ function CatalogStoryTags({
   warnings: Array<{ id: string; name: string }>;
   extraTags: Array<{ id: string; name: string }>;
 }) {
-  const primaryGroups = [
-    ["directionality", fandom],
-    ["rating", rating],
-    ["completion", status],
-    ["size", size],
-  ].filter(([, value]) => Boolean(value)) as Array<[string, string]>;
+  const chips = [
+    fandom ? { id: "fandom", label: fandom, tone: "gold" as const } : null,
+    rating ? { id: "rating", label: rating, tone: "default" as const } : null,
+    status ? { id: "status", label: status, tone: "olive" as const } : null,
+    size ? { id: "size", label: size, tone: "default" as const } : null,
+    ...genres.map((tag) => ({ id: tag.id, label: tag.name, tone: "default" as const })),
+    ...warnings.map((tag) => ({ id: tag.id, label: tag.name, tone: "gold" as const })),
+    ...extraTags.map((tag) => ({ id: tag.id, label: tag.name, tone: "default" as const })),
+  ].filter(Boolean) as Array<{ id: string; label: string; tone: "default" | "gold" | "olive" }>;
 
-  if (!primaryGroups.length && !genres.length && !warnings.length && !extraTags.length) {
+  if (!chips.length) {
     return null;
   }
 
   return (
-    <div className="space-y-3">
-      {primaryGroups.length ? (
-        <div className="grid grid-cols-2 gap-3">
-          {primaryGroups.map(([category, value]) => (
-            <MetaGroup key={category} label={getStoryTagCategoryLabel(category)}>
-              <CatalogMetaChip>{value}</CatalogMetaChip>
-            </MetaGroup>
-          ))}
-        </div>
-      ) : null}
-
-      {genres.length ? (
-        <MetaGroup label={getStoryTagCategoryLabel("genre")}>
-          {genres.map((tag) => (
-            <CatalogMetaChip key={tag.id}>{tag.name}</CatalogMetaChip>
-          ))}
-        </MetaGroup>
-      ) : null}
-      {warnings.length ? (
-        <MetaGroup label={getStoryTagCategoryLabel("warning")}>
-          {warnings.map((tag) => (
-            <CatalogMetaChip key={tag.id}>{tag.name}</CatalogMetaChip>
-          ))}
-        </MetaGroup>
-      ) : null}
-      {extraTags.length ? (
-        <MetaGroup label="Дополнительно">
-          {extraTags.map((tag) => (
-            <CatalogMetaChip key={tag.id}>{tag.name}</CatalogMetaChip>
-          ))}
-        </MetaGroup>
-      ) : null}
+    <div className="flex flex-wrap gap-2">
+      {chips.slice(0, 8).map((chip) => (
+        <Chip key={chip.id} tone={chip.tone}>
+          {chip.label}
+        </Chip>
+      ))}
     </div>
-  );
-}
-
-function MetaGroup({ children, label }: { children: ReactNode; label: string }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="plotty-kicker">{label}</div>
-      <div className="flex flex-wrap gap-2">{children}</div>
-    </div>
-  );
-}
-
-function CatalogMetaChip({ children }: { children: ReactNode }) {
-  return (
-    <Badge className="min-h-[34px] justify-center border border-[rgba(41,38,34,0.09)] px-3.5 py-2 text-sm leading-none text-[var(--plotty-ink)]">
-      {children}
-    </Badge>
-  );
-}
-
-function StatHeartIcon({ filled = false }: { filled?: boolean }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill={filled ? "currentColor" : "none"} aria-hidden="true">
-      <path d="M8 13.3 2.9 8.6a3.2 3.2 0 0 1 4.5-4.5L8 4.7l.6-.6a3.2 3.2 0 1 1 4.5 4.5L8 13.3Z" stroke="currentColor" strokeWidth="1.35" />
-    </svg>
-  );
-}
-
-function StatChapterIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M4 2.8h7.5a.7.7 0 0 1 .7.7v8.9a.7.7 0 0 1-.7.7H4.9a1.4 1.4 0 0 0-.9.3l-.7.6V3.5a.7.7 0 0 1 .7-.7Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
-    </svg>
   );
 }
 

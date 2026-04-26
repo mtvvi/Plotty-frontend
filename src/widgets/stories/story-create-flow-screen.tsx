@@ -6,11 +6,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import {
+  createChapter,
   createStory,
   storyKeys,
   storyTagsQueryOptions,
 } from "@/entities/story/api/stories-api";
-import type { StoryTag } from "@/entities/story/model/types";
+import type { StoryDetails, StoryTag } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
@@ -24,6 +25,7 @@ import { Button } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 
 import { PlottyShell, ShellCard } from "./plotty-shell";
 
@@ -34,9 +36,19 @@ interface StorySettingsValues {
   selectedTagIds: string[];
 }
 
+interface FirstChapterValues {
+  title: string;
+  content: string;
+}
+
 const initialStoryValues: StorySettingsValues = {
   title: "",
   selectedTagIds: [],
+};
+
+const initialFirstChapterValues: FirstChapterValues = {
+  title: "",
+  content: "",
 };
 
 const defaultCompletionSlug = "in-progress";
@@ -47,6 +59,8 @@ export function StoryCreateFlowScreen() {
   const queryClient = useQueryClient();
   const [stage, setStage] = useState<StoryFlowStage>("details");
   const [storyValues, setStoryValues] = useState(initialStoryValues);
+  const [createdStory, setCreatedStory] = useState<StoryDetails | null>(null);
+  const [firstChapterValues, setFirstChapterValues] = useState(initialFirstChapterValues);
   const tagsQuery = useQuery(storyTagsQueryOptions());
   const availableTags = useMemo(() => tagsQuery.data?.items ?? [], [tagsQuery.data?.items]);
   const groupedTags = useMemo(() => groupStoryTags(availableTags), [availableTags]);
@@ -72,10 +86,16 @@ export function StoryCreateFlowScreen() {
   const selectedTagsByCategory = useMemo(() => groupStoryTags(selectedTags), [selectedTags]);
   const orderedGroups = storyTagCategoryOrder
     .map((category) => [category, groupedTags[category] ?? []] as const)
-    .filter(([category]) => category !== "completion")
     .filter(([, tags]) => tags.length);
 
   const createStoryMutation = useMutation({ mutationFn: createStory });
+  const createChapterMutation = useMutation({
+    mutationFn: ({ storyId, values }: { storyId: string; values: FirstChapterValues }) =>
+      createChapter(storyId, {
+        title: values.title.trim(),
+        content: values.content.trim(),
+      }),
+  });
 
   const canAdvanceFromDetails = Boolean(storyValues.title.trim());
   const canAdvanceFromTaxonomy = requiredCategoryOrder.every((category) =>
@@ -94,12 +114,81 @@ export function StoryCreateFlowScreen() {
       });
 
       await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-      router.push(`${routes.write}?story=${encodeURIComponent(story.slug)}`);
+      setCreatedStory(story);
+      setFirstChapterValues({
+        title: "Глава 1",
+        content: "",
+      });
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.writeNew }));
       }
     }
+  }
+
+  async function handleCreateFirstChapter() {
+    if (!createdStory || !firstChapterValues.title.trim() || !firstChapterValues.content.trim()) {
+      return;
+    }
+
+    try {
+      const chapter = await createChapterMutation.mutateAsync({
+        storyId: createdStory.id,
+        values: firstChapterValues,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.details(createdStory.slug) });
+      router.push(routes.chapterEditor(createdStory.id, chapter.id));
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.writeNew }));
+      }
+    }
+  }
+
+  if (createdStory) {
+    return (
+      <PlottyShell title="Первая глава" description="История сохранена. Добавьте стартовую главу и откройте редактор." mobileBackHref={routes.write}>
+        <ShellCard title={createdStory.title}>
+          <div className="grid gap-5">
+            <Field>
+              <FieldLabel htmlFor="story-create-first-chapter-title">Название главы</FieldLabel>
+              <Input
+                id="story-create-first-chapter-title"
+                value={firstChapterValues.title}
+                onChange={(event) => setFirstChapterValues((current) => ({ ...current, title: event.target.value }))}
+                placeholder="Глава 1"
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="story-create-first-chapter-content">Текст главы</FieldLabel>
+              <Textarea
+                id="story-create-first-chapter-content"
+                value={firstChapterValues.content}
+                onChange={(event) => setFirstChapterValues((current) => ({ ...current, content: event.target.value }))}
+                placeholder="Начните писать первую сцену..."
+                className="min-h-56"
+              />
+            </Field>
+
+            <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--plotty-line)] pt-5">
+              <Button variant="secondary" onClick={() => router.push(`${routes.write}?story=${encodeURIComponent(createdStory.slug)}`)}>
+                В мастерскую
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleCreateFirstChapter}
+                disabled={createChapterMutation.isPending || !firstChapterValues.title.trim() || !firstChapterValues.content.trim()}
+              >
+                {createChapterMutation.isPending ? "Создаем главу..." : "Создать главу и открыть редактор"}
+              </Button>
+            </div>
+          </div>
+        </ShellCard>
+      </PlottyShell>
+    );
   }
 
   return (

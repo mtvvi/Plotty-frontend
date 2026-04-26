@@ -1,14 +1,24 @@
 "use client";
 
-import type { HTMLAttributes, ReactNode } from "react";
-import { Suspense, useEffect, useState } from "react";
+import type { FormEvent, HTMLAttributes, ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import {
+  BookOpen,
+  Feather,
+  Library,
+  PenLine,
+  Search,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
-import { Card } from "@/shared/ui/card";
+import { Card, type SurfaceVariant } from "@/shared/ui/card";
 import { iconButtonClassName, IconButton } from "@/shared/ui/icon-button";
+import { Input } from "@/shared/ui/input";
 import { Sheet } from "@/shared/ui/sheet";
 import { AuthStatus } from "@/widgets/auth/auth-status";
 
@@ -23,6 +33,20 @@ function isPrimaryNavItemActive(pathname: string, href: string) {
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
+  const query = searchParams.toString();
+
+  return query ? `${pathname}?${query}` : pathname;
+}
+
+function useOptionalSearchParams() {
+  try {
+    return useSearchParams();
+  } catch {
+    return new URLSearchParams();
+  }
 }
 
 export function PlottyPageShell({
@@ -80,8 +104,8 @@ export function PlottyPageShell({
   return (
     <div
       className={cn(
-        "plotty-page-shell !pt-0 lg:!pt-6",
-        showBottomNav && menuContent ? "!pb-[calc(7rem+env(safe-area-inset-bottom))]" : "!pb-12",
+        "plotty-page-shell",
+        showBottomNav ? "!pb-[calc(6.25rem+env(safe-area-inset-bottom))] lg:!pb-10" : "!pb-10",
         className,
       )}
     >
@@ -93,7 +117,8 @@ export function PlottyPageShell({
             className={iconButtonClassName({
               size: "md",
               variant: "secondary",
-              className: "fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(247,242,234,0.96)] backdrop-blur-xl lg:hidden",
+              className:
+                "fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(251,247,242,0.96)] backdrop-blur-xl lg:hidden",
             })}
           >
             <span aria-hidden="true">←</span>
@@ -102,7 +127,7 @@ export function PlottyPageShell({
           <IconButton
             aria-label="Назад"
             onClick={() => router.back()}
-            className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(247,242,234,0.96)] backdrop-blur-xl lg:hidden"
+            className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(251,247,242,0.96)] backdrop-blur-xl lg:hidden"
           >
             <span aria-hidden="true">←</span>
           </IconButton>
@@ -110,57 +135,65 @@ export function PlottyPageShell({
       ) : null}
 
       <section className="plotty-frame">
-        <header className="sticky top-0 z-40 border-b border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.84)] backdrop-blur-xl">
-          <div className="px-4 sm:px-6 lg:px-7">
-            <div className="flex min-h-[68px] items-center gap-3 lg:min-h-[78px] lg:gap-5">
-              <Link href={routes.home} className="plotty-logo shrink-0 transition-opacity hover:opacity-80 lg:flex-1">
+        <header className="sticky top-0 z-40 border-b border-[var(--plotty-line)] bg-[rgba(251,247,242,0.88)] backdrop-blur-xl">
+          <div className="plotty-frame-inner">
+            <div className="flex min-h-[76px] items-center gap-3 lg:min-h-[92px] lg:gap-6">
+              <Link
+                href={routes.home}
+                className="plotty-logo inline-flex shrink-0 items-end gap-1 transition-opacity hover:opacity-80"
+                aria-label="Plotty, перейти в каталог"
+              >
                 Plotty
+                <Feather className="mb-1 size-6 text-[var(--plotty-accent)] lg:size-7" aria-hidden="true" />
               </Link>
 
-              <div className="hidden flex-1 justify-center lg:flex">
-                <div className="flex items-center gap-2">
-                  <nav className="inline-flex items-center gap-1" aria-label="Основная навигация">
-                    <div className="inline-flex items-center rounded-full border border-[rgba(41,38,34,0.08)] bg-white/84 p-1 shadow-[0_8px_24px_rgba(46,35,23,0.08)]">
-                      {plottyPrimaryNavItems.map((item) => {
-                        const isActive = isPrimaryNavItemActive(pathname, item.href);
+              <nav className="hidden items-stretch gap-1 lg:flex" aria-label="Основная навигация">
+                {plottyPrimaryNavItems.map((item) => {
+                  const isActive = isPrimaryNavItemActive(pathname, item.href);
 
-                        return (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            className={cn(
-                              "plotty-button-label inline-flex min-h-[46px] items-center justify-center rounded-full px-5 text-sm transition-[background-color,color,box-shadow] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
-                              isActive
-                                ? "bg-[var(--plotty-accent)] !text-white visited:!text-white hover:!text-white shadow-[0_8px_18px_rgba(188,95,61,0.16)]"
-                                : "text-[var(--plotty-muted)] hover:bg-white/70 hover:text-[var(--plotty-ink)]",
-                            )}
-                          >
-                            {item.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </nav>
-                  {desktopActions}
-                </div>
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "plotty-button-label relative flex min-h-[92px] items-center px-5 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                        isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
+                      )}
+                    >
+                      {item.label}
+                      {isActive ? (
+                        <span
+                          className="absolute inset-x-5 bottom-0 h-0.5 bg-[var(--plotty-accent)]"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <GlobalSearch className="ml-auto hidden w-full max-w-[34rem] lg:flex" />
+
+              <div className="ml-auto hidden items-center gap-3 lg:flex">
+                {desktopActions}
               </div>
 
               {mobileHeaderActions ? (
                 <div className="ml-auto flex items-center gap-2 lg:hidden">
                   {mobileHeaderActions}
                 </div>
-              ) : <div className="ml-auto lg:hidden" />}
-
-              <div className="hidden lg:block lg:flex-1" aria-hidden="true" />
+              ) : (
+                <div className="ml-auto lg:hidden" />
+              )}
             </div>
 
-            {mobileToolbar ? <div className="border-t border-[rgba(41,38,34,0.08)] py-3 lg:hidden">{mobileToolbar}</div> : null}
+            {mobileToolbar ? <div className="border-t border-[var(--plotty-line)] py-3 lg:hidden">{mobileToolbar}</div> : null}
           </div>
         </header>
 
-        <div className={cn("px-4 pb-6 pt-3.5 sm:px-6 lg:px-7 lg:pb-7 lg:pt-[18px]", contentClassName)}>
+        <div className={cn("plotty-frame-inner pb-6 pt-4 lg:pb-8 lg:pt-7", contentClassName)}>
           {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
-            <div className="mb-4 space-y-3.5 lg:mb-6">
+            <div className="mb-5 space-y-4 lg:mb-7">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 space-y-1.5">
                   {pageMeta ? <div className="flex flex-wrap items-center gap-2">{pageMeta}</div> : null}
@@ -184,10 +217,76 @@ export function PlottyPageShell({
         ) : null}
       </section>
 
-      {showBottomNav && menuContent ? (
-        <PlottyBottomNav activeCatalog={pathname === routes.home} onMenuOpen={() => setIsMobileMenuOpen(true)} />
-      ) : null}
+      {showBottomNav ? <PlottyBottomNav /> : null}
     </div>
+  );
+}
+
+function GlobalSearch({ className }: { className?: string }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useOptionalSearchParams();
+  const currentQuery = searchParams.get("q") ?? "";
+  const [draft, setDraft] = useState(currentQuery);
+  const isCatalog = pathname === routes.home;
+
+  useEffect(() => {
+    setDraft(currentQuery);
+  }, [currentQuery]);
+
+  useEffect(() => {
+    if (!isCatalog || draft.trim() === currentQuery) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const nextParams = new URLSearchParams(searchParams);
+      const normalized = draft.trim();
+
+      if (normalized) {
+        nextParams.set("q", normalized);
+      } else {
+        nextParams.delete("q");
+      }
+      nextParams.set("page", "1");
+
+      router.replace(nextParams.toString() ? `${routes.home}?${nextParams.toString()}` : routes.home, { scroll: false });
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [currentQuery, draft, isCatalog, router, searchParams]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const normalized = draft.trim();
+    const nextParams = new URLSearchParams();
+
+    if (normalized) {
+      nextParams.set("q", normalized);
+    }
+
+    router.push(nextParams.toString() ? `${routes.home}?${nextParams.toString()}` : routes.home);
+  }
+
+  return (
+    <form
+      className={cn(
+        "items-center gap-3 rounded-full border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] px-4 py-2 shadow-[0_8px_24px_rgba(58,43,27,0.05)]",
+        className,
+      )}
+      role="search"
+      onSubmit={handleSubmit}
+    >
+      <Search className="size-5 shrink-0 text-[var(--plotty-muted)]" aria-hidden="true" />
+      <Input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        aria-label="Поиск историй, авторов и фандомов"
+        placeholder="Поиск историй, авторов и фандомов"
+        className="min-h-8 border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+      />
+    </form>
   );
 }
 
@@ -197,6 +296,7 @@ export function PlottySectionCard({
   children,
   className,
   headerClassName,
+  variant = "default",
   ...props
 }: {
   title?: ReactNode;
@@ -204,9 +304,10 @@ export function PlottySectionCard({
   children: ReactNode;
   className?: string;
   headerClassName?: string;
+  variant?: SurfaceVariant;
 } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <Card className={cn("space-y-4 p-4 sm:p-5 lg:p-[22px]", className)} {...props}>
+    <Card variant={variant} className={cn("space-y-4 p-4 sm:p-5 lg:p-6", className)} {...props}>
       {title ? (
         <div className={cn("space-y-1.5", headerClassName)}>
           <div className="plotty-section-title">{title}</div>
@@ -233,10 +334,10 @@ export function PlottyAppMenu({ onNavigate }: { onNavigate?: () => void }) {
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "rounded-[16px] border px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                "rounded-[var(--plotty-radius-md)] border px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
                 isActive
-                  ? "border-transparent bg-[var(--plotty-accent)] !text-white visited:!text-white hover:bg-[#a65434]"
-                  : "border-[var(--plotty-line)] bg-white/80 text-[var(--plotty-muted)]",
+                  ? "border-transparent bg-[var(--plotty-accent)] !text-white visited:!text-white"
+                  : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.8)] text-[var(--plotty-muted)]",
               )}
             >
               {item.label}
@@ -270,36 +371,50 @@ export function PlottyMobileSheet({
   );
 }
 
-function PlottyBottomNav({
-  activeCatalog,
-  onMenuOpen,
-}: {
-  activeCatalog?: boolean;
-  onMenuOpen: () => void;
-}) {
+function PlottyBottomNav() {
+  const pathname = usePathname();
+  const searchParams = useOptionalSearchParams();
+  const { user, isAuthenticated } = useAuth();
+  const currentUrl = buildNextUrl(pathname, new URLSearchParams(searchParams));
+  const profileHref = isAuthenticated && user?.username ? routes.user(user.username) : routes.auth({ next: currentUrl });
+  const libraryHref = isAuthenticated ? routes.library : routes.auth({ next: routes.library });
+  const writeHref = isAuthenticated ? routes.write : routes.auth({ next: routes.write });
+  const items = useMemo(
+    () => [
+      { href: routes.home, label: "Каталог", icon: BookOpen, active: pathname === routes.home },
+      { href: libraryHref, label: "Мои истории", icon: Library, active: pathname.startsWith(routes.library) },
+      { href: writeHref, label: "Мастерская", icon: PenLine, active: pathname.startsWith(routes.write) },
+      { href: profileHref, label: "Профиль", icon: UserRound, active: pathname.startsWith("/users/") },
+    ],
+    [libraryHref, pathname, profileHref, writeHref],
+  );
+
   return (
     <nav
-      className="fixed inset-x-3 bottom-3 z-40 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.94)] p-2 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-3 bottom-3 z-40 rounded-[22px] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.94)] px-2 py-1.5 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl lg:hidden"
       aria-label="Нижняя навигация"
       style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
     >
-      <div className="grid grid-cols-2 gap-2">
-        <Link
-          href={routes.home}
-          className={cn(
-            "flex min-h-11 items-center justify-center rounded-[16px] px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
-            activeCatalog ? "bg-[var(--plotty-accent)] !text-white visited:!text-white hover:bg-[#a65434]" : "text-[var(--plotty-muted)]",
-          )}
-        >
-          Каталог
-        </Link>
-        <button
-          type="button"
-          onClick={onMenuOpen}
-          className="flex min-h-11 items-center justify-center rounded-[16px] px-3 text-sm font-semibold text-[var(--plotty-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
-        >
-          Меню
-        </button>
+      <div className="grid grid-cols-4 gap-1">
+        {items.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={cn(
+                "flex min-h-[3.6rem] flex-col items-center justify-center gap-1 rounded-[16px] px-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                item.active
+                  ? "text-[var(--plotty-accent)] [&_span]:text-[var(--plotty-accent)] [&_svg]:text-[var(--plotty-accent)]"
+                  : "text-[var(--plotty-muted)]",
+              )}
+            >
+              <Icon className="size-[19px]" aria-hidden="true" />
+              <span className="truncate">{item.label}</span>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

@@ -2,6 +2,7 @@
 
 import { type FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Layers } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
@@ -31,9 +32,11 @@ function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
 export function StoryCollectionControl({
   storyId,
   className,
+  compact = false,
 }: {
   storyId: string;
   className?: string;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -142,12 +145,30 @@ export function StoryCollectionControl({
   const label = selectedCount ? `В ${selectedCount} подборк${selectedCount === 1 ? "е" : "ах"}` : "Добавить в подборку";
 
   return (
-    <div ref={popover.triggerRef} className={cn("relative w-full max-w-[18rem] space-y-1.5", className)}>
-      <span className="plotty-kicker">Подборки</span>
-      <Button type="button" variant="secondary" className="w-full justify-between gap-3 px-3 text-left text-sm" onClick={handleToggleOpen}>
-        <span className="truncate">{label}</span>
-        <span aria-hidden="true">▾</span>
-      </Button>
+    <div ref={popover.triggerRef} className={cn("relative w-full min-w-0", compact ? "" : "max-w-[18rem] space-y-1.5", className)}>
+      {compact ? null : <span className="plotty-kicker">Подборки</span>}
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] overflow-hidden rounded-[16px] border border-[rgba(41,38,34,0.1)] bg-white/88 shadow-[0_8px_24px_rgba(46,35,23,0.05)]">
+        <button
+          type="button"
+          className="plotty-button-label flex min-h-[42px] min-w-0 items-center gap-2 overflow-hidden px-3 text-left text-[var(--plotty-ink)] disabled:opacity-60"
+          onClick={handleToggleOpen}
+          disabled={busy}
+        >
+          {compact ? <Layers className="size-4 shrink-0" aria-hidden="true" /> : null}
+          <span className="truncate">{label}</span>
+        </button>
+        <button
+          type="button"
+          aria-label="Выбрать подборку"
+          aria-haspopup="dialog"
+          aria-expanded={popover.open}
+          onClick={handleToggleOpen}
+          disabled={busy}
+          className="flex min-h-[42px] items-center justify-center border-l border-[rgba(41,38,34,0.1)] text-[var(--plotty-muted)] transition-colors hover:bg-white disabled:opacity-60"
+        >
+          ▾
+        </button>
+      </div>
 
       <PopoverContent
         open={popover.open}

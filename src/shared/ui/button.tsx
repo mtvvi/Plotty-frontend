@@ -8,19 +8,19 @@ export type ButtonSize = "sm" | "md" | "lg";
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_12px_26px_rgba(188,95,61,0.2)] visited:!text-white hover:-translate-y-[1px] hover:bg-[#a65434] hover:shadow-[0_14px_30px_rgba(188,95,61,0.24)]",
+    "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_12px_24px_rgba(195,79,50,0.2)] visited:!text-white hover:-translate-y-[1px] hover:bg-[var(--plotty-accent-strong)] hover:shadow-[0_16px_30px_rgba(195,79,50,0.23)]",
   secondary:
-    "border-[var(--plotty-line)] bg-white/84 text-[var(--plotty-ink)] shadow-[0_3px_12px_rgba(46,35,23,0.04)] hover:-translate-y-[1px] hover:border-[var(--plotty-line-strong)] hover:bg-white",
+    "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.78)] text-[var(--plotty-ink)] shadow-[0_4px_14px_rgba(58,43,27,0.04)] hover:-translate-y-[1px] hover:border-[var(--plotty-line-strong)] hover:bg-[var(--plotty-paper-strong)]",
   ghost:
     "border-transparent bg-transparent text-[var(--plotty-muted)] hover:bg-black/5 hover:text-[var(--plotty-ink)]",
   destructive:
-    "border-[rgba(188,95,61,0.16)] bg-[#fff4ee] text-[var(--plotty-accent)] shadow-[0_3px_12px_rgba(188,95,61,0.06)] hover:border-[rgba(188,95,61,0.26)] hover:bg-[#fee5da]",
+    "border-[rgba(189,63,50,0.16)] bg-[var(--plotty-danger-soft)] text-[var(--plotty-danger)] shadow-[0_3px_12px_rgba(189,63,50,0.06)] hover:border-[rgba(189,63,50,0.26)] hover:bg-[#fbd7cd]",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "min-h-10 rounded-[13px] px-3 py-2 text-sm",
-  md: "min-h-[44px] rounded-[15px] px-4 py-2.5",
-  lg: "min-h-12 rounded-[16px] px-5 py-3 text-base",
+  sm: "min-h-10 rounded-[var(--plotty-radius-sm)] px-3 py-2 text-sm",
+  md: "min-h-[44px] rounded-[var(--plotty-radius-md)] px-4 py-2.5",
+  lg: "min-h-12 rounded-[var(--plotty-radius-md)] px-5 py-3 text-base",
 };
 
 export function buttonClassName({
@@ -35,7 +35,7 @@ export function buttonClassName({
   className?: string;
 } = {}) {
   return cn(
-    "plotty-button-label inline-flex items-center justify-center border transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:shadow-none disabled:opacity-60",
+    "plotty-button-label inline-flex items-center justify-center gap-2 border transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:shadow-none disabled:opacity-60",
     variantClasses[variant],
     sizeClasses[size],
     fullWidth && "w-full",

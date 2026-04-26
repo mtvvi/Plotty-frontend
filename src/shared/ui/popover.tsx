@@ -145,7 +145,7 @@ export function PopoverContent({
     <div
       ref={contentRef}
       className={cn(
-        "z-[100] border border-[rgba(41,38,34,0.1)] bg-[rgba(247,242,234,0.98)] shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl",
+        "z-[100] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl",
         className,
       )}
       style={{

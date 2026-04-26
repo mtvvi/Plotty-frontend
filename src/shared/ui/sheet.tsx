@@ -63,14 +63,14 @@ export function Sheet({
         type="button"
         aria-label={closeLabel}
         onClick={onClose}
-        className="absolute inset-0 bg-[rgba(35,33,30,0.4)] backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgba(31,26,22,0.4)] backdrop-blur-sm"
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         className={cn(
-          "absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto rounded-t-[28px] border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl",
+          "absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] p-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl",
           className,
         )}
       >

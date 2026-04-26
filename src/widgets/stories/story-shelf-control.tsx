@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bookmark } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -26,7 +27,15 @@ function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
   return query ? `${pathname}?${query}` : pathname;
 }
 
-export function StoryShelfControl({ storyId, className }: { storyId: string; className?: string }) {
+export function StoryShelfControl({
+  storyId,
+  className,
+  compact = false,
+}: {
+  storyId: string;
+  className?: string;
+  compact?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -85,17 +94,20 @@ export function StoryShelfControl({ storyId, className }: { storyId: string; cla
   const busy = shelfMutation.isPending || (isAuthenticated && shelfQuery.isLoading);
 
   return (
-    <div ref={popover.triggerRef} className={cn("relative w-full max-w-[18rem] space-y-1.5", className)}>
-      <span className="plotty-kicker">Статус</span>
-      <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] overflow-hidden rounded-[16px] border border-[rgba(41,38,34,0.1)] bg-white/88 shadow-[0_8px_24px_rgba(46,35,23,0.05)]">
+    <div ref={popover.triggerRef} className={cn("relative w-full min-w-0", compact ? "" : "max-w-[18rem] space-y-1.5", className)}>
+      {compact ? null : <span className="plotty-kicker">Статус</span>}
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] overflow-hidden rounded-[16px] border border-[rgba(41,38,34,0.1)] bg-white/88 shadow-[0_8px_24px_rgba(46,35,23,0.05)]">
         <button
           type="button"
           onClick={handlePrimaryClick}
           disabled={busy}
-          className="min-h-[42px] truncate px-3 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-colors hover:bg-white disabled:opacity-60"
+          className={cn(
+            "plotty-button-label min-h-[42px] min-w-0 text-left text-[var(--plotty-ink)] disabled:opacity-60",
+            compact ? "flex items-center gap-2 overflow-hidden px-3" : "truncate px-3 transition-colors hover:bg-white",
+          )}
         >
-          {!currentShelf ? <span className="mr-1 text-base leading-none">+</span> : null}
-          {label}
+          {compact ? <Bookmark className="size-4 shrink-0" aria-hidden="true" /> : !currentShelf ? <span className="mr-1 text-base leading-none">+</span> : null}
+          <span className="truncate">{label}</span>
         </button>
         <button
           type="button"

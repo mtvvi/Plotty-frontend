@@ -2,17 +2,33 @@ import type { HTMLAttributes } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
-export type SurfaceVariant = "default" | "panel" | "inset" | "listItem";
+export type SurfaceVariant =
+  | "default"
+  | "panel"
+  | "inset"
+  | "listItem"
+  | "sidebar"
+  | "subtle"
+  | "media"
+  | "interactive";
 
 const surfaceClasses: Record<SurfaceVariant, string> = {
   default:
-    "rounded-[24px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.8)] shadow-[var(--plotty-shadow-card)]",
+    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.82)] shadow-[var(--plotty-shadow-card)]",
   panel:
-    "rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)]",
+    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[var(--plotty-panel-muted)]",
   inset:
-    "rounded-[18px] border border-[rgba(41,38,34,0.06)] bg-white/72",
+    "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.78)]",
   listItem:
-    "rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/76",
+    "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.76)]",
+  sidebar:
+    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(250,245,238,0.78)] shadow-[0_12px_34px_rgba(58,43,27,0.06)]",
+  subtle:
+    "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.56)]",
+  media:
+    "overflow-hidden rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[linear-gradient(135deg,var(--plotty-panel),var(--plotty-paper))]",
+  interactive:
+    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.84)] shadow-[var(--plotty-shadow-card)] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-[rgba(195,79,50,0.2)] hover:shadow-[0_24px_58px_rgba(58,43,27,0.13)]",
 };
 
 export interface SurfaceProps extends HTMLAttributes<HTMLDivElement> {
