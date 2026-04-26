@@ -32,6 +32,7 @@ export interface StoryListItem {
   viewerHasLiked?: boolean;
   aiHint?: string;
   author?: StoryAuthor | null;
+  coverImageUrl?: string | null;
 }
 
 export interface ChapterListItem {
@@ -69,6 +70,7 @@ export interface StoryDetails {
   viewerHasLiked?: boolean;
   aiHint?: string;
   author?: StoryAuthor | null;
+  coverImageUrl?: string | null;
 }
 
 export interface ChapterDetails {
@@ -105,7 +107,10 @@ export interface StoriesQuery {
   q: string;
   page: number;
   pageSize: number;
+  sort?: StoriesSort;
 }
+
+export type StoriesSort = "updated-desc" | "updated-asc" | "title-asc" | "title-desc";
 
 export interface StoriesResponse {
   items: StoryListItem[];

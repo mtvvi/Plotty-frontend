@@ -1,41 +1,37 @@
-﻿"use client";
+"use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { BookOpen, CalendarDays, Heart, List, MessageCircle, Tag, UserRound } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import {
   chapterDetailsQueryOptions,
   chaptersViewedQueryOptions,
-  likeStory,
-  patchStorySummaryCaches,
   storyDetailsQueryOptions,
-  unlikeStory,
 } from "@/entities/story/api/stories-api";
-import { isAuthError } from "@/shared/api/fetch-json";
+import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
+import { isAuthError } from "@/shared/api/fetch-json";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
+import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
-import { TabButton } from "@/shared/ui/tabs";
+import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCoverPreview } from "./story-cover-preview";
 import { StoryCollectionControl } from "./story-collection-control";
 import { StoryShelfControl } from "./story-shelf-control";
-import { StoryTagChip } from "./story-tag-chip";
 
-type StorySection = "description" | "chapters";
+type MobileStorySection = "description" | "chapters" | "info";
 
 export function StoryDetailsScreen({ slug }: { slug: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
+  const [activeMobileSection, setActiveMobileSection] = useState<MobileStorySection>("description");
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
-  const [activeSection, setActiveSection] = useState<StorySection>(getInitialSection(searchParams.get("tab")));
   const readerChapters = useMemo(
     () => (storyQuery.data ? publicChaptersForReader(storyQuery.data.chapters) : []),
     [storyQuery.data],
@@ -43,6 +39,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   const firstChapter = readerChapters[0] ?? null;
   const firstChapterQuery = useQuery({
     ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
+    enabled: Boolean(firstChapter?.id && !storyQuery.data?.coverImageUrl),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
@@ -55,13 +52,11 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
     return new Map(items.map((item) => [item.chapterId, item.viewed]));
   }, [chaptersViewedQuery.data?.items]);
-  const likeMutation = useMutation({
-    mutationFn: ({ liked, storyId }: { liked: boolean; storyId: string }) => (liked ? unlikeStory(storyId) : likeStory(storyId)),
+  const likeMutation = useStoryLikeMutation({
+    storyId: storyQuery.data?.id ?? "",
+    likesCount: storyQuery.data?.likesCount,
+    viewerHasLiked: Boolean(storyQuery.data?.viewerHasLiked),
   });
-
-  useEffect(() => {
-    setActiveSection(getInitialSection(searchParams.get("tab")));
-  }, [searchParams]);
 
   if (storyQuery.isLoading) {
     return (
@@ -70,7 +65,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
         pageDescription="Собираем метаданные истории и список глав."
         menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       >
-        <div className="h-72 rounded-[24px] bg-white/40" />
+        <div className="h-72 rounded-[var(--plotty-radius-lg)] bg-white/40" />
       </PlottyPageShell>
     );
   }
@@ -89,94 +84,86 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
   const story = storyQuery.data;
   const storyDescription = story.aiHint?.trim() ? story.aiHint : STORY_ANNOTATION_PLACEHOLDER;
-  const displayCoverImage = firstChapterQuery.data?.imageUrl;
+  const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
   const viewerHasLiked = Boolean(story.viewerHasLiked);
   const genericTags = story.tags.filter((tag) => !["completion", "rating", "size", "directionality"].includes(tag.category ?? ""));
 
   async function handleToggleLike() {
-    const nextLiked = !viewerHasLiked;
-    const previousLikesCount = story.likesCount ?? 0;
-
-    patchStorySummaryCaches(queryClient, story.id, {
-      likesCount: Math.max(previousLikesCount + (nextLiked ? 1 : -1), 0),
-      viewerHasLiked: nextLiked,
-    });
-
     try {
-      const result = await likeMutation.mutateAsync({ liked: viewerHasLiked, storyId: story.id });
-
-      patchStorySummaryCaches(queryClient, story.id, {
-        likesCount: result.likesCount,
-        viewerHasLiked: result.viewerHasLiked,
-      });
+      await likeMutation.toggleLike();
     } catch (error) {
-      patchStorySummaryCaches(queryClient, story.id, {
-        likesCount: previousLikesCount,
-        viewerHasLiked,
-      });
-
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.story(slug) }));
       }
     }
   }
 
+  function selectMobileSection(section: MobileStorySection) {
+    setActiveMobileSection(section);
+  }
+
   return (
     <PlottyPageShell suppressPageIntro showMobileBack mobileBackHref={routes.home} menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
-      <div className="space-y-4 lg:space-y-5">
-        <PlottySectionCard className="overflow-hidden p-0">
-          <div className="grid gap-0 xl:grid-cols-[360px_minmax(0,1fr)]">
-            <StoryCoverPreview
-              title={story.title}
-              imageUrl={displayCoverImage}
-              className="h-full border-0 border-b border-[rgba(35,33,30,0.08)] xl:border-b-0 xl:border-r"
-              imageClassName="h-full"
-              fullHeight
-            />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
+        <main className="min-w-0 space-y-5">
+          <PlottySectionCard className="overflow-hidden p-0">
+            <div className="grid lg:grid-cols-[minmax(18rem,28rem)_minmax(0,1fr)]">
+              <StoryCoverPreview
+                title={story.title}
+                imageUrl={displayCoverImage}
+                className="min-h-[16rem] rounded-none border-0 border-b border-[var(--plotty-line)] sm:min-h-[20rem] lg:min-h-[24rem] lg:border-b-0 lg:border-r"
+                imageClassName="h-full min-h-[16rem] sm:min-h-[20rem] lg:min-h-[24rem]"
+                fullHeight
+              />
 
-            <div className="space-y-5 p-4 sm:p-5 lg:p-6 xl:p-7">
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <div className="plotty-kicker">История</div>
-                  <h1 className="plotty-page-title text-[2.15rem] leading-[0.95] sm:text-[2.85rem] xl:text-[3.35rem]">
-                    {story.title}
-                  </h1>
+              <div className="space-y-5 p-5 sm:p-6 lg:p-8">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--plotty-muted)]">
+                    {story.author?.username ? (
+                      <Link href={routes.user(story.author.username)} className="inline-flex items-center gap-1.5 font-semibold hover:text-[var(--plotty-accent)]">
+                        <UserRound className="size-4" aria-hidden="true" />
+                        Автор {story.author.username}
+                      </Link>
+                    ) : null}
+                    <span aria-hidden="true">•</span>
+                    <span>{`Обновлена ${new Date(story.updatedAt).toLocaleDateString("ru-RU")}`}</span>
+                    <span aria-hidden="true">•</span>
+                    <span>
+                      {readerChapters.length} {getChapterLabel(readerChapters.length)}
+                    </span>
+                  </div>
+                  <h1 className="plotty-page-title">{story.title}</h1>
                 </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[14px] text-[var(--plotty-muted)]">
-                  {story.fandom ? <span>{story.fandom}</span> : null}
-                  {story.author?.username ? (
-                    <Link href={routes.user(story.author.username)} className="font-semibold text-[var(--plotty-accent)] hover:underline">
-                      {`Автор ${story.author.username}`}
-                    </Link>
-                  ) : null}
-                  <span>
-                    {readerChapters.length} {getChapterLabel(readerChapters.length)}
-                  </span>
-                </div>
-                <p className="plotty-meta">{`Обновлена ${new Date(story.updatedAt).toLocaleString("ru-RU")}`}</p>
-              </div>
 
-              <div className="flex flex-wrap gap-2">
-                {story.statusLabel ? <StoryMetaPill accent>{story.statusLabel}</StoryMetaPill> : null}
-                {story.ratingLabel ? <StoryMetaPill>{story.ratingLabel}</StoryMetaPill> : null}
-                {story.sizeLabel ? <StoryMetaPill>{story.sizeLabel}</StoryMetaPill> : null}
-                {genericTags.map((tag) => (
-                  <StoryTagChip key={tag.id} tag={tag} />
-                ))}
-              </div>
+                {genericTags.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {genericTags.map((tag) => (
+                      <Chip key={tag.id} tone={tag.category === "warning" ? "gold" : "default"}>
+                        {tag.name}
+                      </Chip>
+                    ))}
+                  </div>
+                ) : null}
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
                   {firstChapter ? (
-                    <ButtonLink href={routes.chapter(story.slug, firstChapter.number ?? 1)} variant="primary">
+                    <ButtonLink
+                      href={routes.chapter(story.slug, firstChapter.number ?? 1)}
+                      variant="primary"
+                      size="lg"
+                      className="max-sm:min-h-12 max-sm:px-3 max-sm:text-sm"
+                    >
+                      <BookOpen className="size-5" aria-hidden="true" />
                       Читать
                     </ButtonLink>
                   ) : null}
-                  <Button type="button" variant="secondary" onClick={() => setActiveSection("chapters")} disabled={!readerChapters.length}>
-                    К главам
-                  </Button>
-                  {readerChapters[0] ? (
-                    <ButtonLink href={`${routes.chapter(story.slug, readerChapters[0].number ?? 1)}#comments`} variant="secondary">
+                  {firstChapter ? (
+                    <ButtonLink
+                      href={`${routes.chapter(story.slug, firstChapter.number ?? 1)}#comments`}
+                      variant="secondary"
+                      className="max-sm:min-h-12 max-sm:px-3 max-sm:text-sm"
+                    >
+                      <MessageCircle className="size-4" aria-hidden="true" />
                       Комментарии
                     </ButtonLink>
                   ) : null}
@@ -185,146 +172,121 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     onClick={() => void handleToggleLike()}
                     disabled={likeMutation.isPending}
                     variant={viewerHasLiked ? "primary" : "secondary"}
-                    className="gap-2 px-4"
                     aria-pressed={viewerHasLiked}
                     aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
+                    className="max-sm:col-span-2 max-sm:min-h-12 max-sm:px-3 max-sm:text-sm"
                   >
-                    <StatHeartIcon filled={viewerHasLiked} />
-                    <span>{formatCount(story.likesCount)}</span>
+                    <Heart className="size-4" fill={viewerHasLiked ? "currentColor" : "none"} aria-hidden="true" />
+                    Мне нравится
+                    <span className="rounded-full bg-[rgba(31,26,22,0.08)] px-2 py-0.5 text-xs">
+                      {formatCount(story.likesCount)}
+                    </span>
                   </Button>
                 </div>
 
-                <div className="grid w-full gap-3 sm:w-[18rem]">
-                  <StoryShelfControl storyId={story.id} className="max-w-none" />
-                  <StoryCollectionControl storyId={story.id} className="max-w-none" />
+                <div className="grid gap-3 lg:hidden">
+                  <StoryShelfControl storyId={story.id} compact className="max-w-none" />
+                  <StoryCollectionControl storyId={story.id} compact className="max-w-none" />
                 </div>
-              </div>
 
-              <div className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
-                <p
-                  className="plotty-body text-[15px] leading-7 text-[var(--plotty-muted)]"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {storyDescription}
-                </p>
-              </div>
-            </div>
-          </div>
-        </PlottySectionCard>
-
-        <div className="plotty-segmented">
-          <TabButton type="button" isActive={activeSection === "description"} onClick={() => setActiveSection("description")}>
-            Описание
-          </TabButton>
-          <TabButton type="button" isActive={activeSection === "chapters"} onClick={() => setActiveSection("chapters")}>
-            Главы
-          </TabButton>
-        </div>
-
-        <PlottySectionCard id="story-content" className="space-y-5">
-          {activeSection === "description" ? (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-              <div className="space-y-4">
-                <p className="plotty-body max-w-4xl text-[16px] leading-8 text-[var(--plotty-ink)] lg:text-[17px]">
-                  {storyDescription}
-                </p>
-              </div>
-              <div className="space-y-3 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
-                <div className="plotty-section-title">Мета истории</div>
-                <div className="grid gap-2 text-sm text-[var(--plotty-muted)]">
-                  <span>{`Создана ${new Date(story.createdAt).toLocaleDateString("ru-RU")}`}</span>
-                  <span>{`Обновлена ${new Date(story.updatedAt).toLocaleDateString("ru-RU")}`}</span>
-                  {story.author?.username ? (
-                    <Link href={routes.user(story.author.username)} className="font-semibold text-[var(--plotty-accent)] hover:underline">
-                      {`Автор ${story.author.username}`}
-                    </Link>
-                  ) : null}
+                <div className="hidden space-y-2 border-t border-[var(--plotty-line)] pt-4 lg:block">
+                  <h2 className="plotty-label">Аннотация</h2>
+                  <p className="plotty-body max-w-4xl text-[var(--plotty-ink-soft)]">{storyDescription}</p>
                 </div>
               </div>
             </div>
-          ) : null}
+          </PlottySectionCard>
 
-          {activeSection === "chapters" ? (
-            readerChapters.length ? (
-              <div className="space-y-3">
-                {readerChapters.map((chapter) => (
-                  <div
-                    key={chapter.id}
-                    className="flex flex-col gap-4 rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/76 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[rgba(188,95,61,0.08)] text-sm font-bold text-[var(--plotty-accent)]">
-                        {chapter.number ?? "—"}
-                      </div>
-                      <div className="min-w-0 space-y-1">
-                        <div className="plotty-card-title text-[1.1rem] leading-7">
-                          Глава {chapter.number}. {chapter.title}
-                        </div>
-                        <div className="plotty-meta text-sm">
-                          {`Обновлена ${new Date(chapter.updatedAt).toLocaleString("ru-RU")}`}
-                        </div>
-                        <span
-                          className={
-                            viewedByChapterId.get(chapter.id)
-                              ? "inline-flex rounded-full bg-[rgba(54,81,63,0.1)] px-2.5 py-1 text-[12px] font-semibold text-[var(--plotty-olive)]"
-                              : "inline-flex rounded-full border border-[rgba(41,38,34,0.09)] bg-white/70 px-2.5 py-1 text-[12px] font-semibold text-[var(--plotty-muted)]"
-                          }
+          <SegmentedControl className="lg:!hidden">
+            <TabButton type="button" isActive={activeMobileSection === "description"} onClick={() => selectMobileSection("description")}>
+              Описание
+            </TabButton>
+            <TabButton type="button" isActive={activeMobileSection === "chapters"} onClick={() => selectMobileSection("chapters")}>
+              Главы
+            </TabButton>
+            <TabButton type="button" isActive={activeMobileSection === "info"} onClick={() => selectMobileSection("info")}>
+              О истории
+            </TabButton>
+          </SegmentedControl>
+
+          <PlottySectionCard id="story-content" title="Аннотация" className={activeMobileSection === "description" ? "lg:hidden" : "hidden"}>
+            <p className="plotty-body text-[var(--plotty-ink-soft)]">{storyDescription}</p>
+          </PlottySectionCard>
+
+          <PlottySectionCard
+            id="chapters"
+            title="Главы"
+            description={`${readerChapters.length} ${getChapterLabel(readerChapters.length)}`}
+            className={activeMobileSection === "chapters" ? undefined : "max-lg:hidden"}
+          >
+            {readerChapters.length ? (
+              <div className="divide-y divide-[var(--plotty-line)] overflow-hidden rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.62)]">
+                {readerChapters.map((chapter) => {
+                  const viewed = viewedByChapterId.get(chapter.id);
+
+                  return (
+                    <div key={chapter.id} className="grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                      <span className="plotty-card-title text-[1.35rem]">{chapter.number ?? "—"}.</span>
+                      <div className="min-w-0">
+                        <Link
+                          href={routes.chapter(story.slug, chapter.number ?? 1)}
+                          className="plotty-card-title text-[1.18rem] hover:text-[var(--plotty-accent)]"
                         >
-                          {viewedByChapterId.get(chapter.id) ? "Прочитана" : "Не прочитана"}
-                        </span>
+                          {chapter.title}
+                        </Link>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-[var(--plotty-muted)]">
+                          <span>{new Date(chapter.updatedAt).toLocaleDateString("ru-RU")}</span>
+                          <span className={viewed ? "text-[var(--plotty-olive)]" : "text-[var(--plotty-accent)]"}>
+                            {viewed ? "Прочитано" : "Новая"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      <ButtonLink href={routes.chapter(story.slug, chapter.number ?? 1)} variant="primary">
+                      <ButtonLink href={routes.chapter(story.slug, chapter.number ?? 1)} variant="secondary" size="sm">
                         Читать
                       </ButtonLink>
-                      <ButtonLink href={`${routes.chapter(story.slug, chapter.number ?? 1)}#comments`} variant="secondary">
-                        Комментарии
-                      </ButtonLink>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <EmptyState title="У истории пока нет глав" description="Загляните позже или выберите другую историю из каталога." />
-            )
-          ) : null}
-        </PlottySectionCard>
+            )}
+          </PlottySectionCard>
+        </main>
+
+        <aside className="space-y-4">
+          <PlottySectionCard id="story-info" title="О истории" variant="sidebar" className={activeMobileSection === "info" ? undefined : "max-lg:hidden"}>
+            <div className="grid gap-3 text-sm">
+              <InfoRow icon={<Tag className="size-4" />} label="Фандом" value={story.fandom ?? "Не указан"} />
+              <InfoRow icon={<BookOpen className="size-4" />} label="Рейтинг" value={story.ratingLabel ?? "Не указан"} />
+              <InfoRow icon={<CalendarDays className="size-4" />} label="Статус" value={story.statusLabel ?? "Не указан"} />
+              <InfoRow icon={<List className="size-4" />} label="Размер" value={story.sizeLabel ?? "Не указан"} />
+            </div>
+          </PlottySectionCard>
+
+          <PlottySectionCard title="Моя полка" variant="sidebar" className="max-lg:hidden">
+            <div className="space-y-3">
+              <StoryShelfControl storyId={story.id} className="max-w-none" />
+              <StoryCollectionControl storyId={story.id} className="max-w-none" />
+            </div>
+          </PlottySectionCard>
+        </aside>
       </div>
     </PlottyPageShell>
   );
 }
 
-function StoryMetaPill({
-  children,
-  accent = false,
-}: {
-  children: ReactNode;
-  accent?: boolean;
-}) {
+function InfoRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <span
-      className={
-        accent
-          ? "rounded-full bg-[rgba(188,95,61,0.08)] px-3 py-2 text-[12px] font-semibold text-[var(--plotty-accent)]"
-          : "rounded-full border border-[rgba(41,38,34,0.09)] bg-white/82 px-3 py-2 text-[12px] font-semibold text-[var(--plotty-muted)]"
-      }
-    >
-      {children}
-    </span>
-  );
-}
-
-function StatHeartIcon({ filled = false }: { filled?: boolean }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill={filled ? "currentColor" : "none"} aria-hidden="true">
-      <path d="M8 13.3 2.9 8.6a3.2 3.2 0 0 1 4.5-4.5L8 4.7l.6-.6a3.2 3.2 0 1 1 4.5 4.5L8 13.3Z" stroke="currentColor" strokeWidth="1.35" />
-    </svg>
+    <div className="grid grid-cols-[1.25rem_1fr] gap-x-3 gap-y-0.5">
+      <span className="mt-0.5 text-[var(--plotty-muted)]" aria-hidden="true">
+        {icon}
+      </span>
+      <div className="grid grid-cols-[minmax(5rem,0.75fr)_minmax(0,1fr)] gap-3">
+        <span className="text-[var(--plotty-muted)]">{label}</span>
+        <span className="font-semibold text-[var(--plotty-ink)]">{value}</span>
+      </div>
+    </div>
   );
 }
 
@@ -345,12 +307,4 @@ function getChapterLabel(count: number) {
   }
 
   return "глав";
-}
-
-function getInitialSection(value: string | null): StorySection {
-  if (value === "chapters") {
-    return "chapters";
-  }
-
-  return "description";
 }

@@ -10,7 +10,7 @@ import {
 } from "@/entities/library/api/library-api";
 import type { ReaderShelf } from "@/entities/library/model/types";
 import { EmptyState } from "@/shared/ui/empty-state";
-import { TabButton } from "@/shared/ui/tabs";
+import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { RequireAuth } from "@/widgets/auth/require-auth";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
@@ -28,7 +28,7 @@ export function ReaderLibraryScreen() {
 function ReaderLibraryContent() {
   const [activeTab, setActiveTab] = useState<LibraryTab>("all");
   const shelfQuery = useQuery(myShelfQueryOptions());
-  const entries = shelfQuery.data?.items ?? [];
+  const entries = useMemo(() => shelfQuery.data?.items ?? [], [shelfQuery.data?.items]);
   const visibleEntries = useMemo(
     () => (activeTab === "all" ? entries : entries.filter((entry) => entry.shelf === activeTab)),
     [activeTab, entries],
@@ -41,7 +41,7 @@ function ReaderLibraryContent() {
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       <div className="space-y-5">
-        <div className="plotty-segmented overflow-x-auto">
+        <SegmentedControl className="overflow-x-auto">
           <TabButton type="button" isActive={activeTab === "all"} onClick={() => setActiveTab("all")}>
             Все
           </TabButton>
@@ -55,7 +55,7 @@ function ReaderLibraryContent() {
               {option.label}
             </TabButton>
           ))}
-        </div>
+        </SegmentedControl>
 
         <PlottySectionCard
           title={activeTab === "all" ? "Все статусы" : readerShelfLabels[activeTab]}

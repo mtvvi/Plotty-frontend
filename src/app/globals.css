@@ -1,32 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  --plotty-bg: #d9d2c4;
-  --plotty-bg-highlight: #e4ddd2;
-  --plotty-paper: #f7f2ea;
-  --plotty-paper-strong: #fdfbf7;
-  --plotty-panel: #f0e8db;
-  --plotty-panel-strong: #e9e0d1;
-  --plotty-panel-muted: rgba(255, 255, 255, 0.58);
-  --plotty-line: rgba(41, 38, 34, 0.12);
-  --plotty-line-strong: rgba(41, 38, 34, 0.22);
-  --plotty-ink: #23211e;
-  --plotty-muted: #6d665d;
-  --plotty-muted-soft: #9a9088;
-  --plotty-accent: #bc5f3d;
-  --plotty-accent-soft: #f1d6cb;
-  --plotty-olive: #36513f;
-  --plotty-olive-soft: #d7e1d8;
-  --plotty-gold: #a5772f;
-  --plotty-gold-soft: #efe4cc;
-  --plotty-shadow: 0 24px 70px rgba(46, 35, 23, 0.11);
-  --plotty-shadow-soft: 0 10px 30px rgba(46, 35, 23, 0.08);
-  --plotty-shadow-card: 0 16px 40px rgba(46, 35, 23, 0.08);
-  --plotty-container: 1440px;
-  --plotty-radius-xl: 32px;
-  --plotty-radius-lg: 20px;
-  --plotty-radius-md: 16px;
-  --plotty-radius-sm: 12px;
+  --plotty-bg: #d8caba;
+  --plotty-bg-highlight: #efe6d9;
+  --plotty-paper: #fbf7f2;
+  --plotty-paper-strong: #fffdf9;
+  --plotty-paper-soft: #f5eee5;
+  --plotty-panel: #f0e5d6;
+  --plotty-panel-strong: #e7d8c7;
+  --plotty-panel-muted: rgba(255, 251, 245, 0.72);
+  --plotty-line: rgba(43, 36, 29, 0.11);
+  --plotty-line-strong: rgba(43, 36, 29, 0.19);
+  --plotty-ink: #1f1a16;
+  --plotty-ink-soft: #3e352d;
+  --plotty-muted: #70665b;
+  --plotty-muted-soft: #a79b8f;
+  --plotty-accent: #c34f32;
+  --plotty-accent-strong: #a53f28;
+  --plotty-accent-soft: #f2d9cd;
+  --plotty-accent-wash: #fbebe4;
+  --plotty-olive: #3f5d45;
+  --plotty-olive-soft: #dce6d8;
+  --plotty-blue: #6d94b7;
+  --plotty-blue-soft: #dfeaf2;
+  --plotty-gold: #a9782e;
+  --plotty-gold-soft: #f0e4cb;
+  --plotty-danger: #bd3f32;
+  --plotty-danger-soft: #fde5dd;
+  --plotty-shadow: 0 26px 80px rgba(58, 43, 27, 0.14);
+  --plotty-shadow-soft: 0 12px 32px rgba(58, 43, 27, 0.09);
+  --plotty-shadow-card: 0 16px 46px rgba(58, 43, 27, 0.08);
+  --plotty-container: 1720px;
+  --plotty-radius-xl: 26px;
+  --plotty-radius-lg: 18px;
+  --plotty-radius-md: 14px;
+  --plotty-radius-sm: 10px;
 }
 
 * {
@@ -42,7 +50,8 @@ body {
   min-height: 100vh;
   color: var(--plotty-ink);
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.45), transparent 28%),
+    radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.66), transparent 26rem),
+    radial-gradient(circle at 86% 12%, rgba(195, 79, 50, 0.07), transparent 24rem),
     linear-gradient(180deg, var(--plotty-bg-highlight) 0%, var(--plotty-bg) 100%);
   font-family: var(--font-sans), sans-serif;
 }
@@ -52,7 +61,7 @@ button,
 input,
 textarea,
 select {
-  font-feature-settings: "ss01" 1;
+  font-feature-settings: "ss01" 1, "cv05" 1;
 }
 
 a {
@@ -83,90 +92,160 @@ select {
 }
 
 .plotty-page-shell {
+  position: relative;
   width: 100%;
   min-height: 100vh;
-  padding: 1.25rem clamp(1rem, 3vw, 2rem) 4.5rem;
-  background-image:
-    linear-gradient(rgba(41, 38, 34, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(41, 38, 34, 0.03) 1px, transparent 1px);
-  background-size: 36px 36px;
+  padding: 0.45rem clamp(0.45rem, 2.4vw, 1.4rem) 4.5rem;
+  overflow-x: clip;
 }
 
 .plotty-frame {
   width: min(100%, var(--plotty-container));
   margin: 0 auto 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.78);
   border-radius: var(--plotty-radius-xl);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(247, 242, 234, 0.96));
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 249, 0.92), rgba(250, 245, 238, 0.98)),
+    var(--plotty-paper);
   box-shadow: var(--plotty-shadow);
   overflow: hidden;
 }
 
+.plotty-frame-inner {
+  padding-inline: clamp(1rem, 2.2vw, 2.1rem);
+}
+
 .plotty-shell-grid {
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr) 280px;
-  gap: 1.25rem;
+  grid-template-columns: minmax(14rem, 21rem) minmax(0, 1fr) minmax(14rem, 18rem);
+  gap: 1.15rem;
 }
 
 .plotty-surface {
-  border-radius: var(--plotty-radius-lg);
   border: 1px solid var(--plotty-line);
-  background: rgba(255, 255, 255, 0.68);
+  border-radius: var(--plotty-radius-lg);
+  background: rgba(255, 251, 245, 0.78);
   box-shadow: var(--plotty-shadow-card);
 }
 
+.plotty-seriffed,
 .plotty-serif {
   font-family: var(--font-serif), serif;
 }
 
 .plotty-logo {
   font-family: var(--font-serif), serif;
-  font-size: clamp(1.7rem, 1.15rem + 1.4vw, 2.2rem);
+  font-size: clamp(2rem, 1.4rem + 1.55vw, 3.2rem);
   font-weight: 700;
-  line-height: 0.95;
-  letter-spacing: -0.04em;
+  line-height: 0.92;
+  letter-spacing: 0;
+}
+
+.plotty-feather {
+  color: var(--plotty-accent);
+  font-family: var(--font-serif), serif;
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .plotty-page-title {
   font-family: var(--font-serif), serif;
-  font-size: clamp(2rem, 1.25rem + 2vw, 3.25rem);
-  font-weight: 600;
+  font-size: clamp(2.25rem, 1.35rem + 2.6vw, 4.25rem);
+  font-weight: 700;
   line-height: 0.98;
-  letter-spacing: -0.045em;
+  letter-spacing: 0;
 }
 
 .plotty-section-title {
-  font-size: 1.125rem;
+  font-family: var(--font-serif), serif;
+  font-size: clamp(1.25rem, 1.05rem + 0.45vw, 1.65rem);
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  line-height: 1.12;
+  letter-spacing: 0;
 }
 
 .plotty-card-title {
-  font-size: 1.125rem;
+  font-family: var(--font-serif), serif;
+  font-size: clamp(1.15rem, 1rem + 0.45vw, 1.55rem);
   font-weight: 700;
+  line-height: 1.14;
+  letter-spacing: 0;
+}
+
+.plotty-story-card {
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.plotty-story-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(195, 79, 50, 0.2);
+  box-shadow: 0 24px 58px rgba(58, 43, 27, 0.13);
+}
+
+.plotty-story-eyebrow-kind {
+  color: var(--plotty-accent);
+  font-size: 0.72rem;
+  font-weight: 800;
   line-height: 1.2;
-  letter-spacing: -0.025em;
+  text-transform: uppercase;
+}
+
+.plotty-story-eyebrow-date {
+  color: var(--plotty-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.plotty-story-title {
+  font-family: var(--font-serif), serif;
+  font-size: clamp(1.9rem, 3vw, 3rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.plotty-story-title-anchor {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.plotty-story-title-text {
+  background-image: linear-gradient(90deg, currentColor, currentColor);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0 2px;
+  transition:
+    color 180ms ease,
+    background-size 260ms ease;
+}
+
+.plotty-story-card:is(:hover, :focus-within) .plotty-story-title-text {
+  color: var(--plotty-accent);
+  background-size: 100% 2px;
 }
 
 .plotty-body {
-  font-size: 0.95rem;
+  font-size: 0.96rem;
   line-height: 1.65;
 }
 
 .plotty-meta {
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.45;
-  letter-spacing: 0.01em;
   color: var(--plotty-muted);
 }
 
 .plotty-kicker {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.2;
-  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--plotty-muted);
 }
@@ -174,55 +253,86 @@ select {
 .plotty-stat {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  min-height: 2.25rem;
-  padding: 0.55rem 0.8rem;
-  border-radius: 999px;
-  border: 1px solid rgba(41, 38, 34, 0.08);
-  background: rgba(255, 255, 255, 0.82);
-  font-size: 0.8125rem;
-  font-weight: 700;
-  line-height: 1;
+  gap: 0.48rem;
+  min-height: 2.3rem;
+  padding: 0.58rem 0.78rem;
+  border: 1px solid var(--plotty-line);
+  border-radius: var(--plotty-radius-md);
+  background: rgba(255, 253, 249, 0.84);
   color: var(--plotty-muted);
+  font-size: 0.83rem;
+  font-weight: 650;
+  line-height: 1;
 }
 
 .plotty-segmented {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem;
-  border-radius: 999px;
-  border: 1px solid rgba(41, 38, 34, 0.08);
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--plotty-line);
+  border-radius: var(--plotty-radius-md);
+  background: rgba(255, 251, 245, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .plotty-label {
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.3;
 }
 
 .plotty-button-label {
-  font-size: 0.9375rem;
-  font-weight: 700;
+  font-size: 0.94rem;
+  font-weight: 650;
   line-height: 1.2;
-  letter-spacing: -0.01em;
+}
+
+.plotty-focus {
+  outline: none;
+}
+
+.plotty-focus:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--plotty-paper),
+    0 0 0 4px rgba(195, 79, 50, 0.72);
 }
 
 @media (max-width: 1200px) {
   .plotty-shell-grid {
     grid-template-columns: 1fr;
   }
+
+  .plotty-page-shell::before,
+  .plotty-page-shell::after {
+    display: none;
+  }
 }
 
 @media (max-width: 768px) {
   .plotty-page-shell {
-    padding-inline: 0.75rem;
-    padding-top: 0.85rem;
+    padding-inline: 0;
+    padding-top: 0;
+    background: var(--plotty-paper-soft);
   }
 
   .plotty-frame {
-    margin-bottom: 1rem;
+    min-height: 100vh;
+    margin-bottom: 0;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plotty-story-card,
+  .plotty-story-title-text,
+  * {
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+
+  .plotty-story-card:hover {
+    transform: none;
   }
 }
