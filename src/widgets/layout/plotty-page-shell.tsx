@@ -1,14 +1,15 @@
 "use client";
 
 import type { HTMLAttributes, ReactNode } from "react";
-import { Suspense, useEffect, useId, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
+import { iconButtonClassName, IconButton } from "@/shared/ui/icon-button";
+import { Sheet } from "@/shared/ui/sheet";
 import { AuthStatus } from "@/widgets/auth/auth-status";
 
 export const plottyPrimaryNavItems = [
@@ -89,19 +90,22 @@ export function PlottyPageShell({
           <Link
             href={mobileBackHref}
             aria-label="Назад"
-            className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.96)] px-3 text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_8px_24px_rgba(46,35,23,0.08)] backdrop-blur-xl lg:hidden"
+            className={iconButtonClassName({
+              size: "md",
+              variant: "secondary",
+              className: "fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(247,242,234,0.96)] backdrop-blur-xl lg:hidden",
+            })}
           >
-            ←
+            <span aria-hidden="true">←</span>
           </Link>
         ) : (
-          <button
-            type="button"
+          <IconButton
             aria-label="Назад"
             onClick={() => router.back()}
-            className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.96)] px-3 text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_8px_24px_rgba(46,35,23,0.08)] backdrop-blur-xl lg:hidden"
+            className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(247,242,234,0.96)] backdrop-blur-xl lg:hidden"
           >
-            ←
-          </button>
+            <span aria-hidden="true">←</span>
+          </IconButton>
         )
       ) : null}
 
@@ -259,59 +263,10 @@ export function PlottyMobileSheet({
   children: ReactNode;
   onClose: () => void;
 }) {
-  const titleId = useId();
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose, open]);
-
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="fixed inset-0 z-50 lg:hidden" aria-hidden={!open}>
-      <button
-        type="button"
-        aria-label="Закрыть панель"
-        onClick={onClose}
-        className="absolute inset-0 bg-[rgba(35,33,30,0.4)] backdrop-blur-sm"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto rounded-t-[28px] border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
-      >
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 id={titleId} className="plotty-section-title">
-            {title}
-          </h2>
-          <Button variant="secondary" className="h-10 px-3 text-sm" onClick={onClose}>
-            Закрыть
-          </Button>
-        </div>
-        {children}
-      </div>
-    </div>
+    <Sheet open={open} title={title} closeLabel="Закрыть" onClose={onClose}>
+      {children}
+    </Sheet>
   );
 }
 

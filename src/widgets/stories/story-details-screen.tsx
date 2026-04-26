@@ -1,26 +1,26 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   chapterDetailsQueryOptions,
   chaptersViewedQueryOptions,
-  likeStory,
-  patchStorySummaryCaches,
   storyDetailsQueryOptions,
-  unlikeStory,
 } from "@/entities/story/api/stories-api";
+import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
+import { Badge } from "@/shared/ui/badge";
 import { Button, ButtonLink } from "@/shared/ui/button";
+import { Surface } from "@/shared/ui/card";
 import { EmptyState } from "@/shared/ui/empty-state";
-import { TabButton } from "@/shared/ui/tabs";
+import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCoverPreview } from "./story-cover-preview";
@@ -33,7 +33,6 @@ type StorySection = "description" | "chapters";
 export function StoryDetailsScreen({ slug }: { slug: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const [activeSection, setActiveSection] = useState<StorySection>(getInitialSection(searchParams.get("tab")));
   const readerChapters = useMemo(
@@ -55,8 +54,10 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
     return new Map(items.map((item) => [item.chapterId, item.viewed]));
   }, [chaptersViewedQuery.data?.items]);
-  const likeMutation = useMutation({
-    mutationFn: ({ liked, storyId }: { liked: boolean; storyId: string }) => (liked ? unlikeStory(storyId) : likeStory(storyId)),
+  const likeMutation = useStoryLikeMutation({
+    storyId: storyQuery.data?.id ?? "",
+    likesCount: storyQuery.data?.likesCount,
+    viewerHasLiked: Boolean(storyQuery.data?.viewerHasLiked),
   });
 
   useEffect(() => {
@@ -94,27 +95,9 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   const genericTags = story.tags.filter((tag) => !["completion", "rating", "size", "directionality"].includes(tag.category ?? ""));
 
   async function handleToggleLike() {
-    const nextLiked = !viewerHasLiked;
-    const previousLikesCount = story.likesCount ?? 0;
-
-    patchStorySummaryCaches(queryClient, story.id, {
-      likesCount: Math.max(previousLikesCount + (nextLiked ? 1 : -1), 0),
-      viewerHasLiked: nextLiked,
-    });
-
     try {
-      const result = await likeMutation.mutateAsync({ liked: viewerHasLiked, storyId: story.id });
-
-      patchStorySummaryCaches(queryClient, story.id, {
-        likesCount: result.likesCount,
-        viewerHasLiked: result.viewerHasLiked,
-      });
+      await likeMutation.toggleLike();
     } catch (error) {
-      patchStorySummaryCaches(queryClient, story.id, {
-        likesCount: previousLikesCount,
-        viewerHasLiked,
-      });
-
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.story(slug) }));
       }
@@ -200,7 +183,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 </div>
               </div>
 
-              <div className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
+              <Surface variant="panel" className="p-4">
                 <p
                   className="plotty-body text-[15px] leading-7 text-[var(--plotty-muted)]"
                   style={{
@@ -212,19 +195,19 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 >
                   {storyDescription}
                 </p>
-              </div>
+              </Surface>
             </div>
           </div>
         </PlottySectionCard>
 
-        <div className="plotty-segmented">
+        <SegmentedControl>
           <TabButton type="button" isActive={activeSection === "description"} onClick={() => setActiveSection("description")}>
             Описание
           </TabButton>
           <TabButton type="button" isActive={activeSection === "chapters"} onClick={() => setActiveSection("chapters")}>
             Главы
           </TabButton>
-        </div>
+        </SegmentedControl>
 
         <PlottySectionCard id="story-content" className="space-y-5">
           {activeSection === "description" ? (
@@ -234,7 +217,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                   {storyDescription}
                 </p>
               </div>
-              <div className="space-y-3 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4">
+              <Surface variant="panel" className="space-y-3 p-4">
                 <div className="plotty-section-title">Мета истории</div>
                 <div className="grid gap-2 text-sm text-[var(--plotty-muted)]">
                   <span>{`Создана ${new Date(story.createdAt).toLocaleDateString("ru-RU")}`}</span>
@@ -245,7 +228,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     </Link>
                   ) : null}
                 </div>
-              </div>
+              </Surface>
             </div>
           ) : null}
 
@@ -253,9 +236,10 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
             readerChapters.length ? (
               <div className="space-y-3">
                 {readerChapters.map((chapter) => (
-                  <div
+                  <Surface
                     key={chapter.id}
-                    className="flex flex-col gap-4 rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/76 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    variant="listItem"
+                    className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex min-w-0 items-start gap-3">
                       <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[rgba(188,95,61,0.08)] text-sm font-bold text-[var(--plotty-accent)]">
@@ -287,7 +271,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                         Комментарии
                       </ButtonLink>
                     </div>
-                  </div>
+                  </Surface>
                 ))}
               </div>
             ) : (
@@ -308,15 +292,12 @@ function StoryMetaPill({
   accent?: boolean;
 }) {
   return (
-    <span
-      className={
-        accent
-          ? "rounded-full bg-[rgba(188,95,61,0.08)] px-3 py-2 text-[12px] font-semibold text-[var(--plotty-accent)]"
-          : "rounded-full border border-[rgba(41,38,34,0.09)] bg-white/82 px-3 py-2 text-[12px] font-semibold text-[var(--plotty-muted)]"
-      }
+    <Badge
+      tone={accent ? "accent" : "default"}
+      className={accent ? "px-3 py-2 text-[12px]" : "border border-[rgba(41,38,34,0.09)] bg-white/82 px-3 py-2 text-[12px]"}
     >
       {children}
-    </span>
+    </Badge>
   );
 }
 

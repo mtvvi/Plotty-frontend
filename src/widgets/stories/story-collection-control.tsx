@@ -1,8 +1,7 @@
 "use client";
 
-import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
@@ -20,6 +19,7 @@ import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { PopoverContent, usePopover } from "@/shared/ui/popover";
 import { Textarea } from "@/shared/ui/textarea";
 
 function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
@@ -39,18 +39,14 @@ export function StoryCollectionControl({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const { isAuthenticated } = useAuth();
-  const [open, setOpen] = useState(false);
+  const popover = usePopover({ minWidth: 320 });
   const [createOpen, setCreateOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [menuRect, setMenuRect] = useState({ left: 0, top: 0, width: 0 });
   const [titleDraft, setTitleDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const collectionsQuery = useQuery(myCollectionDetailsQueryOptions({ enabled: isAuthenticated }));
-  const collections = collectionsQuery.data ?? [];
+  const collections = useMemo(() => collectionsQuery.data ?? [], [collectionsQuery.data]);
   const containingCollections = useMemo(
     () => collections.filter((collection) => collection.stories.some((story) => story.id === storyId)),
     [collections, storyId],
@@ -77,69 +73,6 @@ export function StoryCollectionControl({
     },
     onError: handleMutationError,
   });
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-
-      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setOpen(false);
-      }
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleEscape);
-
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [open]);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function syncMenuPosition() {
-      const rect = rootRef.current?.getBoundingClientRect();
-
-      if (!rect) {
-        return;
-      }
-
-      const width = Math.min(Math.max(rect.width, 320), window.innerWidth - 24);
-
-      setMenuRect({
-        left: Math.min(Math.max(12, rect.left), window.innerWidth - width - 12),
-        top: rect.bottom + 6,
-        width,
-      });
-    }
-
-    syncMenuPosition();
-    window.addEventListener("resize", syncMenuPosition);
-    window.addEventListener("scroll", syncMenuPosition, true);
-
-    return () => {
-      window.removeEventListener("resize", syncMenuPosition);
-      window.removeEventListener("scroll", syncMenuPosition, true);
-    };
-  }, [open]);
 
   async function invalidateCollections() {
     await Promise.all([
@@ -173,7 +106,7 @@ export function StoryCollectionControl({
     }
 
     setLocalError(null);
-    setOpen((current) => !current);
+    popover.toggle();
   }
 
   function handleToggleCollection(collectionId: string, selected: boolean) {
@@ -209,26 +142,21 @@ export function StoryCollectionControl({
   const label = selectedCount ? `В ${selectedCount} подборк${selectedCount === 1 ? "е" : "ах"}` : "Добавить в подборку";
 
   return (
-    <div ref={rootRef} className={cn("relative w-full max-w-[18rem] space-y-1.5", className)}>
+    <div ref={popover.triggerRef} className={cn("relative w-full max-w-[18rem] space-y-1.5", className)}>
       <span className="plotty-kicker">Подборки</span>
       <Button type="button" variant="secondary" className="w-full justify-between gap-3 px-3 text-left text-sm" onClick={handleToggleOpen}>
         <span className="truncate">{label}</span>
         <span aria-hidden="true">▾</span>
       </Button>
 
-      {open && mounted ? createPortal(
-        <div
-          ref={menuRef}
-          role="dialog"
-          aria-label="Подборки"
-          className="z-[100] max-h-[min(34rem,calc(100vh-2rem))] overflow-y-auto rounded-[18px] border border-[rgba(41,38,34,0.1)] bg-[rgba(247,242,234,0.98)] p-3 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl"
-          style={{
-            position: "fixed",
-            left: menuRect.left,
-            top: menuRect.top,
-            width: menuRect.width,
-          }}
-        >
+      <PopoverContent
+        open={popover.open}
+        contentRef={popover.contentRef}
+        position={popover.position}
+        role="dialog"
+        aria-label="Подборки"
+        className="max-h-[min(34rem,calc(100vh-2rem))] overflow-y-auto rounded-[18px] p-3"
+      >
           {collectionsQuery.isLoading ? (
             <div className="plotty-meta">Загружаем подборки...</div>
           ) : collections.length ? (
@@ -309,9 +237,7 @@ export function StoryCollectionControl({
           )}
 
           {localError ? <FieldError>{localError}</FieldError> : null}
-        </div>,
-        document.body,
-      ) : null}
+      </PopoverContent>
     </div>
   );
 }

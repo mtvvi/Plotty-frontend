@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   chapterDetailsQueryOptions,
@@ -11,11 +11,13 @@ import {
   storyDetailsQueryOptions,
   storyKeys,
 } from "@/entities/story/api/stories-api";
+import type { StoryTag } from "@/entities/story/model/types";
 import { defaultStoriesQuery, readerChapterNumberForChapterId } from "@/entities/story/model/story-query";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { getStoryTagCategoryLabel, groupStoryTags } from "@/shared/config/story-tags";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 
@@ -27,8 +29,10 @@ const emptyChapterDraft = "Черновик новой главы. Открой�
 
 export function StoryCreateScreen() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const requestedStorySlug = searchParams.get("story") ?? "";
   const [selectedStorySlug, setSelectedStorySlug] = useState("");
   const storiesQuery = useQuery(myStoriesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }, { userId: user?.id }));
   const selectedStoryQuery = useQuery({
@@ -51,26 +55,23 @@ export function StoryCreateScreen() {
       return;
     }
 
+    const requestedStoryExists = requestedStorySlug
+      ? storiesQuery.data.items.some((story) => story.slug === requestedStorySlug)
+      : false;
     const stillExists = storiesQuery.data.items.some((story) => story.slug === selectedStorySlug);
+
+    if (!selectedStorySlug && requestedStoryExists) {
+      setSelectedStorySlug(requestedStorySlug);
+      return;
+    }
 
     if (!selectedStorySlug || !stillExists) {
       setSelectedStorySlug(storiesQuery.data.items[0].slug);
     }
-  }, [selectedStorySlug, storiesQuery.data?.items]);
+  }, [requestedStorySlug, selectedStorySlug, storiesQuery.data?.items]);
 
   const selectedStoryDisplayCover = selectedStoryFirstChapterQuery.data?.imageUrl;
   const selectedStoryDescription = selectedStoryQuery.data?.aiHint?.trim() ? selectedStoryQuery.data.aiHint : STORY_ANNOTATION_PLACEHOLDER;
-
-  const activeStoryTags = useMemo(
-    () =>
-      (selectedStoryQuery.data?.tags ?? []).sort((left, right) => {
-        const leftCategory = left.category ?? "other";
-        const rightCategory = right.category ?? "other";
-
-        return leftCategory.localeCompare(rightCategory, "ru");
-      }),
-    [selectedStoryQuery.data?.tags],
-  );
 
   async function handleCreateNextChapter() {
     if (!selectedStoryQuery.data) {
@@ -199,11 +200,7 @@ export function StoryCreateScreen() {
                     {selectedStoryDescription}
                   </p>
 
-                  <div className="flex flex-wrap gap-2">
-                    {activeStoryTags.map((tag) => (
-                      <StoryTagChip key={tag.id} tag={tag} />
-                    ))}
-                  </div>
+                  <StoryTagsByCategory tags={selectedStoryQuery.data.tags} />
 
                   <div className="flex flex-wrap gap-3">
                     <Button variant="primary" onClick={handleCreateNextChapter} disabled={createChapterMutation.isPending}>
@@ -278,6 +275,49 @@ export function StoryCreateScreen() {
         </ShellCard>
       </div>
     </PlottyShell>
+  );
+}
+
+function StoryTagsByCategory({ tags }: { tags: StoryTag[] }) {
+  const groupedTags = groupStoryTags(tags);
+  const primaryGroups = ["directionality", "rating", "completion", "size"]
+    .map((category) => [category, groupedTags[category] ?? []] as const)
+    .filter(([, groupTags]) => groupTags.length);
+  const detailGroups = ["genre", "warning"]
+    .map((category) => [category, groupedTags[category] ?? []] as const)
+    .filter(([, groupTags]) => groupTags.length);
+
+  if (!primaryGroups.length && !detailGroups.length) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3">
+      {primaryGroups.length ? (
+        <div className="grid grid-cols-2 gap-3">
+          {primaryGroups.map(([category, groupTags]) => (
+            <TagGroup key={category} category={category} tags={groupTags} />
+          ))}
+        </div>
+      ) : null}
+
+      {detailGroups.map(([category, groupTags]) => (
+        <TagGroup key={category} category={category} tags={groupTags} />
+      ))}
+    </div>
+  );
+}
+
+function TagGroup({ category, tags }: { category: string; tags: StoryTag[] }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="plotty-kicker">{getStoryTagCategoryLabel(category)}</div>
+      <div className="flex flex-wrap gap-1.5">
+        {tags.map((tag) => (
+          <StoryTagChip key={tag.id} tag={tag} />
+        ))}
+      </div>
+    </div>
   );
 }
 

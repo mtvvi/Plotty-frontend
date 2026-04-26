@@ -10,9 +10,11 @@ import type { StoriesQuery, StoryTag } from "@/entities/story/model/types";
 import { getStoryTagCategoryLabel, groupStoryTags, storyTagCategoryOrder } from "@/shared/config/story-tags";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import { Surface } from "@/shared/ui/card";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Input } from "@/shared/ui/input";
+import { PopoverContent, usePopover } from "@/shared/ui/popover";
 import { PlottyAppMenu, PlottyMobileSheet, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCard } from "./story-card";
@@ -164,7 +166,7 @@ export function StoriesCatalogShell() {
             type="button"
             variant="secondary"
             aria-label="Открыть фильтры"
-            className="w-full justify-center"
+            fullWidth
             onClick={() => setIsMobileFiltersOpen(true)}
           >
             Фильтры
@@ -196,7 +198,8 @@ export function StoriesCatalogShell() {
                 </div>
                 <Button
                   variant="primary"
-                  className="min-h-10 w-full justify-center px-3 text-sm"
+                  size="sm"
+                  fullWidth
                   onClick={applyDraftTags}
                   disabled={!hasFilterDraftChanges || isRouting}
                 >
@@ -409,7 +412,10 @@ function CatalogSearchField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-[auto_1fr] items-center gap-3 rounded-[18px] border border-[rgba(35,33,30,0.08)] bg-white/88 px-4 py-1.5 shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]">
+    <Surface
+      variant="inset"
+      className="grid grid-cols-[auto_1fr] items-center gap-3 px-4 py-1.5 shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]"
+    >
       <span className="text-base text-[var(--plotty-muted)]" aria-hidden="true">
         ⌕
       </span>
@@ -420,7 +426,7 @@ function CatalogSearchField({
         placeholder="Поиск по названию истории"
         className="min-h-[42px] border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
       />
-    </div>
+    </Surface>
   );
 }
 
@@ -435,46 +441,19 @@ function CatalogFandomDropdown({
   selectedSlug: string;
   onSelect: (value: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const popover = usePopover();
   const selectedOption = options.find((option) => option.slug === selectedSlug);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleEscape);
-
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [open]);
-
   return (
-    <div ref={rootRef} className="grid gap-3">
+    <div ref={popover.triggerRef} className="grid gap-3">
       <span className="plotty-meta text-xs font-bold uppercase tracking-[0.08em]">{title}</span>
       <div className="relative">
         <button
           type="button"
           aria-label={title}
           aria-haspopup="listbox"
-          aria-expanded={open}
-          onClick={() => setOpen((current) => !current)}
+          aria-expanded={popover.open}
+          onClick={popover.toggle}
           className="flex min-h-[3.25rem] w-full items-center justify-between rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/88 px-4 text-left text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow] duration-150 hover:border-[var(--plotty-line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
         >
           <span>{selectedOption?.name ?? "Любой вариант"}</span>
@@ -483,19 +462,21 @@ function CatalogFandomDropdown({
           </span>
         </button>
 
-        {open ? (
-          <div
-            role="listbox"
-            aria-label={title}
-            className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-10 rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-2 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl"
-          >
+        <PopoverContent
+          open={popover.open}
+          contentRef={popover.contentRef}
+          position={popover.position}
+          role="listbox"
+          aria-label={title}
+          className="rounded-[20px] p-2"
+        >
             <button
               type="button"
               role="option"
               aria-selected={!selectedSlug}
               onClick={() => {
                 onSelect("");
-                setOpen(false);
+                popover.close();
               }}
               className={cn(
                 "flex w-full items-center rounded-[14px] px-3 py-2 text-left text-sm transition-colors",
@@ -512,7 +493,7 @@ function CatalogFandomDropdown({
                 aria-selected={selectedSlug === option.slug}
                 onClick={() => {
                   onSelect(option.slug);
-                  setOpen(false);
+                  popover.close();
                 }}
                 className={cn(
                   "flex w-full items-center rounded-[14px] px-3 py-2 text-left text-sm transition-colors",
@@ -522,8 +503,7 @@ function CatalogFandomDropdown({
                 {option.name}
               </button>
             ))}
-          </div>
-        ) : null}
+        </PopoverContent>
       </div>
     </div>
   );

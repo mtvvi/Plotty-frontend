@@ -10,3 +10,4 @@ vitest.workspace.ts
 backend
 *.sh
 *.txt
+AGENTS.md

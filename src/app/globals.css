@@ -149,6 +149,64 @@ select {
   letter-spacing: -0.025em;
 }
 
+.plotty-story-card {
+  transition:
+    border-color 420ms ease,
+    box-shadow 420ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.plotty-story-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(188, 95, 61, 0.2);
+  box-shadow: 0 32px 88px rgba(44, 35, 25, 0.18);
+}
+
+.plotty-story-eyebrow-kind {
+  color: var(--plotty-accent);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.plotty-story-eyebrow-date {
+  color: var(--plotty-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.plotty-story-title {
+  font-family: var(--font-serif), serif;
+  font-size: clamp(1.875rem, 3.2vw, 2.75rem);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.plotty-story-title-anchor {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.plotty-story-title-text {
+  background-image: linear-gradient(90deg, currentColor, currentColor);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0 2px;
+  transition:
+    color 180ms ease,
+    background-size 260ms ease;
+}
+
+.plotty-story-title-anchor:hover .plotty-story-title-text {
+  color: var(--plotty-accent);
+  background-size: 100% 2px;
+}
+
 .plotty-body {
   font-size: 0.95rem;
   line-height: 1.65;
@@ -224,5 +282,16 @@ select {
 
   .plotty-frame {
     margin-bottom: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plotty-story-card,
+  .plotty-story-title-text {
+    transition-duration: 1ms;
+  }
+
+  .plotty-story-card:hover {
+    transform: none;
   }
 }

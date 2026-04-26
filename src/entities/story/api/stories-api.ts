@@ -2,6 +2,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 
 import { fetchJson } from "@/shared/api/fetch-json";
 
+import { getTagName, mapStoryListItem, type BackendStoriesResponse } from "./story-mappers";
 import { serializeStoriesQuery } from "../model/story-query";
 import type {
   AiJobAccepted,
@@ -40,20 +41,6 @@ interface BackendStory {
   updatedAt: string;
 }
 
-interface BackendStoryListItem extends BackendStory {
-  tags?: StoryTag[];
-  chaptersCount: number;
-  status?: StoryDetails["status"];
-  likesCount?: number;
-  likedByMe?: boolean;
-  aiHint?: string;
-  author?: {
-    id: number;
-    username: string;
-    avatarUrl?: string | null;
-  };
-}
-
 interface BackendStoryDetails extends BackendStory {
   tags?: StoryTag[];
   aiHint?: string;
@@ -83,15 +70,6 @@ interface BackendChapterDetails {
   imageUrl?: string;
   storySlug?: string;
   storyTitle?: string;
-}
-
-interface BackendStoriesResponse {
-  items: BackendStoryListItem[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-  };
 }
 
 interface BackendChapterComment {
@@ -134,33 +112,6 @@ export const storyKeys = {
 
 function countWords(content: string) {
   return content.trim() ? content.trim().split(/\s+/).length : 0;
-}
-
-function getTagName(tags: StoryTag[], category: string) {
-  return tags.find((tag) => tag.category === category)?.name;
-}
-
-function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
-  const tags = item.tags ?? [];
-
-  return {
-    id: item.id,
-    slug: item.slug,
-    title: item.title,
-    tags,
-    chaptersCount: item.chaptersCount,
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
-    status: item.status,
-    fandom: getTagName(tags, "directionality"),
-    ratingLabel: getTagName(tags, "rating"),
-    statusLabel: getTagName(tags, "completion"),
-    sizeLabel: getTagName(tags, "size"),
-    likesCount: item.likesCount,
-    viewerHasLiked: item.likedByMe,
-    aiHint: item.aiHint,
-    author: item.author,
-  };
 }
 
 function mapStoryDetails(item: BackendStoryDetails): StoryDetails {

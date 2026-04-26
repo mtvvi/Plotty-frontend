@@ -6,12 +6,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import {
-  createChapter,
   createStory,
   storyKeys,
   storyTagsQueryOptions,
 } from "@/entities/story/api/stories-api";
-import type { StoryDetails, StoryTag } from "@/entities/story/model/types";
+import type { StoryTag } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
@@ -25,7 +24,6 @@ import { Button } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
-import { Textarea } from "@/shared/ui/textarea";
 
 import { PlottyShell, ShellCard } from "./plotty-shell";
 
@@ -41,50 +39,48 @@ const initialStoryValues: StorySettingsValues = {
   selectedTagIds: [],
 };
 
-const initialChapterValues = {
-  title: "",
-  content: "",
-};
-
-const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
-const requiredCategoryOrder = ["directionality", "rating", "completion", "size", "genre"] as const;
+const defaultCompletionSlug = "in-progress";
+const requiredCategoryOrder = ["directionality", "rating", "size", "genre"] as const;
 
 export function StoryCreateFlowScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [stage, setStage] = useState<StoryFlowStage>("details");
   const [storyValues, setStoryValues] = useState(initialStoryValues);
-  const [chapterValues, setChapterValues] = useState(initialChapterValues);
-  const [createdStory, setCreatedStory] = useState<StoryDetails | null>(null);
   const tagsQuery = useQuery(storyTagsQueryOptions());
   const availableTags = useMemo(() => tagsQuery.data?.items ?? [], [tagsQuery.data?.items]);
   const groupedTags = useMemo(() => groupStoryTags(availableTags), [availableTags]);
   const selectedTagIds = useMemo(() => new Set(storyValues.selectedTagIds), [storyValues.selectedTagIds]);
+  const defaultCompletionTag = useMemo(
+    () => availableTags.find((tag) => tag.category === "completion" && tag.slug === defaultCompletionSlug),
+    [availableTags],
+  );
+  const selectedTagIdsForCreate = useMemo(() => {
+    const ids = new Set(storyValues.selectedTagIds);
+
+    if (defaultCompletionTag) {
+      ids.add(defaultCompletionTag.id);
+    }
+
+    return Array.from(ids);
+  }, [defaultCompletionTag, storyValues.selectedTagIds]);
+  const selectedTagIdsForPreview = useMemo(() => new Set(selectedTagIdsForCreate), [selectedTagIdsForCreate]);
   const selectedTags = useMemo(
-    () => availableTags.filter((tag) => selectedTagIds.has(tag.id)),
-    [availableTags, selectedTagIds],
+    () => availableTags.filter((tag) => selectedTagIdsForPreview.has(tag.id)),
+    [availableTags, selectedTagIdsForPreview],
   );
   const selectedTagsByCategory = useMemo(() => groupStoryTags(selectedTags), [selectedTags]);
   const orderedGroups = storyTagCategoryOrder
     .map((category) => [category, groupedTags[category] ?? []] as const)
+    .filter(([category]) => category !== "completion")
     .filter(([, tags]) => tags.length);
 
-  const createStoryMutation = useMutation({
-    mutationFn: createStory,
-    onSuccess: (story) => {
-      setCreatedStory(story);
-    },
-  });
-  const createChapterMutation = useMutation({
-    mutationFn: ({ storyId, title, content }: { storyId: string; title: string; content: string }) =>
-      createChapter(storyId, { title, content }),
-  });
+  const createStoryMutation = useMutation({ mutationFn: createStory });
 
   const canAdvanceFromDetails = Boolean(storyValues.title.trim());
   const canAdvanceFromTaxonomy = requiredCategoryOrder.every((category) =>
     (groupedTags[category] ?? []).some((tag) => selectedTagIds.has(tag.id)),
   );
-  const canCreateChapter = Boolean(createdStory && chapterValues.title.trim() && chapterValues.content.trim());
 
   async function handleCreateStory() {
     if (!canAdvanceFromDetails || !canAdvanceFromTaxonomy) {
@@ -94,33 +90,11 @@ export function StoryCreateFlowScreen() {
     try {
       const story = await createStoryMutation.mutateAsync({
         title: storyValues.title.trim(),
-        tagIds: storyValues.selectedTagIds,
+        tagIds: selectedTagIdsForCreate,
       });
 
       await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-      setCreatedStory(story);
-    } catch (error) {
-      if (isAuthError(error)) {
-        router.push(routes.auth({ next: routes.writeNew }));
-      }
-    }
-  }
-
-  async function handleCreateChapter() {
-    if (!createdStory) {
-      return;
-    }
-
-    try {
-      const chapter = await createChapterMutation.mutateAsync({
-        storyId: createdStory.id,
-        title: chapterValues.title.trim(),
-        content: chapterValues.content.trim() || emptyChapterDraft,
-      });
-
-      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-      await queryClient.invalidateQueries({ queryKey: storyKeys.details(createdStory.slug) });
-      router.push(routes.chapterEditor(createdStory.id, chapter.id));
+      router.push(`${routes.write}?story=${encodeURIComponent(story.slug)}`);
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.writeNew }));
@@ -136,14 +110,14 @@ export function StoryCreateFlowScreen() {
             <FlowStepButton
               number={1}
               label="Название"
-              active={!createdStory && stage === "details"}
+              active={stage === "details"}
               complete={canAdvanceFromDetails}
               onClick={() => setStage("details")}
             />
             <FlowStepButton
               number={2}
               label="Теги и категории"
-              active={!createdStory && stage === "taxonomy"}
+              active={stage === "taxonomy"}
               complete={canAdvanceFromTaxonomy}
               disabled={!canAdvanceFromDetails}
               onClick={() => {
@@ -155,8 +129,7 @@ export function StoryCreateFlowScreen() {
             <FlowStepButton
               number={3}
               label="Сохранение истории"
-              active={!createdStory && stage === "review"}
-              complete={Boolean(createdStory)}
+              active={stage === "review"}
               disabled={!canAdvanceFromTaxonomy}
               onClick={() => {
                 if (canAdvanceFromTaxonomy) {
@@ -167,9 +140,7 @@ export function StoryCreateFlowScreen() {
           </div>
         </ShellCard>
 
-        {!createdStory ? (
-          <>
-            {stage === "details" ? (
+        {stage === "details" ? (
               <ShellCard title="Название">
                 <div className="grid gap-5">
                   <Field>
@@ -194,9 +165,9 @@ export function StoryCreateFlowScreen() {
                   </div>
                 </div>
               </ShellCard>
-            ) : null}
+        ) : null}
 
-            {stage === "taxonomy" ? (
+        {stage === "taxonomy" ? (
               <ShellCard title="Теги и категории">
                 <div className="space-y-5">
                   <div className="grid gap-4 md:grid-cols-2">
@@ -221,9 +192,9 @@ export function StoryCreateFlowScreen() {
                   </div>
                 </div>
               </ShellCard>
-            ) : null}
+        ) : null}
 
-            {stage === "review" ? (
+        {stage === "review" ? (
               <ShellCard title="Проверьте историю перед сохранением">
                 <div className="space-y-5">
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
@@ -276,78 +247,7 @@ export function StoryCreateFlowScreen() {
                   </div>
                 </div>
               </ShellCard>
-            ) : null}
-          </>
-        ) : (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <ShellCard title={createdStory.title}>
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <div className="plotty-kicker">Аннотация</div>
-                  <p className="text-sm leading-6 text-[var(--plotty-muted)]">
-                    {createdStory.aiHint?.trim() ? createdStory.aiHint : STORY_ANNOTATION_PLACEHOLDER}
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  {storyTagCategoryOrder.map((category) => {
-                    const tags = selectedTagsByCategory[category] ?? [];
-
-                    if (!tags.length) {
-                      return null;
-                    }
-
-                    return (
-                      <div key={category} className="space-y-2">
-                        <div className="plotty-kicker">{getStoryTagCategoryLabel(category)}</div>
-                        <div className="flex flex-wrap gap-2">
-                          {tags.map((tag) => (
-                            <Chip key={tag.id} className="bg-[var(--plotty-panel)] text-[var(--plotty-ink)]">
-                              {tag.name}
-                            </Chip>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </ShellCard>
-
-            <ShellCard title="Стартовая глава">
-              <div className="grid gap-4">
-                <Field>
-                  <FieldLabel htmlFor="new-chapter-title">Название главы</FieldLabel>
-                  <Input
-                    id="new-chapter-title"
-                    value={chapterValues.title}
-                    onChange={(event) => setChapterValues((current) => ({ ...current, title: event.target.value }))}
-                    placeholder="Глава 1"
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="new-chapter-content">Текст главы</FieldLabel>
-                  <Textarea
-                    id="new-chapter-content"
-                    value={chapterValues.content}
-                    onChange={(event) => setChapterValues((current) => ({ ...current, content: event.target.value }))}
-                    placeholder="Начните писать первую главу"
-                    className="min-h-56"
-                  />
-                </Field>
-
-                <Button
-                  variant="primary"
-                  onClick={handleCreateChapter}
-                  disabled={!canCreateChapter || createChapterMutation.isPending}
-                >
-                  {createChapterMutation.isPending ? "Создаем главу..." : "Создать главу и открыть редактор"}
-                </Button>
-              </div>
-            </ShellCard>
-          </div>
-        )}
+        ) : null}
       </div>
     </PlottyShell>
   );
