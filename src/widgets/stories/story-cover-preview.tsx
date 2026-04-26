@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -46,12 +47,7 @@ export function StoryCoverPreview({
   }, [imageUrl]);
 
   const hasCover = Boolean(imageUrl && !hasImageError);
-  const coverStyle = hasCover
-    ? {
-        ...(fullHeight ? {} : { aspectRatio: fallbackAspectRatio }),
-        backgroundImage: `url(${JSON.stringify(imageUrl)})`,
-      }
-    : undefined;
+  const coverStyle = hasCover && !fullHeight ? { aspectRatio: fallbackAspectRatio } : undefined;
 
   return (
     <div
@@ -64,11 +60,19 @@ export function StoryCoverPreview({
       {hasCover ? (
         <div
           data-cover-frame="true"
-          role="img"
-          aria-label={`Обложка истории «${title}»`}
-          className={cn("relative w-full bg-cover bg-center", fullHeight ? "h-full min-h-[18rem]" : "", imageClassName)}
+          className={cn("relative w-full overflow-hidden", fullHeight ? "h-full min-h-[18rem]" : "", imageClassName)}
           style={coverStyle}
-        />
+        >
+          <Image
+            src={imageUrl ?? ""}
+            alt={`Обложка истории «${title}»`}
+            fill
+            sizes="100vw"
+            unoptimized
+            className="object-cover"
+            onError={() => setHasImageError(true)}
+          />
+        </div>
       ) : (
         <div
           data-cover-frame="true"
