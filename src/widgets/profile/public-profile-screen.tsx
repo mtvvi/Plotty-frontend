@@ -29,7 +29,7 @@ import { StoryCard } from "@/widgets/stories/story-card";
 
 import { ProfileCollectionsManager } from "./profile-collections-manager";
 
-type ProfileTab = "works" | "library";
+type ProfileTab = "works" | "collections" | "library";
 type LibraryTab = "all" | ReaderShelf;
 
 const ownStoriesQuery = {
@@ -46,7 +46,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const { user } = useAuth();
   const normalizedUsername = username.trim();
   const isOwnProfile = Boolean(user?.username && user.username.toLowerCase() === normalizedUsername.toLowerCase());
-  const [activeTab, setActiveTab] = useState<ProfileTab>(getInitialTab(searchParams.get("tab")));
+  const initialTab = getInitialTab(searchParams.get("tab"));
+  const [activeTab, setActiveTab] = useState<ProfileTab>(
+    !isOwnProfile && initialTab === "library" ? "collections" : initialTab,
+  );
   const [libraryTab, setLibraryTab] = useState<LibraryTab>("all");
   const [editOpen, setEditOpen] = useState(false);
   const [usernameDraft, setUsernameDraft] = useState("");
@@ -101,8 +104,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
   });
 
   useEffect(() => {
-    setActiveTab(getInitialTab(searchParams.get("tab")));
-  }, [searchParams]);
+    const nextTab = getInitialTab(searchParams.get("tab"));
+
+    setActiveTab(!isOwnProfile && nextTab === "library" ? "collections" : nextTab);
+  }, [isOwnProfile, searchParams]);
 
   useEffect(() => {
     const profile = profileQuery.data;
@@ -267,9 +272,14 @@ export function PublicProfileScreen({ username }: { username: string }) {
           <TabButton type="button" isActive={activeTab === "works"} onClick={() => setActiveTab("works")}>
             Творчество
           </TabButton>
-          <TabButton type="button" isActive={activeTab === "library"} onClick={() => setActiveTab("library")}>
-            Библиотека
+          <TabButton type="button" isActive={activeTab === "collections"} onClick={() => setActiveTab("collections")}>
+            Публичные подборки
           </TabButton>
+          {isOwnProfile ? (
+            <TabButton type="button" isActive={activeTab === "library"} onClick={() => setActiveTab("library")}>
+              Библиотека
+            </TabButton>
+          ) : null}
         </div>
 
         {activeTab === "works" ? (
@@ -298,13 +308,49 @@ export function PublicProfileScreen({ username }: { username: string }) {
           </PlottySectionCard>
         ) : null}
 
-        {activeTab === "library" && isOwnProfile ? (
-          <>
+        {activeTab === "collections" ? (
+          isOwnProfile ? (
             <PlottySectionCard>
               <ProfileCollectionsManager username={profile.username} />
             </PlottySectionCard>
+          ) : (
+            <PlottySectionCard title="Публичные подборки" description="Подборки, которыми пользователь поделился с читателями.">
+              {collectionsQuery.isLoading ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="h-36 rounded-[22px] bg-white/50" />
+                  <div className="h-36 rounded-[22px] bg-white/50" />
+                </div>
+              ) : collections.length ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {collections.map((collection) => (
+                    <Link
+                      key={collection.id}
+                      href={routes.userCollection(profile.username, collection.id)}
+                      className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4 transition-[background-color,transform] hover:-translate-y-[1px] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                    >
+                      <div className="space-y-2">
+                        <div className="plotty-card-title text-[1.2rem]">{collection.title}</div>
+                        {collection.description ? (
+                          <p className="plotty-body line-clamp-3 text-sm leading-6 text-[var(--plotty-muted)]">
+                            {collection.description}
+                          </p>
+                        ) : null}
+                        <div className="plotty-meta">
+                          {collection.storiesCount} {getStoryLabel(collection.storiesCount)}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="Публичных подборок пока нет" description="Приватные статусы чтения в чужом профиле не показываются." />
+              )}
+            </PlottySectionCard>
+          )
+        ) : null}
 
-            <PlottySectionCard title="Библиотека" description="Ваши приватные статусы чтения.">
+        {activeTab === "library" && isOwnProfile ? (
+          <PlottySectionCard title="Библиотека" description="Ваши приватные статусы чтения.">
               <div className="mb-4 flex flex-wrap gap-2">
                 <TabButton type="button" isActive={libraryTab === "all"} onClick={() => setLibraryTab("all")}>
                   Все
@@ -333,42 +379,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 <EmptyState title="Здесь пока пусто" description="Добавьте статус чтения на странице истории или в каталоге." />
               )}
             </PlottySectionCard>
-          </>
-        ) : null}
-
-        {activeTab === "library" && !isOwnProfile ? (
-          <PlottySectionCard title="Библиотека" description="Публичные подборки, которыми пользователь поделился с читателями.">
-            {collectionsQuery.isLoading ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="h-36 rounded-[22px] bg-white/50" />
-                <div className="h-36 rounded-[22px] bg-white/50" />
-              </div>
-            ) : collections.length ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {collections.map((collection) => (
-                  <Link
-                    key={collection.id}
-                    href={routes.userCollection(profile.username, collection.id)}
-                    className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4 transition-[background-color,transform] hover:-translate-y-[1px] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
-                  >
-                    <div className="space-y-2">
-                      <div className="plotty-card-title text-[1.2rem]">{collection.title}</div>
-                      {collection.description ? (
-                        <p className="plotty-body line-clamp-3 text-sm leading-6 text-[var(--plotty-muted)]">
-                          {collection.description}
-                        </p>
-                      ) : null}
-                      <div className="plotty-meta">
-                        {collection.storiesCount} {getStoryLabel(collection.storiesCount)}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <EmptyState title="Публичных подборок пока нет" description="Приватные статусы чтения в чужом профиле не показываются." />
-            )}
-          </PlottySectionCard>
         ) : null}
       </div>
     </PlottyPageShell>
@@ -414,7 +424,11 @@ function ProfileStat({ label, value }: { label: string; value: number }) {
 }
 
 function getInitialTab(value: string | null): ProfileTab {
-  return value === "library" ? "library" : "works";
+  if (value === "library" || value === "collections") {
+    return value;
+  }
+
+  return "works";
 }
 
 function getStoryLabel(count: number) {

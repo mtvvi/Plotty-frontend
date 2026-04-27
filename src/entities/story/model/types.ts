@@ -1,6 +1,6 @@
 export type StoryStatus = "draft" | "published";
 export type AiJobStatus = "queued" | "processing" | "completed" | "failed";
-export type AiJobType = "spellcheck" | "image_generation" | "logic_check";
+export type AiJobType = "spellcheck" | "image_generation" | "logic_check" | "canon_check";
 
 export interface StoryTag {
   id: string;
@@ -152,6 +152,10 @@ export interface SpellcheckResult {
 }
 
 export interface LogicCheckResult {
+  message: string;
+}
+
+export interface CanonCheckResult {
   message: string;
 }
 

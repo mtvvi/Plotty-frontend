@@ -4,6 +4,7 @@ import type {
   AiJobAccepted,
   AiJobStatus,
   AiJobType,
+  CanonCheckResult,
   ChapterDetails,
   ChapterListItem,
   CreateStoryCommentPayload,
@@ -91,7 +92,7 @@ interface AiJobRecord {
   createdAt: number;
   readyAt: number;
   payload: SpellcheckPayload | ImageGenerationPayload;
-  result?: SpellcheckResult | ImageGenerationResult | LogicCheckResult;
+  result?: SpellcheckResult | ImageGenerationResult | LogicCheckResult | CanonCheckResult;
   errorMessage?: string;
 }
 
@@ -1369,6 +1370,21 @@ function createLogicCheckResult(payload: SpellcheckPayload): LogicCheckResult {
   };
 }
 
+function createCanonCheckResult(payload: SpellcheckPayload): CanonCheckResult {
+  const lower = payload.content.toLowerCase();
+
+  if (lower.includes("канон") || lower.includes("лор") || lower.includes("ooc")) {
+    return {
+      message:
+        "Возможное расхождение с каноном: проверьте факты, мотивацию персонажей и правила мира отдельно от логики сцены.",
+    };
+  }
+
+  return {
+    message: "Расхождений с каноном не найдено.",
+  };
+}
+
 function createChapterImage(prompt: string, title: string) {
   const accent = ["#36513f", "#bc5f3d", "#253349", "#7f5a3b"][db.imageSeed % 4];
   const safePrompt = encodeURIComponent(prompt.slice(0, 80));
@@ -1420,6 +1436,10 @@ function getOrCompleteJob(job: AiJobRecord) {
       job.result = createLogicCheckResult(job.payload as SpellcheckPayload);
     }
 
+    if (job.type === "canon_check") {
+      job.result = createCanonCheckResult(job.payload as SpellcheckPayload);
+    }
+
     if (job.type === "image_generation") {
       job.result = createImageResult(job.payload as ImageGenerationPayload);
     }
@@ -1453,6 +1473,25 @@ export function createLogicCheckJob(payload: SpellcheckPayload): AiJobAccepted {
   db.aiJobs.push({
     id: jobId,
     type: "logic_check",
+    chapterId: payload.chapterId,
+    status: "queued",
+    createdAt: Date.now(),
+    readyAt: Date.now() + 280,
+    payload,
+  });
+
+  return {
+    jobId,
+    status: "queued",
+  };
+}
+
+export function createCanonCheckJob(payload: SpellcheckPayload): AiJobAccepted {
+  const jobId = `job-${db.jobSeed}`;
+  db.jobSeed += 1;
+  db.aiJobs.push({
+    id: jobId,
+    type: "canon_check",
     chapterId: payload.chapterId,
     status: "queued",
     createdAt: Date.now(),

@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 
-import type { ChapterListItem, LogicCheckResult, SpellcheckResult } from "@/entities/story/model/types";
+import type {
+  CanonCheckResult,
+  ChapterListItem,
+  LogicCheckResult,
+  SpellcheckIssue,
+  SpellcheckResult,
+} from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Field, FieldLabel } from "@/shared/ui/field";
@@ -27,9 +33,12 @@ export interface StoryEditorFormProps {
   aiStatusLabel?: string;
   logicCheckResult?: LogicCheckResult;
   logicStatusLabel?: string;
+  canonCheckResult?: CanonCheckResult;
+  canonStatusLabel?: string;
   isSaving?: boolean;
   isSpellchecking?: boolean;
   isLogicChecking?: boolean;
+  isCanonChecking?: boolean;
   imagePanel?: React.ReactNode;
   onChange: (next: StoryEditorValues) => void;
   onSave: () => void;
@@ -40,6 +49,8 @@ export interface StoryEditorFormProps {
   onDeleteChapter?: () => void;
   onSpellcheck: () => void;
   onLogicCheck: () => void;
+  onCanonCheck: () => void;
+  onApplySpellcheckIssue: (issue: SpellcheckIssue) => void;
 }
 
 export function StoryEditorForm({
@@ -53,9 +64,12 @@ export function StoryEditorForm({
   aiStatusLabel,
   logicCheckResult,
   logicStatusLabel,
+  canonCheckResult,
+  canonStatusLabel,
   isSaving,
   isSpellchecking,
   isLogicChecking,
+  isCanonChecking,
   imagePanel,
   onChange,
   onSave,
@@ -66,6 +80,8 @@ export function StoryEditorForm({
   onDeleteChapter,
   onSpellcheck,
   onLogicCheck,
+  onCanonCheck,
+  onApplySpellcheckIssue,
 }: StoryEditorFormProps) {
   const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
   const previousChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : undefined;
@@ -158,6 +174,9 @@ export function StoryEditorForm({
               <Button variant="secondary" onClick={onLogicCheck} disabled={!chapterId || isLogicChecking || !values.chapterContent.trim()}>
                 {isLogicChecking ? "Проверяем логику..." : "Проверить логику"}
               </Button>
+              <Button variant="secondary" onClick={onCanonCheck} disabled={!chapterId || isCanonChecking || !values.chapterContent.trim()}>
+                {isCanonChecking ? "Проверяем канон..." : "Проверить канон"}
+              </Button>
               <Button variant="ghost" onClick={onCreateNextChapter} disabled={isSaving || typeof onCreateNextChapter !== "function"}>
                 Новая глава
               </Button>
@@ -178,9 +197,22 @@ export function StoryEditorForm({
                   {spellcheckResult.items.length ? (
                     spellcheckResult.items.map((issue) => (
                       <div key={`${issue.startOffset}-${issue.endOffset}`} className="rounded-[18px] bg-[var(--plotty-panel)] p-3">
-                        <div className="text-sm font-semibold">{issue.fragmentText}</div>
-                        <div className="text-sm leading-6 text-[var(--plotty-muted)]">{issue.message}</div>
-                        <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 space-y-1">
+                            <div className="text-sm font-semibold">{issue.fragmentText}</div>
+                            <div className="text-sm leading-6 text-[var(--plotty-muted)]">{issue.message}</div>
+                            <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => onApplySpellcheckIssue(issue)}
+                          >
+                            Исправить
+                          </Button>
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -198,14 +230,30 @@ export function StoryEditorForm({
           </ShellCard>
 
           <ShellCard
-            title="Логика и лор"
+            title="Логика"
             description={
               logicStatusLabel ??
-              "Сервис сравнивает текст с базой знаний по опубликованным главам."
+              "Сервис проверяет причинно-следственные связи и внутренние нестыковки сцены."
             }
           >
             {logicCheckResult ? (
               <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
+            ) : (
+              <p className="text-sm leading-6 text-[var(--plotty-muted)]">
+                Отправьте главу на проверку, и здесь появится список замечаний.
+              </p>
+            )}
+          </ShellCard>
+
+          <ShellCard
+            title="Канон"
+            description={
+              canonStatusLabel ??
+              "Сервис сверяет текст с каноном и правилами мира отдельно от логики главы."
+            }
+          >
+            {canonCheckResult ? (
+              <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{canonCheckResult.message}</p>
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
                 Отправьте главу на проверку, и здесь появится список замечаний.

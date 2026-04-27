@@ -10,12 +10,13 @@ import {
   createChapter,
   deleteChapter,
   publishChapter,
+  startCanonCheck,
   startLogicCheck,
   startSpellcheck,
   storyKeys,
   updateChapter,
 } from "@/entities/story/api/stories-api";
-import type { LogicCheckResult, SpellcheckResult } from "@/entities/story/model/types";
+import type { CanonCheckResult, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { EmptyState } from "@/shared/ui/empty-state";
@@ -32,6 +33,16 @@ const emptyValues: StoryEditorValues = {
 
 const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
 
+type AppliedSpellcheckFix = {
+  key: string;
+  startOffset: number;
+  delta: number;
+};
+
+function getSpellcheckIssueKey(issue: SpellcheckIssue) {
+  return `${issue.startOffset}-${issue.endOffset}-${issue.fragmentText}-${issue.suggestion}`;
+}
+
 export function StoryEditorScreen({
   storyId,
   chapterId,
@@ -45,6 +56,8 @@ export function StoryEditorScreen({
   const [values, setValues] = useState<StoryEditorValues>(emptyValues);
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
   const [logicCheckJobId, setLogicCheckJobId] = useState("");
+  const [canonCheckJobId, setCanonCheckJobId] = useState("");
+  const [appliedSpellcheckFixes, setAppliedSpellcheckFixes] = useState<AppliedSpellcheckFix[]>([]);
   const [chapterPublishedThisSession, setChapterPublishedThisSession] = useState(false);
 
   useEffect(() => {
@@ -60,7 +73,10 @@ export function StoryEditorScreen({
 
   useEffect(() => {
     setChapterPublishedThisSession(false);
+    setSpellcheckJobId("");
     setLogicCheckJobId("");
+    setCanonCheckJobId("");
+    setAppliedSpellcheckFixes([]);
   }, [chapterId]);
 
   const updateChapterMutation = useMutation({
@@ -86,6 +102,9 @@ export function StoryEditorScreen({
   const logicCheckMutation = useMutation({
     mutationFn: startLogicCheck,
   });
+  const canonCheckMutation = useMutation({
+    mutationFn: startCanonCheck,
+  });
 
   const spellcheckJobQuery = useQuery({
     ...aiJobQueryOptions<SpellcheckResult>(spellcheckJobId),
@@ -98,6 +117,15 @@ export function StoryEditorScreen({
 
   const logicCheckJobQuery = useQuery({
     ...aiJobQueryOptions<LogicCheckResult>(logicCheckJobId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+
+      return status === "completed" || status === "failed" ? false : 2_000;
+    },
+  });
+
+  const canonCheckJobQuery = useQuery({
+    ...aiJobQueryOptions<CanonCheckResult>(canonCheckJobId),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
 
@@ -178,7 +206,43 @@ export function StoryEditorScreen({
       content: values.chapterContent,
     });
 
+    setAppliedSpellcheckFixes([]);
     setSpellcheckJobId(accepted.jobId);
+  }
+
+  function handleApplySpellcheckIssue(issue: SpellcheckIssue) {
+    const issueKey = getSpellcheckIssueKey(issue);
+
+    if (appliedSpellcheckFixes.some((fix) => fix.key === issueKey)) {
+      return;
+    }
+
+    const offsetShift = appliedSpellcheckFixes.reduce(
+      (total, fix) => (fix.startOffset < issue.startOffset ? total + fix.delta : total),
+      0,
+    );
+    const adjustedStart = issue.startOffset + offsetShift;
+    const adjustedEnd = adjustedStart + (issue.endOffset - issue.startOffset);
+
+    if (values.chapterContent.slice(adjustedStart, adjustedEnd) !== issue.fragmentText) {
+      return;
+    }
+
+    setValues({
+      ...values,
+      chapterContent:
+        values.chapterContent.slice(0, adjustedStart) +
+        issue.suggestion +
+        values.chapterContent.slice(adjustedEnd),
+    });
+    setAppliedSpellcheckFixes((current) => [
+      ...current,
+      {
+        key: issueKey,
+        startOffset: issue.startOffset,
+        delta: issue.suggestion.length - (issue.endOffset - issue.startOffset),
+      },
+    ]);
   }
 
   async function handleLogicCheck() {
@@ -189,6 +253,21 @@ export function StoryEditorScreen({
       });
 
       setLogicCheckJobId(accepted.jobId);
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+      }
+    }
+  }
+
+  async function handleCanonCheck() {
+    try {
+      const accepted = await canonCheckMutation.mutateAsync({
+        chapterId,
+        content: values.chapterContent,
+      });
+
+      setCanonCheckJobId(accepted.jobId);
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
@@ -238,7 +317,12 @@ export function StoryEditorScreen({
 
   const logicStatusLabel =
     logicCheckJobQuery.data?.status === "processing" || logicCheckJobQuery.data?.status === "queued"
-      ? "Сверяем текст с лором и опубликованными главами..."
+      ? "Проверяем причинно-следственные связи и внутренние нестыковки..."
+      : "";
+
+  const canonStatusLabel =
+    canonCheckJobQuery.data?.status === "processing" || canonCheckJobQuery.data?.status === "queued"
+      ? "Сверяем текст с каноном и правилами мира..."
       : "";
 
   const isSpellcheckBusy =
@@ -250,6 +334,11 @@ export function StoryEditorScreen({
     logicCheckMutation.isPending ||
     logicCheckJobQuery.data?.status === "queued" ||
     logicCheckJobQuery.data?.status === "processing";
+
+  const isCanonCheckBusy =
+    canonCheckMutation.isPending ||
+    canonCheckJobQuery.data?.status === "queued" ||
+    canonCheckJobQuery.data?.status === "processing";
 
   return (
     <PlottyShell
@@ -267,9 +356,12 @@ export function StoryEditorScreen({
         aiStatusLabel={aiStatusLabel}
         logicCheckResult={logicCheckJobQuery.data?.result}
         logicStatusLabel={logicStatusLabel}
+        canonCheckResult={canonCheckJobQuery.data?.result}
+        canonStatusLabel={canonStatusLabel}
         isSaving={updateChapterMutation.isPending}
         isSpellchecking={isSpellcheckBusy}
         isLogicChecking={isLogicCheckBusy}
+        isCanonChecking={isCanonCheckBusy}
         imagePanel={
           <div className="space-y-5">
             <div className="rounded-[26px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.8)] p-4 shadow-[var(--plotty-shadow-card)]">
@@ -298,6 +390,8 @@ export function StoryEditorScreen({
         onDeleteChapter={handleDeleteChapter}
         onSpellcheck={handleSpellcheck}
         onLogicCheck={handleLogicCheck}
+        onCanonCheck={handleCanonCheck}
+        onApplySpellcheckIssue={handleApplySpellcheckIssue}
       />
     </PlottyShell>
   );
