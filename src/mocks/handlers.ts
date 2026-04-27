@@ -15,6 +15,7 @@ import type {
 
 import {
   createChapterRecord,
+  createCanonCheckJob,
   createImageGenerationJob,
   createLogicCheckJob,
   createSpellcheckJob,
@@ -598,6 +599,12 @@ export const handlers = [
     const payload = (await request.json()) as SpellcheckPayload;
 
     return HttpResponse.json(createLogicCheckJob(payload), { status: 202 });
+  }),
+
+  http.post("*/ai/canon-check", async ({ request }) => {
+    const payload = (await request.json()) as SpellcheckPayload;
+
+    return HttpResponse.json(createCanonCheckJob(payload), { status: 202 });
   }),
 
   http.post("*/ai/image-generation", async ({ request }) => {

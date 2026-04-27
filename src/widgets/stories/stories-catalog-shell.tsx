@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Grid2X2, ListFilter, Search, SlidersHorizontal, X } from "lucide-react";
+import { ListFilter, Search, SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { storiesQueryOptions, storyTagsQueryOptions } from "@/entities/story/api/stories-api";
@@ -200,36 +200,26 @@ export function StoriesCatalogShell() {
         <div className="hidden items-center gap-3 lg:flex">
           <span className="plotty-meta whitespace-nowrap">Найдено {totalStoriesLabel} историй</span>
           <CatalogSortSelect value={currentSort} onChange={handleSortChange} />
-          <div className="plotty-segmented">
-            <span className="rounded-[10px] bg-[var(--plotty-accent)] p-2 text-white" aria-label="Список">
-              <Grid2X2 className="size-4" aria-hidden="true" />
-            </span>
-          </div>
         </div>
       }
       mobileToolbar={
         <div className="grid gap-3">
           <CatalogSearchField value={searchDraft} onChange={setSearchDraft} />
           <CatalogSortSelect value={currentSort} onChange={handleSortChange} compact />
-          <div className="grid grid-cols-[1fr_auto] gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              aria-label="Открыть фильтры"
-              onClick={() => setIsMobileFiltersOpen(true)}
-            >
-              <SlidersHorizontal className="size-4" aria-hidden="true" />
-              Фильтры
-              {appliedActiveTags.length ? (
-                <span className="rounded-full bg-[var(--plotty-accent-soft)] px-2 py-0.5 text-xs text-[var(--plotty-accent)]">
-                  {appliedActiveTags.length}
-                </span>
-              ) : null}
-            </Button>
-            <Button variant="primary" aria-label="Вид списка">
-              <Grid2X2 className="size-4" aria-hidden="true" />
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            aria-label="Открыть фильтры"
+            onClick={() => setIsMobileFiltersOpen(true)}
+          >
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+            Фильтры
+            {appliedActiveTags.length ? (
+              <span className="rounded-full bg-[var(--plotty-accent-soft)] px-2 py-0.5 text-xs text-[var(--plotty-accent)]">
+                {appliedActiveTags.length}
+              </span>
+            ) : null}
+          </Button>
         </div>
       }
       contentClassName="pt-4 lg:pt-7"
@@ -436,7 +426,7 @@ function CatalogSearchField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         aria-label="Поиск по названию истории"
-        placeholder="Поиск историй, авторов и фандомов"
+        placeholder="Поиск по названию истории"
         className="min-h-[42px] border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </Surface>

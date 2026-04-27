@@ -7,6 +7,7 @@ import { serializeStoriesQuery } from "../model/story-query";
 import type {
   AiJobAccepted,
   AiJobResponse,
+  CanonCheckResult,
   ChapterDetails,
   ChaptersViewedResponse,
   ChapterWiki,
@@ -485,6 +486,13 @@ export function startLogicCheck(payload: SpellcheckPayload) {
   });
 }
 
+export function startCanonCheck(payload: SpellcheckPayload) {
+  return fetchJson<AiJobAccepted>("/ai/canon-check", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function startImageGeneration(payload: ImageGenerationPayload) {
   return fetchJson<AiJobAccepted>("/ai/image-generation", {
     method: "POST",
@@ -522,4 +530,5 @@ export function patchStorySummaryCaches(
 
 export type SpellcheckJobResponse = AiJobResponse<SpellcheckResult>;
 export type LogicCheckJobResponse = AiJobResponse<LogicCheckResult>;
+export type CanonCheckJobResponse = AiJobResponse<CanonCheckResult>;
 export type ImageGenerationJobResponse = AiJobResponse<ImageGenerationResult>;

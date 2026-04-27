@@ -282,8 +282,8 @@ function GlobalSearch({ className }: { className?: string }) {
       <Input
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
-        aria-label="Поиск историй, авторов и фандомов"
-        placeholder="Поиск историй, авторов и фандомов"
+        aria-label="Глобальный поиск по названию истории"
+        placeholder="Поиск по названию истории"
         className="min-h-8 border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </form>

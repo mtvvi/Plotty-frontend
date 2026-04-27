@@ -106,12 +106,6 @@ export function StoryCreateScreen() {
         </span>
       }
       description="Создавайте, редактируйте и развивайте свои истории."
-      actions={
-        <ButtonLink href={routes.writeNew} variant="primary">
-          <Plus className="size-4" aria-hidden="true" />
-          Создать историю
-        </ButtonLink>
-      }
       showMobileBack={false}
     >
       <div className="grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)_18rem]">
