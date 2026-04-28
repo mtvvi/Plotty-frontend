@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { authKeys, login, register } from "@/entities/auth/api/auth-api";
+import { login, register } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import type { LoginPayload, RegisterPayload } from "@/entities/auth/model/types";
 import type { ApiFieldError } from "@/shared/api/fetch-json";
@@ -15,6 +15,8 @@ import { Button } from "@/shared/ui/button";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
+
+import { resetViewerSessionCache } from "./viewer-session-cache";
 
 type AuthMode = "login" | "register";
 
@@ -48,7 +50,7 @@ export function AuthScreen() {
     onSuccess: async () => {
       setGeneralError("");
       setFieldErrors({});
-      await queryClient.invalidateQueries({ queryKey: authKeys.session() });
+      await resetViewerSessionCache(queryClient);
       router.replace(nextUrl);
       router.refresh();
     },

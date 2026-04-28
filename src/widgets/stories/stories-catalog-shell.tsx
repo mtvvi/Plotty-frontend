@@ -39,7 +39,6 @@ export function StoriesCatalogShell() {
   const searchParamsString = searchParams.toString();
   const appliedQuery = useMemo(() => parseStoriesQuery(new URLSearchParams(searchParamsString)), [searchParamsString]);
   const [searchDraft, setSearchDraft] = useState(appliedQuery.q);
-  const [draftTags, setDraftTags] = useState(appliedQuery.tags);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [, setIsMobileMenuOpen] = useState(false);
   const lastRequestedSearchRef = useRef(appliedQuery.q);
@@ -63,16 +62,6 @@ export function StoriesCatalogShell() {
     }
   }, [appliedQuery.q]);
 
-  useEffect(() => {
-    setDraftTags(appliedQuery.tags);
-  }, [appliedQuery.tags]);
-
-  const hasFilterDraftChanges = useMemo(
-    () =>
-      serializeStoriesQuery({ ...appliedQuery, tags: draftTags }).toString() !==
-      serializeStoriesQuery(appliedQuery).toString(),
-    [appliedQuery, draftTags],
-  );
   const normalizedSearchDraft = searchDraft.trim();
   const isSearchDirty = normalizedSearchDraft !== appliedQuery.q;
   const currentSort = appliedQuery.sort ?? defaultStoriesSort;
@@ -116,26 +105,27 @@ export function StoriesCatalogShell() {
     return () => window.clearTimeout(timeoutId);
   }, [appliedQuery, isSearchDirty, navigateToQuery, normalizedSearchDraft]);
 
-  function applyDraftTags() {
-    if (!hasFilterDraftChanges) {
+  function updateTagFilters(tags: string[]) {
+    const nextQuery = {
+      ...appliedQuery,
+      tags,
+      page: 1,
+    };
+
+    if (serializeStoriesQuery(nextQuery).toString() === serializeStoriesQuery({ ...appliedQuery, page: 1 }).toString()) {
       return;
     }
 
-    navigateToQuery({
-      ...appliedQuery,
-      tags: draftTags,
-      page: 1,
-    });
+    navigateToQuery(nextQuery);
   }
 
-  function clearDraftFilters() {
-    setDraftTags([]);
+  function clearTagFilters() {
+    updateTagFilters([]);
   }
 
   function clearAllDraft() {
     setSearchDraft("");
     lastRequestedSearchRef.current = "";
-    setDraftTags([]);
   }
 
   function clearAppliedFilters() {
@@ -170,20 +160,12 @@ export function StoriesCatalogShell() {
       : [...currentTags, tagSlug];
   }
 
-  function applyMobileFilters() {
-    setIsMobileFiltersOpen(false);
-    applyDraftTags();
-  }
-
   const filters = (
     <CatalogFilters
       orderedGroups={orderedGroups}
-      draftTags={draftTags}
-      setDraftTags={setDraftTags}
-      clearDraftFilters={clearDraftFilters}
-      hasFilterDraftChanges={hasFilterDraftChanges}
-      isRouting={isRouting}
-      applyDraftTags={applyDraftTags}
+      selectedTags={appliedQuery.tags}
+      onTagsChange={updateTagFilters}
+      clearTagFilters={clearTagFilters}
       setSingleSelectTag={setSingleSelectTag}
       toggleMultiSelectTag={toggleMultiSelectTag}
       toggleGenericTag={toggleGenericTag}
@@ -297,11 +279,8 @@ export function StoriesCatalogShell() {
       </div>
 
       <PlottyMobileSheet open={isMobileFiltersOpen} title="Фильтры" onClose={() => setIsMobileFiltersOpen(false)}>
-        <div className="mb-5 grid grid-cols-2 gap-3">
-          <Button variant="primary" onClick={applyMobileFilters} disabled={!hasFilterDraftChanges || isRouting}>
-            Применить
-          </Button>
-          <Button variant="secondary" onClick={clearDraftFilters}>
+        <div className="mb-5">
+          <Button variant="secondary" fullWidth onClick={clearTagFilters}>
             Сбросить
           </Button>
         </div>
@@ -314,23 +293,17 @@ export function StoriesCatalogShell() {
 
 function CatalogFilters({
   orderedGroups,
-  draftTags,
-  setDraftTags,
-  clearDraftFilters,
-  hasFilterDraftChanges,
-  isRouting,
-  applyDraftTags,
+  selectedTags,
+  onTagsChange,
+  clearTagFilters,
   setSingleSelectTag,
   toggleMultiSelectTag,
   toggleGenericTag,
 }: {
   orderedGroups: Array<readonly [string, StoryTag[]]>;
-  draftTags: string[];
-  setDraftTags: (tags: string[]) => void;
-  clearDraftFilters: () => void;
-  hasFilterDraftChanges: boolean;
-  isRouting: boolean;
-  applyDraftTags: () => void;
+  selectedTags: string[];
+  onTagsChange: (tags: string[]) => void;
+  clearTagFilters: () => void;
   setSingleSelectTag: (currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) => string[];
   toggleMultiSelectTag: (currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) => string[];
   toggleGenericTag: (currentTags: string[], tagSlug: string) => string[];
@@ -343,22 +316,14 @@ function CatalogFilters({
             <SlidersHorizontal className="size-5 text-[var(--plotty-accent)]" aria-hidden="true" />
             Фильтры
           </h2>
-          <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearDraftFilters}>
+          <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearTagFilters}>
             Сбросить всё
           </Button>
         </div>
-        <Button
-          variant="primary"
-          fullWidth
-          onClick={applyDraftTags}
-          disabled={!hasFilterDraftChanges || isRouting}
-        >
-          Применить
-        </Button>
       </div>
 
       {orderedGroups.map(([category, tags]) => {
-        const selectedSlugs = getSelectedCategoryTags(draftTags, tags);
+        const selectedSlugs = getSelectedCategoryTags(selectedTags, tags);
 
         if (singleSelectCategories.has(category)) {
           return (
@@ -367,7 +332,7 @@ function CatalogFilters({
               title={getStoryTagCategoryLabel(category)}
               options={tags}
               selectedSlug={selectedSlugs[0] ?? ""}
-              onSelect={(tagSlug) => setDraftTags(setSingleSelectTag(draftTags, tagSlug, tags))}
+              onSelect={(tagSlug) => onTagsChange(setSingleSelectTag(selectedTags, tagSlug, tags))}
             />
           );
         }
@@ -378,14 +343,14 @@ function CatalogFilters({
               key={category}
               title={getStoryTagCategoryLabel(category)}
               canClear={selectedSlugs.length > 0}
-              onClear={() => setDraftTags(replaceCategoryTags(draftTags, tags, []))}
+              onClear={() => onTagsChange(replaceCategoryTags(selectedTags, tags, []))}
             >
               {tags.map((tag) => (
                 <CatalogTogglePill
                   key={tag.id}
                   label={tag.name}
                   active={selectedSlugs.includes(tag.slug)}
-                  onClick={() => setDraftTags(toggleMultiSelectTag(draftTags, tag.slug, tags))}
+                  onClick={() => onTagsChange(toggleMultiSelectTag(selectedTags, tag.slug, tags))}
                 />
               ))}
             </CatalogToggleGroup>
@@ -398,8 +363,8 @@ function CatalogFilters({
               <StoryTagChip
                 key={tag.id}
                 tag={tag}
-                active={draftTags.includes(tag.slug)}
-                onClick={() => setDraftTags(toggleGenericTag(draftTags, tag.slug))}
+                active={selectedTags.includes(tag.slug)}
+                onClick={() => onTagsChange(toggleGenericTag(selectedTags, tag.slug))}
               />
             ))}
           </CatalogToggleGroup>

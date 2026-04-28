@@ -40,7 +40,7 @@ describe("StoriesCatalogShell", () => {
     vi.useRealTimers();
   });
 
-  it("keeps desktop tag filter changes in draft until apply", async () => {
+  it("applies desktop tag filter changes immediately", async () => {
     const user = userEvent.setup();
     renderCatalogShell();
 
@@ -51,14 +51,10 @@ describe("StoriesCatalogShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Драма" }));
 
-    expect(replace).not.toHaveBeenCalled();
-
-    await user.click(screen.getAllByRole("button", { name: "Применить" })[0]);
-
     expect(replace).toHaveBeenCalledWith("/?tag=drama", { scroll: false });
   });
 
-  it("keeps desktop fandom picker changes in draft until apply", async () => {
+  it("applies desktop fandom picker changes immediately", async () => {
     const user = userEvent.setup();
     renderCatalogShell();
 
@@ -66,10 +62,6 @@ describe("StoriesCatalogShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Фандом" }));
     await user.click(screen.getByRole("option", { name: "Ведьмак" }));
-
-    expect(replace).not.toHaveBeenCalled();
-
-    await user.click(screen.getAllByRole("button", { name: "Применить" })[0]);
 
     expect(replace).toHaveBeenCalledWith("/?tag=witcher", { scroll: false });
   });
@@ -117,6 +109,9 @@ describe("StoriesCatalogShell", () => {
     expect(ratingGroup).not.toBeNull();
 
     await user.click(within(ratingGroup as HTMLElement).getByRole("button", { name: "R" }));
+
+    expect(replace).toHaveBeenLastCalledWith("/?tag=r", { scroll: false });
+
     view.rerender(
       <QueryClientProvider
         client={
@@ -137,14 +132,10 @@ describe("StoriesCatalogShell", () => {
     );
     await user.click(within(updatedRatingGroup as HTMLElement).getByRole("button", { name: "PG-13" }));
 
-    expect(replace).not.toHaveBeenCalled();
-
-    await user.click(screen.getAllByRole("button", { name: "Применить" })[0]);
-
     expect(replace).toHaveBeenLastCalledWith("/?tag=r&tag=pg-13", { scroll: false });
   });
 
-  it("does not apply mobile filter changes when the sheet is closed", async () => {
+  it("applies mobile filter changes immediately", async () => {
     const user = userEvent.setup();
     renderCatalogShell();
 
@@ -154,16 +145,14 @@ describe("StoriesCatalogShell", () => {
     await user.click(within(dialog).getByRole("button", { name: "Драма" }));
     await user.click(within(dialog).getByRole("button", { name: "Закрыть" }));
 
-    expect(replace).not.toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledWith("/?tag=drama", { scroll: false });
   });
 
-  it("disables apply buttons when draft matches applied state", async () => {
+  it("does not render apply buttons for filters", async () => {
     renderCatalogShell();
 
-    await waitFor(() => expect(screen.getAllByRole("button", { name: "Применить" }).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Драма" })).toBeInTheDocument());
 
-    screen.getAllByRole("button", { name: "Применить" }).forEach((button) => {
-      expect(button).toBeDisabled();
-    });
+    expect(screen.queryByRole("button", { name: "Применить" })).not.toBeInTheDocument();
   });
 });
