@@ -12,7 +12,7 @@ import {
   storyDetailsQueryOptions,
   storyKeys,
 } from "@/entities/story/api/stories-api";
-import type { StoryTag } from "@/entities/story/model/types";
+import type { StoryListItem, StoryTag } from "@/entities/story/model/types";
 import { defaultStoriesQuery, readerChapterNumberForChapterId } from "@/entities/story/model/story-query";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
@@ -28,6 +28,18 @@ import { PlottyShell, ShellCard } from "./plotty-shell";
 import { StoryCoverPreview } from "./story-cover-preview";
 
 const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
+
+export function getSidebarStoryCoverImageUrl({
+  story,
+  selectedStorySlug,
+  selectedStoryDisplayCover,
+}: {
+  story: Pick<StoryListItem, "slug" | "coverImageUrl">;
+  selectedStorySlug: string;
+  selectedStoryDisplayCover?: string | null;
+}) {
+  return story.coverImageUrl ?? (story.slug === selectedStorySlug ? selectedStoryDisplayCover ?? undefined : undefined);
+}
 
 export function StoryCreateScreen() {
   const router = useRouter();
@@ -119,6 +131,11 @@ export function StoryCreateScreen() {
             <div className="space-y-3">
               {storiesQuery.data.items.map((story) => {
                 const isSelected = selectedStorySlug === story.slug;
+                const sidebarCoverImage = getSidebarStoryCoverImageUrl({
+                  story,
+                  selectedStorySlug,
+                  selectedStoryDisplayCover,
+                });
 
                 return (
                   <article
@@ -137,14 +154,14 @@ export function StoryCreateScreen() {
                     >
                       <StoryCoverPreview
                         title={story.title}
-                        imageUrl={story.coverImageUrl ?? undefined}
+                        imageUrl={sidebarCoverImage ?? undefined}
                         compact
                         className="aspect-square rounded-[12px]"
                         imageClassName="h-full"
                       />
                     </button>
                     <button type="button" onClick={() => setSelectedStorySlug(story.slug)} className="min-w-0 text-left">
-                      <div className="plotty-card-title truncate text-[1.04rem] leading-5">{story.title}</div>
+                      <div className="plotty-card-title line-clamp-2 break-words text-[1.04rem] leading-5">{story.title}</div>
                       <div className="mt-1 text-xs text-[var(--plotty-muted)]">
                         Обновлена {new Date(story.updatedAt).toLocaleDateString("ru-RU")}
                       </div>

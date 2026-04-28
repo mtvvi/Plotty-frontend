@@ -14,7 +14,7 @@ import {
   publicUserCollectionsQueryOptions,
   publicUserStoriesQueryOptions,
 } from "@/entities/profile/api/profile-api";
-import { myStoriesQueryOptions, storyKeys } from "@/entities/story/api/stories-api";
+import { myStoriesQueryOptions } from "@/entities/story/api/stories-api";
 import { ApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { usernameValidationMessage } from "@/shared/lib/username";
@@ -26,6 +26,7 @@ import { TabButton } from "@/shared/ui/tabs";
 import { Textarea } from "@/shared/ui/textarea";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
+import { resetViewerSessionCache } from "@/widgets/auth/viewer-session-cache";
 
 import { ProfileCollectionsManager } from "./profile-collections-manager";
 
@@ -98,8 +99,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: authKeys.session() });
-      queryClient.removeQueries({ queryKey: storyKeys.all });
+      await resetViewerSessionCache(queryClient);
     },
   });
 

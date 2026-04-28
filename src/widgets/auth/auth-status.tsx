@@ -4,12 +4,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { authKeys, logout } from "@/entities/auth/api/auth-api";
+import { logout } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
-import { storyKeys } from "@/entities/story/api/stories-api";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
+
+import { resetViewerSessionCache } from "./viewer-session-cache";
 
 function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
   const query = searchParams.toString();
@@ -49,8 +50,7 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: authKeys.session() });
-      queryClient.removeQueries({ queryKey: storyKeys.all });
+      await resetViewerSessionCache(queryClient);
     },
   });
 
