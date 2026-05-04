@@ -80,6 +80,9 @@ export interface ChapterDetails {
   content: string;
   updatedAt: string;
   status?: StoryStatus;
+  draftTitle?: string | null;
+  draftContent?: string | null;
+  hasUnpublishedChanges?: boolean;
   publishedTitle?: string | null;
   publishedContent?: string | null;
   publishedUpdatedAt?: string | null;
@@ -140,7 +143,10 @@ export interface CreateChapterPayload {
   content: string;
 }
 
-export type UpdateChapterPayload = CreateChapterPayload;
+export interface UpdateChapterPayload extends CreateChapterPayload {
+  draftTitle?: string;
+  draftContent?: string;
+}
 
 export interface SpellcheckIssue {
   fragmentText: string;

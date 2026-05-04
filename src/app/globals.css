@@ -298,6 +298,16 @@ select {
     0 0 0 4px rgba(195, 79, 50, 0.72);
 }
 
+.plotty-highlighted-textarea-mirror {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.plotty-highlighted-textarea-mirror::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 @media (max-width: 1200px) {
   .plotty-shell-grid {
     grid-template-columns: 1fr;

@@ -78,6 +78,8 @@ interface ChapterRecord {
   title: string;
   content: string;
   status?: "draft" | "published";
+  draftTitle?: string | null;
+  draftContent?: string | null;
   publishedTitle?: string | null;
   publishedContent?: string | null;
   publishedUpdatedAt?: string | null;
@@ -520,6 +522,13 @@ function toChapterDetails(chapter: ChapterRecord): ChapterDetails {
     wordCount: countWords(chapter.content),
     updatedAt: chapter.updatedAt,
     status: chapter.status,
+    draftTitle: chapter.draftTitle ?? chapter.title,
+    draftContent: chapter.draftContent ?? chapter.content,
+    hasUnpublishedChanges:
+      isChapterPublishedMock(chapter) &&
+      Boolean(chapter.publishedContent) &&
+      ((chapter.draftTitle ?? chapter.title) !== (chapter.publishedTitle ?? chapter.title) ||
+        (chapter.draftContent ?? chapter.content) !== (chapter.publishedContent ?? chapter.content)),
     publishedTitle: chapter.publishedTitle ?? (isChapterPublishedMock(chapter) ? chapter.title : null),
     publishedContent: chapter.publishedContent ?? (isChapterPublishedMock(chapter) ? chapter.content : null),
     publishedUpdatedAt: chapter.publishedUpdatedAt ?? (isChapterPublishedMock(chapter) ? chapter.updatedAt : null),
@@ -1265,8 +1274,10 @@ export function updateChapterRecord(chapterId: string, payload: UpdateChapterPay
     chapter.publishedUpdatedAt = chapter.updatedAt;
   }
 
-  chapter.title = payload.title;
-  chapter.content = payload.content;
+  chapter.title = payload.draftTitle ?? payload.title;
+  chapter.content = payload.draftContent ?? payload.content;
+  chapter.draftTitle = chapter.title;
+  chapter.draftContent = chapter.content;
   chapter.updatedAt = nowIso();
 
   const story = db.stories.find((item) => item.id === chapter.storyId);
@@ -1315,6 +1326,8 @@ export function publishChapterRecord(chapterId: string) {
 
   chapter.status = "published";
   chapter.updatedAt = nowIso();
+  chapter.title = chapter.draftTitle ?? chapter.title;
+  chapter.content = chapter.draftContent ?? chapter.content;
   chapter.publishedTitle = chapter.title;
   chapter.publishedContent = chapter.content;
   chapter.publishedUpdatedAt = chapter.updatedAt;
