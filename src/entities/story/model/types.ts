@@ -79,6 +79,10 @@ export interface ChapterDetails {
   title: string;
   content: string;
   updatedAt: string;
+  status?: StoryStatus;
+  publishedTitle?: string | null;
+  publishedContent?: string | null;
+  publishedUpdatedAt?: string | null;
   storySlug?: string;
   storyTitle?: string;
   storyTags?: StoryTag[];

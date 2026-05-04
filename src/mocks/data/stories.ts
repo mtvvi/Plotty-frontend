@@ -78,6 +78,9 @@ interface ChapterRecord {
   title: string;
   content: string;
   status?: "draft" | "published";
+  publishedTitle?: string | null;
+  publishedContent?: string | null;
+  publishedUpdatedAt?: string | null;
   imageUrl?: string;
   imagePrompt?: string;
   createdAt: string;
@@ -516,6 +519,10 @@ function toChapterDetails(chapter: ChapterRecord): ChapterDetails {
     content: chapter.content,
     wordCount: countWords(chapter.content),
     updatedAt: chapter.updatedAt,
+    status: chapter.status,
+    publishedTitle: chapter.publishedTitle ?? (isChapterPublishedMock(chapter) ? chapter.title : null),
+    publishedContent: chapter.publishedContent ?? (isChapterPublishedMock(chapter) ? chapter.content : null),
+    publishedUpdatedAt: chapter.publishedUpdatedAt ?? (isChapterPublishedMock(chapter) ? chapter.updatedAt : null),
     imageUrl: chapter.imageUrl,
   };
 }
@@ -1252,6 +1259,12 @@ export function updateChapterRecord(chapterId: string, payload: UpdateChapterPay
     return null;
   }
 
+  if (isChapterPublishedMock(chapter) && chapter.publishedContent === undefined) {
+    chapter.publishedTitle = chapter.title;
+    chapter.publishedContent = chapter.content;
+    chapter.publishedUpdatedAt = chapter.updatedAt;
+  }
+
   chapter.title = payload.title;
   chapter.content = payload.content;
   chapter.updatedAt = nowIso();
@@ -1300,12 +1313,11 @@ export function publishChapterRecord(chapterId: string) {
     return null;
   }
 
-  if (isChapterPublishedMock(chapter)) {
-    return { status: "published" as const };
-  }
-
   chapter.status = "published";
   chapter.updatedAt = nowIso();
+  chapter.publishedTitle = chapter.title;
+  chapter.publishedContent = chapter.content;
+  chapter.publishedUpdatedAt = chapter.updatedAt;
 
   const story = db.stories.find((item) => item.id === chapter.storyId);
 

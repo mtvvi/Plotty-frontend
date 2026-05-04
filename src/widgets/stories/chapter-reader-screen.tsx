@@ -143,6 +143,10 @@ export function ChapterReaderScreen({
   const prevChapter = currentIndex > 0 ? readerChapters[currentIndex - 1] : null;
   const nextChapter =
     currentIndex >= 0 && currentIndex < readerChapters.length - 1 ? readerChapters[currentIndex + 1] : null;
+  const shouldReadPublishedVersion = chapterPublished && !chapterIdFromRoute;
+  const readerChapterTitle = shouldReadPublishedVersion ? chapter.publishedTitle ?? chapter.title : chapter.title;
+  const readerChapterContent = shouldReadPublishedVersion ? chapter.publishedContent ?? chapter.content : chapter.content;
+  const readerWordCount = countWords(readerChapterContent);
 
   async function handleAddComment() {
     const content = commentDraft.trim();
@@ -211,12 +215,12 @@ export function ChapterReaderScreen({
       }
     >
       <div className="mx-auto max-w-4xl space-y-5">
-        {chapter.imageUrl ? <ChapterImageFrame title={chapter.title} imageUrl={chapter.imageUrl} /> : null}
+        {chapter.imageUrl ? <ChapterImageFrame title={readerChapterTitle} imageUrl={chapter.imageUrl} /> : null}
 
-        <ShellCard title={chapter.title} description={`${chapter.wordCount ?? 0} слов`} className="bg-[rgba(255,255,255,0.72)]">
+        <ShellCard title={readerChapterTitle} description={`${readerWordCount} слов`} className="bg-[rgba(255,255,255,0.72)]">
           <div className="space-y-5">
             <div className="whitespace-pre-wrap text-[15px] leading-8 text-[var(--plotty-ink)] md:text-[16px] md:leading-9">
-              {chapter.content}
+              {readerChapterContent}
             </div>
 
             <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--plotty-line)] pt-4">
@@ -324,6 +328,10 @@ export function ChapterReaderScreen({
       ) : null}
     </PlottyShell>
   );
+}
+
+function countWords(content: string) {
+  return content.trim() ? content.trim().split(/\s+/).length : 0;
 }
 
 function ChapterWikiDrawer({

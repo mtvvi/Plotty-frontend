@@ -68,6 +68,10 @@ interface BackendChapterDetails {
   title: string;
   content: string;
   updatedAt: string;
+  status?: string;
+  publishedTitle?: string | null;
+  publishedContent?: string | null;
+  publishedUpdatedAt?: string | null;
   number?: number;
   imageUrl?: string;
   storySlug?: string;
@@ -155,6 +159,10 @@ function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
     title: item.title,
     content: item.content,
     updatedAt: item.updatedAt,
+    status: item.status === "draft" || item.status === "published" ? item.status : undefined,
+    publishedTitle: item.publishedTitle ?? (item.status === "published" ? item.title : null),
+    publishedContent: item.publishedContent ?? (item.status === "published" ? item.content : null),
+    publishedUpdatedAt: item.publishedUpdatedAt ?? (item.status === "published" ? item.updatedAt : null),
     number: item.number,
     imageUrl: item.imageUrl,
     storySlug: item.storySlug,

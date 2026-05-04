@@ -6,6 +6,7 @@ import { BookOpen, CalendarDays, Heart, List, MessageCircle, Tag, UserRound } fr
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { useAuth } from "@/entities/auth/model/auth-context";
 import {
   chapterDetailsQueryOptions,
   chaptersViewedQueryOptions,
@@ -30,6 +31,7 @@ type MobileStorySection = "description" | "chapters" | "info";
 
 export function StoryDetailsScreen({ slug }: { slug: string }) {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [activeMobileSection, setActiveMobileSection] = useState<MobileStorySection>("description");
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const readerChapters = useMemo(
@@ -184,10 +186,12 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                   </Button>
                 </div>
 
-                <div className="grid gap-3 lg:hidden">
-                  <StoryShelfControl storyId={story.id} compact className="max-w-none" />
-                  <StoryCollectionControl storyId={story.id} compact className="max-w-none" />
-                </div>
+                {isAuthenticated ? (
+                  <div className="grid gap-3 lg:hidden">
+                    <StoryShelfControl storyId={story.id} compact className="max-w-none" />
+                    <StoryCollectionControl storyId={story.id} compact className="max-w-none" />
+                  </div>
+                ) : null}
 
                 <div className="hidden space-y-2 border-t border-[var(--plotty-line)] pt-4 lg:block">
                   <h2 className="plotty-label">Аннотация</h2>
@@ -264,12 +268,14 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
             </div>
           </PlottySectionCard>
 
-          <PlottySectionCard title="Моя полка" variant="sidebar" className="max-lg:hidden">
-            <div className="space-y-3">
-              <StoryShelfControl storyId={story.id} className="max-w-none" />
-              <StoryCollectionControl storyId={story.id} className="max-w-none" />
-            </div>
-          </PlottySectionCard>
+          {isAuthenticated ? (
+            <PlottySectionCard title="Моя полка" variant="sidebar" className="max-lg:hidden">
+              <div className="space-y-3">
+                <StoryShelfControl storyId={story.id} className="max-w-none" />
+                <StoryCollectionControl storyId={story.id} className="max-w-none" />
+              </div>
+            </PlottySectionCard>
+          ) : null}
         </aside>
       </div>
     </PlottyPageShell>

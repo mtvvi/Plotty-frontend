@@ -2,14 +2,12 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Heart, List, MessageCircle } from "lucide-react";
+import { BookOpen, Heart, List } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import {
-  chapterDetailsQueryOptions,
-  storyDetailsQueryOptions,
-} from "@/entities/story/api/stories-api";
+import { chapterDetailsQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
+import { useAuth } from "@/entities/auth/model/auth-context";
 import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
 import type { StoryListItem } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
@@ -31,6 +29,7 @@ export function StoryCard({
   showShelfControl?: boolean;
 }) {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const resolvedStoryHref = storyHref ?? routes.story(story.slug);
   const storyDetailsQuery = useQuery({
     ...storyDetailsQueryOptions(story.slug),
@@ -163,11 +162,11 @@ export function StoryCard({
                 {formatCount(likesCount)}
               </Button>
               <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
-                <MessageCircle className="size-4" aria-hidden="true" />
+                <List className="size-4" aria-hidden="true" />
                 {story.chaptersCount}
               </Link>
             </div>
-            {showShelfControl ? (
+            {showShelfControl && isAuthenticated ? (
               <div className="grid gap-2 sm:grid-cols-2">
                 <StoryShelfControl storyId={story.id} className="max-w-none" compact />
                 <StoryCollectionControl storyId={story.id} className="max-w-none" compact />
@@ -202,11 +201,11 @@ export function StoryCard({
               {formatCount(likesCount)}
             </Button>
             <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
-              <MessageCircle className="size-4" aria-hidden="true" />
+              <List className="size-4" aria-hidden="true" />
               {story.chaptersCount}
             </Link>
           </div>
-          {showShelfControl ? (
+          {showShelfControl && isAuthenticated ? (
             <div className="hidden space-y-2 border-t border-[var(--plotty-line)] pt-3 md:block">
               <StoryShelfControl storyId={story.id} className="max-w-none min-w-0" compact />
               <StoryCollectionControl storyId={story.id} className="max-w-none min-w-0" compact />

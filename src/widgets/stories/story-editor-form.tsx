@@ -9,17 +9,23 @@ import type {
   SpellcheckIssue,
   SpellcheckResult,
 } from "@/entities/story/model/types";
+import type { TextDiffPart } from "@/shared/lib/text-diff";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Field, FieldLabel } from "@/shared/ui/field";
+import { HighlightedTextarea, type HighlightRange } from "@/shared/ui/highlighted-textarea";
 import { Input } from "@/shared/ui/input";
-import { Textarea } from "@/shared/ui/textarea";
 
 import { ShellCard } from "./plotty-shell";
 
 export interface StoryEditorValues {
   chapterTitle: string;
   chapterContent: string;
+}
+
+export interface PublicationDiff {
+  title: TextDiffPart[];
+  content: TextDiffPart[];
 }
 
 export interface StoryEditorFormProps {
@@ -30,6 +36,7 @@ export interface StoryEditorFormProps {
   chapterNumber?: number;
   chapters?: ChapterListItem[];
   spellcheckResult?: SpellcheckResult;
+  spellcheckHighlights?: HighlightRange[];
   aiStatusLabel?: string;
   logicCheckResult?: LogicCheckResult;
   logicStatusLabel?: string;
@@ -44,7 +51,9 @@ export interface StoryEditorFormProps {
   onSave: () => void;
   onPublish?: () => void;
   isPublishing?: boolean;
-  chapterPublished?: boolean;
+  hasPublishedVersion?: boolean;
+  hasUnpublishedChanges?: boolean;
+  publicationDiff?: PublicationDiff;
   onCreateNextChapter?: () => void;
   onDeleteChapter?: () => void;
   onSpellcheck: () => void;
@@ -61,6 +70,7 @@ export function StoryEditorForm({
   chapterNumber,
   chapters = [],
   spellcheckResult,
+  spellcheckHighlights = [],
   aiStatusLabel,
   logicCheckResult,
   logicStatusLabel,
@@ -75,7 +85,9 @@ export function StoryEditorForm({
   onSave,
   onPublish,
   isPublishing,
-  chapterPublished,
+  hasPublishedVersion,
+  hasUnpublishedChanges,
+  publicationDiff,
   onCreateNextChapter,
   onDeleteChapter,
   onSpellcheck,
@@ -124,6 +136,13 @@ export function StoryEditorForm({
             ) : null}
 
             <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.58)] p-4">
+              {hasUnpublishedChanges ? (
+                <div className="rounded-[18px] border border-[rgba(195,79,50,0.18)] bg-[var(--plotty-accent-wash)] px-4 py-3 text-sm leading-6 text-[var(--plotty-ink)]">
+                  <span className="font-semibold">Есть неопубликованные изменения.</span>{" "}
+                  Сохраненный черновик отличается от опубликованной версии главы.
+                </div>
+              ) : null}
+
               <Field>
                 <FieldLabel htmlFor="chapter-title">Название главы</FieldLabel>
                 <Input
@@ -136,12 +155,13 @@ export function StoryEditorForm({
 
               <Field>
                 <FieldLabel htmlFor="chapter-content">Текст главы</FieldLabel>
-                <Textarea
+                <HighlightedTextarea
                   id="chapter-content"
                   value={values.chapterContent}
                   onChange={(event) => update("chapterContent", event.target.value)}
                   placeholder="Начните писать главу"
                   className="min-h-[420px] bg-[rgba(255,255,255,0.9)]"
+                  highlightRanges={spellcheckHighlights}
                 />
               </Field>
             </div>
@@ -156,15 +176,17 @@ export function StoryEditorForm({
                   onClick={onPublish}
                   disabled={
                     isPublishing ||
-                    chapterPublished ||
+                    (hasPublishedVersion && !hasUnpublishedChanges) ||
                     !chapterId ||
                     !values.chapterContent.trim()
                   }
                 >
-                  {chapterPublished
+                  {isPublishing
+                    ? "Публикуем..."
+                    : hasPublishedVersion && !hasUnpublishedChanges
                     ? "Опубликовано"
-                    : isPublishing
-                      ? "Публикуем..."
+                    : hasPublishedVersion
+                      ? "Опубликовать изменения"
                       : "Опубликовать"}
                 </Button>
               ) : null}
@@ -183,6 +205,15 @@ export function StoryEditorForm({
             </div>
           </div>
         </ShellCard>
+
+        {publicationDiff && hasUnpublishedChanges ? (
+          <ShellCard title="Изменения после публикации" description="Сравнение опубликованной версии и текущего черновика.">
+            <div className="space-y-4">
+              <DiffBlock title="Название" parts={publicationDiff.title} />
+              <DiffBlock title="Текст главы" parts={publicationDiff.content} />
+            </div>
+          </ShellCard>
+        ) : null}
       </div>
 
       <div className="space-y-5">
@@ -296,4 +327,35 @@ export function StoryEditorForm({
       </div>
     </div>
   );
+}
+
+function DiffBlock({ title, parts }: { title: string; parts: TextDiffPart[] }) {
+  return (
+    <div className="space-y-2">
+      <div className="plotty-kicker">{title}</div>
+      <div className="max-h-72 overflow-y-auto rounded-[18px] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.72)] p-3 text-sm leading-7 text-[var(--plotty-ink)]">
+        {parts.length ? (
+          <p className="whitespace-pre-wrap">
+            {parts.map((part, index) => (
+              <DiffPart key={`${part.type}-${index}`} part={part} />
+            ))}
+          </p>
+        ) : (
+          <p className="text-[var(--plotty-muted)]">Изменений нет.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DiffPart({ part }: { part: TextDiffPart }) {
+  if (part.type === "added") {
+    return <ins className="rounded-[4px] bg-[var(--plotty-olive-soft)] px-0.5 font-semibold no-underline">{part.value}</ins>;
+  }
+
+  if (part.type === "removed") {
+    return <del className="rounded-[4px] bg-[var(--plotty-danger-soft)] px-0.5 text-[var(--plotty-danger)]">{part.value}</del>;
+  }
+
+  return <span>{part.value}</span>;
 }

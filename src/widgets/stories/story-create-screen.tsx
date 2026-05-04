@@ -87,6 +87,7 @@ export function StoryCreateScreen() {
 
   const selectedStoryDisplayCover = selectedStoryQuery.data?.coverImageUrl ?? selectedStoryFirstChapterQuery.data?.imageUrl;
   const selectedStoryDescription = selectedStoryQuery.data?.aiHint?.trim() ? selectedStoryQuery.data.aiHint : STORY_ANNOTATION_PLACEHOLDER;
+  const selectedStoryLastChapter = selectedStoryQuery.data?.chapters.at(-1);
 
   async function handleCreateNextChapter() {
     if (!selectedStoryQuery.data) {
@@ -237,7 +238,7 @@ export function StoryCreateScreen() {
                     </ButtonLink>
                     <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary">
                       <Settings className="size-4" aria-hidden="true" />
-                      Настройки
+                      Настройки истории
                     </ButtonLink>
                   </div>
                 </div>
@@ -322,9 +323,19 @@ export function StoryCreateScreen() {
                   <BookOpen className="size-4" aria-hidden="true" />
                   Открыть историю
                 </ButtonLink>
+                {selectedStoryLastChapter ? (
+                  <ButtonLink
+                    href={routes.chapterEditor(selectedStoryQuery.data.id, selectedStoryLastChapter.id)}
+                    variant="secondary"
+                    className="w-full justify-start"
+                  >
+                    <PenLine className="size-4" aria-hidden="true" />
+                    Редактировать последнюю главу
+                  </ButtonLink>
+                ) : null}
                 <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary" className="w-full justify-start">
-                  <PenLine className="size-4" aria-hidden="true" />
-                  Редактировать
+                  <Settings className="size-4" aria-hidden="true" />
+                  Настройки истории
                 </ButtonLink>
               </>
             ) : null}
