@@ -16,10 +16,11 @@ import {
   storyKeys,
   updateChapter,
 } from "@/entities/story/api/stories-api";
-import type { CanonCheckResult, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
-import { isAuthError } from "@/shared/api/fetch-json";
+import type { CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
+import { isApiError, isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { diffWords } from "@/shared/lib/text-diff";
+import { resolveTextRangeByOffsets, type ResolvedTextRange } from "@/shared/lib/text-ranges";
 import { EmptyState } from "@/shared/ui/empty-state";
 import type { HighlightRange } from "@/shared/ui/highlighted-textarea";
 
@@ -37,8 +38,6 @@ const emptyChapterDraft = "Черновик новой главы. Открой�
 
 type AppliedSpellcheckFix = {
   key: string;
-  startOffset: number;
-  delta: number;
 };
 
 function getSpellcheckIssueKey(issue: SpellcheckIssue) {
@@ -59,6 +58,8 @@ export function StoryEditorScreen({
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
   const [logicCheckJobId, setLogicCheckJobId] = useState("");
   const [canonCheckJobId, setCanonCheckJobId] = useState("");
+  const [canonCheckError, setCanonCheckError] = useState("");
+  const [isPreparingCanonCheck, setIsPreparingCanonCheck] = useState(false);
   const [appliedSpellcheckFixes, setAppliedSpellcheckFixes] = useState<AppliedSpellcheckFix[]>([]);
 
   useEffect(() => {
@@ -67,8 +68,8 @@ export function StoryEditorScreen({
     }
 
     setValues({
-      chapterTitle: chapterQuery.data.title,
-      chapterContent: chapterQuery.data.content,
+      chapterTitle: getEditableChapterTitle(chapterQuery.data),
+      chapterContent: getEditableChapterContent(chapterQuery.data),
     });
   }, [chapterQuery.data]);
 
@@ -76,6 +77,8 @@ export function StoryEditorScreen({
     setSpellcheckJobId("");
     setLogicCheckJobId("");
     setCanonCheckJobId("");
+    setCanonCheckError("");
+    setIsPreparingCanonCheck(false);
     setAppliedSpellcheckFixes([]);
   }, [chapterId]);
 
@@ -84,6 +87,8 @@ export function StoryEditorScreen({
       updateChapter(targetChapterId, {
         title: targetPayload.chapterTitle.trim(),
         content: targetPayload.chapterContent.trim(),
+        draftTitle: targetPayload.chapterTitle.trim(),
+        draftContent: targetPayload.chapterContent.trim(),
       }),
   });
   const createChapterMutation = useMutation({
@@ -142,37 +147,52 @@ export function StoryEditorScreen({
       ),
     [appliedSpellcheckFixes, spellcheckJobQuery.data?.result?.items, values.chapterContent],
   );
-  const publishedTitle = chapterQuery.data?.publishedTitle ?? "";
-  const publishedContent = chapterQuery.data?.publishedContent ?? null;
+  const publishedTitle =
+    chapterQuery.data?.publishedTitle ??
+    (chapterQuery.data?.status === "published" ? chapterQuery.data.title : null);
+  const publishedContent =
+    chapterQuery.data?.publishedContent ??
+    (chapterQuery.data?.status === "published" ? chapterQuery.data.content : null);
   const hasPublishedVersion = typeof publishedContent === "string";
-  const hasUnpublishedChanges =
+  const hasLocalUnpublishedChanges =
     hasPublishedVersion &&
     (values.chapterTitle !== publishedTitle || values.chapterContent !== publishedContent);
+  const hasUnpublishedChanges = Boolean(chapterQuery.data?.hasUnpublishedChanges || hasLocalUnpublishedChanges);
+  const savedDraftTitle = chapterQuery.data ? getEditableChapterTitle(chapterQuery.data) : "";
+  const savedDraftContent = chapterQuery.data ? getEditableChapterContent(chapterQuery.data) : "";
+  const hasUnsavedDraftChanges = Boolean(
+    chapterQuery.data &&
+      (values.chapterTitle.trim() !== savedDraftTitle.trim() || values.chapterContent.trim() !== savedDraftContent.trim()),
+  );
   const publicationDiff = useMemo(
     () =>
       hasPublishedVersion
         ? {
-            title: diffWords(publishedTitle, values.chapterTitle),
+            title: diffWords(publishedTitle ?? "", values.chapterTitle),
             content: diffWords(publishedContent ?? "", values.chapterContent),
           }
         : undefined,
     [hasPublishedVersion, publishedContent, publishedTitle, values.chapterContent, values.chapterTitle],
   );
 
+  async function persistCurrentDraft() {
+    await updateChapterMutation.mutateAsync({
+      targetChapterId: chapterId,
+      targetPayload: values,
+    });
+
+    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+    await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
+    await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
+
+    if (chapterQuery.data?.storySlug) {
+      await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+    }
+  }
+
   async function handleSave() {
     try {
-      await updateChapterMutation.mutateAsync({
-        targetChapterId: chapterId,
-        targetPayload: values,
-      });
-
-      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
-      await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
-      await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
-
-      if (chapterQuery.data?.storySlug) {
-        await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
-      }
+      await persistCurrentDraft();
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
@@ -240,35 +260,31 @@ export function StoryEditorScreen({
     const issueKey = getSpellcheckIssueKey(issue);
 
     if (appliedSpellcheckFixes.some((fix) => fix.key === issueKey)) {
-      return;
+      return false;
     }
 
-    const offsetShift = appliedSpellcheckFixes.reduce(
-      (total, fix) => (fix.startOffset < issue.startOffset ? total + fix.delta : total),
-      0,
-    );
-    const adjustedStart = issue.startOffset + offsetShift;
-    const adjustedEnd = adjustedStart + (issue.endOffset - issue.startOffset);
+    const range = resolveSpellcheckIssueRange(values.chapterContent, issue);
 
-    if (values.chapterContent.slice(adjustedStart, adjustedEnd) !== issue.fragmentText) {
-      return;
+    if (!range) {
+      return false;
     }
 
-    setValues({
-      ...values,
-      chapterContent:
-        values.chapterContent.slice(0, adjustedStart) +
-        issue.suggestion +
-        values.chapterContent.slice(adjustedEnd),
-    });
-    setAppliedSpellcheckFixes((current) => [
+    setValues((current) => ({
       ...current,
-      {
-        key: issueKey,
-        startOffset: issue.startOffset,
-        delta: issue.suggestion.length - (issue.endOffset - issue.startOffset),
-      },
-    ]);
+      chapterContent:
+        current.chapterContent.slice(0, range.startIndex) +
+        issue.suggestion +
+        current.chapterContent.slice(range.endIndex),
+    }));
+    setAppliedSpellcheckFixes((current) => {
+      if (current.some((fix) => fix.key === issueKey)) {
+        return current;
+      }
+
+      return [...current, { key: issueKey }];
+    });
+
+    return true;
   }
 
   async function handleLogicCheck() {
@@ -287,17 +303,27 @@ export function StoryEditorScreen({
   }
 
   async function handleCanonCheck() {
+    setCanonCheckError("");
+    setCanonCheckJobId("");
+    setIsPreparingCanonCheck(true);
+
     try {
-      const accepted = await canonCheckMutation.mutateAsync({
-        chapterId,
-        content: values.chapterContent,
-      });
+      if (hasUnsavedDraftChanges) {
+        await persistCurrentDraft();
+      }
+
+      const accepted = await canonCheckMutation.mutateAsync(chapterId);
 
       setCanonCheckJobId(accepted.jobId);
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+        return;
       }
+
+      setCanonCheckError(getCanonCheckErrorMessage(error));
+    } finally {
+      setIsPreparingCanonCheck(false);
     }
   }
 
@@ -345,10 +371,15 @@ export function StoryEditorScreen({
       ? "Проверяем причинно-следственные связи и внутренние нестыковки..."
       : "";
 
-  const canonStatusLabel =
-    canonCheckJobQuery.data?.status === "processing" || canonCheckJobQuery.data?.status === "queued"
-      ? "Сверяем текст с каноном и правилами мира..."
-      : "";
+  const canonStatusLabel = canonCheckError
+    ? canonCheckError
+    : canonCheckJobQuery.data?.status === "failed"
+      ? canonCheckJobQuery.data.errorMessage ?? "Проверка канона завершилась с ошибкой."
+      : isPreparingCanonCheck
+        ? "Сохраняем черновик перед проверкой канона..."
+        : canonCheckJobQuery.data?.status === "processing" || canonCheckJobQuery.data?.status === "queued"
+          ? "Сверяем текст с каноном и правилами мира..."
+          : "";
 
   const isSpellcheckBusy =
     spellcheckMutation.isPending ||
@@ -361,13 +392,14 @@ export function StoryEditorScreen({
     logicCheckJobQuery.data?.status === "processing";
 
   const isCanonCheckBusy =
+    isPreparingCanonCheck ||
     canonCheckMutation.isPending ||
     canonCheckJobQuery.data?.status === "queued" ||
     canonCheckJobQuery.data?.status === "processing";
 
   return (
     <PlottyShell
-      title={chapterQuery.data.title}
+      title={values.chapterTitle || chapterQuery.data.title}
       description={`Глава ${chapterQuery.data.number ?? "—"} истории ${chapterQuery.data.storyTitle ?? "без названия"}`}
     >
       <StoryEditorForm
@@ -396,10 +428,10 @@ export function StoryEditorScreen({
                   <div className="plotty-section-title">Иллюстрация главы</div>
                   <p className="plotty-meta">Сгенерируйте изображение для этой главы.</p>
                 </div>
-                <ChapterImageFrame title={chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl} />
+                <ChapterImageFrame title={values.chapterTitle || chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl} />
                 <GenerateChapterImageButton
                   chapterId={chapterId}
-                  chapterTitle={chapterQuery.data.title}
+                  chapterTitle={values.chapterTitle || chapterQuery.data.title}
                   storySlug={chapterQuery.data.storySlug ?? ""}
                   storyTitle={chapterQuery.data.storyTitle}
                 />
@@ -425,29 +457,73 @@ export function StoryEditorScreen({
   );
 }
 
+function getEditableChapterTitle(chapter: ChapterDetails) {
+  return chapter.draftTitle ?? chapter.title;
+}
+
+function getEditableChapterContent(chapter: ChapterDetails) {
+  return chapter.draftContent ?? chapter.content;
+}
+
 function buildSpellcheckHighlights(
   content: string,
   issues: SpellcheckIssue[],
   appliedFixes: AppliedSpellcheckFix[],
-): HighlightRange[] {
+): HighlightRange<SpellcheckIssue>[] {
+  const appliedIssueKeys = new Set(appliedFixes.map((fix) => fix.key));
+
   return issues.flatMap((issue) => {
     const issueKey = getSpellcheckIssueKey(issue);
 
-    if (appliedFixes.some((fix) => fix.key === issueKey)) {
+    if (appliedIssueKeys.has(issueKey)) {
       return [];
     }
 
-    const offsetShift = appliedFixes.reduce(
-      (total, fix) => (fix.startOffset < issue.startOffset ? total + fix.delta : total),
-      0,
-    );
-    const startOffset = issue.startOffset + offsetShift;
-    const endOffset = startOffset + (issue.endOffset - issue.startOffset);
+    const range = resolveSpellcheckIssueRange(content, issue);
 
-    if (content.slice(startOffset, endOffset) !== issue.fragmentText) {
+    if (!range) {
       return [];
     }
 
-    return [{ startOffset, endOffset, tone: "warning" as const }];
+    return [
+      {
+        id: issueKey,
+        startOffset: range.startIndex,
+        endOffset: range.endIndex,
+        tone: "warning" as const,
+        data: issue,
+      },
+    ];
   });
+}
+
+function resolveSpellcheckIssueRange(content: string, issue: SpellcheckIssue): ResolvedTextRange | null {
+  return resolveTextRangeByOffsets({
+    text: content,
+    startOffset: issue.startOffset,
+    endOffset: issue.endOffset,
+    fragmentText: issue.fragmentText,
+  });
+}
+
+function getCanonCheckErrorMessage(error: unknown) {
+  if (!isApiError(error)) {
+    return "Не удалось запустить проверку канона. Попробуйте ещё раз.";
+  }
+
+  const rawMessage =
+    typeof error.data === "object" && error.data && "error" in error.data && error.data.error
+      ? error.data.error
+      : error.message;
+  const message = rawMessage.toLowerCase();
+
+  if (message.includes("original") || message.includes("no fandom")) {
+    return "Проверка канона доступна только для историй с фандомом.";
+  }
+
+  if (error.status === 404) {
+    return "Маршрут проверки канона не найден на бэке.";
+  }
+
+  return rawMessage || "Не удалось запустить проверку канона. Попробуйте ещё раз.";
 }

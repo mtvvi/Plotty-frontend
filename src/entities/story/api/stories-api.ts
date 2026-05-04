@@ -1,6 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 
-import { fetchJson } from "@/shared/api/fetch-json";
+import { fetchJson, isApiError } from "@/shared/api/fetch-json";
 
 import { getTagName, mapStoryListItem, type BackendStoriesResponse } from "./story-mappers";
 import { serializeStoriesQuery } from "../model/story-query";
@@ -69,6 +69,9 @@ interface BackendChapterDetails {
   content: string;
   updatedAt: string;
   status?: string;
+  draftTitle?: string | null;
+  draftContent?: string | null;
+  hasUnpublishedChanges?: boolean;
   publishedTitle?: string | null;
   publishedContent?: string | null;
   publishedUpdatedAt?: string | null;
@@ -153,16 +156,28 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
 }
 
 function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
+  const status = item.status === "draft" || item.status === "published" ? item.status : undefined;
+  const draftTitle = item.draftTitle ?? item.title;
+  const draftContent = item.draftContent ?? item.content;
+  const publishedTitle = item.publishedTitle ?? (status === "published" ? item.title : null);
+  const publishedContent = item.publishedContent ?? (status === "published" ? item.content : null);
+
   return {
     id: item.id,
     storyId: item.storyId,
     title: item.title,
     content: item.content,
     updatedAt: item.updatedAt,
-    status: item.status === "draft" || item.status === "published" ? item.status : undefined,
-    publishedTitle: item.publishedTitle ?? (item.status === "published" ? item.title : null),
-    publishedContent: item.publishedContent ?? (item.status === "published" ? item.content : null),
-    publishedUpdatedAt: item.publishedUpdatedAt ?? (item.status === "published" ? item.updatedAt : null),
+    status,
+    draftTitle,
+    draftContent,
+    hasUnpublishedChanges:
+      item.hasUnpublishedChanges ??
+      (typeof publishedContent === "string" &&
+        (draftTitle !== publishedTitle || draftContent !== publishedContent)),
+    publishedTitle,
+    publishedContent,
+    publishedUpdatedAt: item.publishedUpdatedAt ?? (status === "published" ? item.updatedAt : null),
     number: item.number,
     imageUrl: item.imageUrl,
     storySlug: item.storySlug,
@@ -191,13 +206,16 @@ function mapChapterComment(comment: BackendChapterComment, storyId: string): Sto
 function enrichChapterDetails(chapter: BackendChapterDetails, story: StoryDetails): ChapterDetails {
   const mappedChapter = mapChapterDetails(chapter);
   const storyChapter = story.chapters.find((item) => item.id === chapter.id);
+  const chapterTitle = mappedChapter.draftTitle ?? mappedChapter.title;
 
   return {
     ...mappedChapter,
     storySlug: story.slug,
     storyTitle: story.title,
     storyTags: story.tags,
-    storyChapters: story.chapters,
+    storyChapters: story.chapters.map((item) =>
+      item.id === chapter.id ? { ...item, title: chapterTitle, status: mappedChapter.status ?? item.status } : item,
+    ),
     number: storyChapter?.number,
   };
 }
@@ -428,11 +446,53 @@ export function createChapter(storyId: string, payload: CreateChapterPayload) {
   }).then(mapChapterDetails);
 }
 
-export function updateChapter(chapterId: string, payload: UpdateChapterPayload) {
+type ChapterPatchBody = Partial<Pick<UpdateChapterPayload, "title" | "content" | "draftTitle" | "draftContent">>;
+
+function patchChapter(chapterId: string, body: ChapterPatchBody) {
   return fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   }).then(mapChapterDetails);
+}
+
+function shouldRetryChapterPatch(error: unknown) {
+  return isApiError(error) && (error.status === 400 || error.status === 422 || error.status === 500);
+}
+
+export async function updateChapter(chapterId: string, payload: UpdateChapterPayload) {
+  const title = payload.title.trim();
+  const content = payload.content.trim();
+  const draftTitle = payload.draftTitle ?? title;
+  const draftContent = payload.draftContent ?? content;
+  const fallbackBodies: ChapterPatchBody[] = [
+    { draftTitle, draftContent },
+    { title, content },
+  ];
+
+  try {
+    return await patchChapter(chapterId, {
+      title,
+      content,
+      draftTitle,
+      draftContent,
+    });
+  } catch (error) {
+    if (!shouldRetryChapterPatch(error)) {
+      throw error;
+    }
+  }
+
+  for (const body of fallbackBodies) {
+    try {
+      return await patchChapter(chapterId, body);
+    } catch (error) {
+      if (!shouldRetryChapterPatch(error)) {
+        throw error;
+      }
+    }
+  }
+
+  return patchChapter(chapterId, { title, content });
 }
 
 export function deleteChapter(chapterId: string) {
@@ -494,10 +554,9 @@ export function startLogicCheck(payload: SpellcheckPayload) {
   });
 }
 
-export function startCanonCheck(payload: SpellcheckPayload) {
-  return fetchJson<AiJobAccepted>("/ai/canon-check", {
+export function startCanonCheck(chapterId: string) {
+  return fetchJson<AiJobAccepted>(`/chapters/${chapterId}/canon-check`, {
     method: "POST",
-    body: JSON.stringify(payload),
   });
 }
 

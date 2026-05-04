@@ -601,10 +601,21 @@ export const handlers = [
     return HttpResponse.json(createLogicCheckJob(payload), { status: 202 });
   }),
 
-  http.post("*/ai/canon-check", async ({ request }) => {
-    const payload = (await request.json()) as SpellcheckPayload;
+  http.post("*/chapters/:chapterId/canon-check", ({ params }) => {
+    const chapterId = String(params.chapterId);
+    const chapter = getChapterById(chapterId);
 
-    return HttpResponse.json(createCanonCheckJob(payload), { status: 202 });
+    if (!chapter) {
+      return HttpResponse.json({ message: "Chapter not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(
+      createCanonCheckJob({
+        chapterId,
+        content: chapter.draftContent ?? chapter.content,
+      }),
+      { status: 202 },
+    );
   }),
 
   http.post("*/ai/image-generation", async ({ request }) => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 
 import type {
@@ -12,9 +13,11 @@ import type {
 import type { TextDiffPart } from "@/shared/lib/text-diff";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
+import { Surface } from "@/shared/ui/card";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { HighlightedTextarea, type HighlightRange } from "@/shared/ui/highlighted-textarea";
 import { Input } from "@/shared/ui/input";
+import { PopoverContent, type PopoverPosition } from "@/shared/ui/popover";
 
 import { ShellCard } from "./plotty-shell";
 
@@ -36,7 +39,7 @@ export interface StoryEditorFormProps {
   chapterNumber?: number;
   chapters?: ChapterListItem[];
   spellcheckResult?: SpellcheckResult;
-  spellcheckHighlights?: HighlightRange[];
+  spellcheckHighlights?: HighlightRange<SpellcheckIssue>[];
   aiStatusLabel?: string;
   logicCheckResult?: LogicCheckResult;
   logicStatusLabel?: string;
@@ -46,7 +49,7 @@ export interface StoryEditorFormProps {
   isSpellchecking?: boolean;
   isLogicChecking?: boolean;
   isCanonChecking?: boolean;
-  imagePanel?: React.ReactNode;
+  imagePanel?: ReactNode;
   onChange: (next: StoryEditorValues) => void;
   onSave: () => void;
   onPublish?: () => void;
@@ -59,7 +62,7 @@ export interface StoryEditorFormProps {
   onSpellcheck: () => void;
   onLogicCheck: () => void;
   onCanonCheck: () => void;
-  onApplySpellcheckIssue: (issue: SpellcheckIssue) => void;
+  onApplySpellcheckIssue: (issue: SpellcheckIssue) => boolean;
 }
 
 export function StoryEditorForm({
@@ -99,6 +102,41 @@ export function StoryEditorForm({
   const previousChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : undefined;
   const nextChapter =
     currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1 ? chapters[currentChapterIndex + 1] : undefined;
+  const popoverContentRef = useRef<HTMLDivElement | null>(null);
+  const [activeSpellcheckIssueId, setActiveSpellcheckIssueId] = useState("");
+  const [highlightScrollKey, setHighlightScrollKey] = useState(0);
+  const [unresolvedSpellcheckIssueId, setUnresolvedSpellcheckIssueId] = useState("");
+  const [spellcheckPopover, setSpellcheckPopover] = useState<{
+    issue: SpellcheckIssue;
+    position: PopoverPosition;
+  } | null>(null);
+  const spellcheckHighlightById = useMemo(() => {
+    const map = new Map<string, HighlightRange<SpellcheckIssue>>();
+
+    spellcheckHighlights.forEach((range) => {
+      if (range.id) {
+        map.set(range.id, range);
+      }
+    });
+
+    return map;
+  }, [spellcheckHighlights]);
+
+  const handleActiveHighlightAnchorChange = useCallback(
+    (range: HighlightRange<SpellcheckIssue>, anchorRect: DOMRect) => {
+      if (!range.id || !range.data) {
+        return;
+      }
+
+      setActiveSpellcheckIssueId(range.id);
+      setUnresolvedSpellcheckIssueId("");
+      setSpellcheckPopover({
+        issue: range.data,
+        position: getIssuePopoverPosition(anchorRect),
+      });
+    },
+    [],
+  );
 
   function update<K extends keyof StoryEditorValues>(key: K, value: StoryEditorValues[K]) {
     onChange({
@@ -106,6 +144,71 @@ export function StoryEditorForm({
       [key]: value,
     });
   }
+
+  function openSpellcheckIssue(issue: SpellcheckIssue) {
+    const issueId = getSpellcheckIssueKey(issue);
+    const highlight = spellcheckHighlightById.get(issueId);
+
+    if (!highlight) {
+      setSpellcheckPopover(null);
+      setActiveSpellcheckIssueId("");
+      setUnresolvedSpellcheckIssueId(issueId);
+      return;
+    }
+
+    setActiveSpellcheckIssueId(issueId);
+    setUnresolvedSpellcheckIssueId("");
+    setHighlightScrollKey((current) => current + 1);
+  }
+
+  function applySpellcheckIssue(issue: SpellcheckIssue) {
+    const applied = onApplySpellcheckIssue(issue);
+
+    if (!applied) {
+      setSpellcheckPopover(null);
+      setUnresolvedSpellcheckIssueId(getSpellcheckIssueKey(issue));
+      return;
+    }
+
+    setSpellcheckPopover(null);
+    setActiveSpellcheckIssueId("");
+    setUnresolvedSpellcheckIssueId("");
+  }
+
+  useEffect(() => {
+    if (activeSpellcheckIssueId && !spellcheckHighlightById.has(activeSpellcheckIssueId)) {
+      setActiveSpellcheckIssueId("");
+      setSpellcheckPopover(null);
+    }
+  }, [activeSpellcheckIssueId, spellcheckHighlightById]);
+
+  useEffect(() => {
+    if (!spellcheckPopover) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+
+      if (!popoverContentRef.current?.contains(target)) {
+        setSpellcheckPopover(null);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSpellcheckPopover(null);
+      }
+    }
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [spellcheckPopover]);
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -161,7 +264,11 @@ export function StoryEditorForm({
                   onChange={(event) => update("chapterContent", event.target.value)}
                   placeholder="Начните писать главу"
                   className="min-h-[420px] bg-[rgba(255,255,255,0.9)]"
+                  activeHighlightId={activeSpellcheckIssueId}
+                  activeHighlightScrollKey={highlightScrollKey}
                   highlightRanges={spellcheckHighlights}
+                  onActiveHighlightAnchorChange={handleActiveHighlightAnchorChange}
+                  onHighlightClick={handleActiveHighlightAnchorChange}
                 />
               </Field>
             </div>
@@ -224,34 +331,86 @@ export function StoryEditorForm({
             {spellcheckResult ? (
               <div className="space-y-3">
                 <p className="text-sm leading-6 text-[var(--plotty-muted)]">{spellcheckResult.summary}</p>
-                <div className="space-y-2">
+                <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
                   {spellcheckResult.items.length ? (
-                    spellcheckResult.items.map((issue) => (
-                      <div key={`${issue.startOffset}-${issue.endOffset}`} className="rounded-[18px] bg-[var(--plotty-panel)] p-3">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="min-w-0 space-y-1">
-                            <div className="text-sm font-semibold">{issue.fragmentText}</div>
-                            <div className="text-sm leading-6 text-[var(--plotty-muted)]">{issue.message}</div>
-                            <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
-                          </div>
-                          <Button
+                    spellcheckResult.items.map((issue) => {
+                      const issueId = getSpellcheckIssueKey(issue);
+                      const isUnresolved = unresolvedSpellcheckIssueId === issueId;
+                      const isActive = activeSpellcheckIssueId === issueId;
+
+                      return (
+                        <Surface
+                          key={issueId}
+                          variant="listItem"
+                          className={`p-3 transition-[border-color,background-color] duration-150 ${
+                            isActive
+                              ? "border-[rgba(195,79,50,0.28)] bg-[var(--plotty-accent-wash)]"
+                              : ""
+                          }`}
+                        >
+                          <button
                             type="button"
-                            variant="secondary"
-                            size="sm"
-                            className="shrink-0"
-                            onClick={() => onApplySpellcheckIssue(issue)}
+                            className="block w-full text-left"
+                            onClick={() => openSpellcheckIssue(issue)}
                           >
-                            Исправить
-                          </Button>
-                        </div>
-                      </div>
-                    ))
+                            <div className="space-y-1">
+                              <div className="truncate text-sm font-semibold">{issue.fragmentText}</div>
+                              <div className="text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
+                              <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+                              {isUnresolved ? (
+                                <div className="text-xs font-semibold text-[var(--plotty-danger)]">
+                                  Фрагмент не найден в текущем тексте. Запустите проверку заново.
+                                </div>
+                              ) : null}
+                            </div>
+                          </button>
+                          <div className="pt-2">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => applySpellcheckIssue(issue)}
+                            >
+                              Исправить
+                            </Button>
+                          </div>
+                        </Surface>
+                      );
+                    })
                   ) : (
-                    <div className="rounded-[18px] bg-[var(--plotty-panel)] p-3 text-sm text-[var(--plotty-muted)]">
+                    <Surface variant="listItem" className="p-3 text-sm text-[var(--plotty-muted)]">
                       Ошибок не найдено.
-                    </div>
+                    </Surface>
                   )}
                 </div>
+                <PopoverContent
+                  contentRef={popoverContentRef}
+                  open={Boolean(spellcheckPopover)}
+                  position={spellcheckPopover?.position ?? { left: 0, top: 0, width: 0 }}
+                  className="rounded-[var(--plotty-radius-lg)] p-4"
+                >
+                  {spellcheckPopover ? (
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold">{spellcheckPopover.issue.fragmentText}</div>
+                        <div className="text-sm leading-5 text-[var(--plotty-muted)]">
+                          {spellcheckPopover.issue.message}
+                        </div>
+                        <div className="text-sm text-[var(--plotty-accent)]">
+                          Предложение: {spellcheckPopover.issue.suggestion}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => applySpellcheckIssue(spellcheckPopover.issue)}
+                      >
+                        Исправить
+                      </Button>
+                    </div>
+                  ) : null}
+                </PopoverContent>
               </div>
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
@@ -279,7 +438,7 @@ export function StoryEditorForm({
           <ShellCard
             title="Канон"
             description={
-              canonStatusLabel ??
+              canonStatusLabel ||
               "Сервис сверяет текст с каноном и правилами мира отдельно от логики главы."
             }
           >
@@ -358,4 +517,20 @@ function DiffPart({ part }: { part: TextDiffPart }) {
   }
 
   return <span>{part.value}</span>;
+}
+
+function getSpellcheckIssueKey(issue: SpellcheckIssue) {
+  return `${issue.startOffset}-${issue.endOffset}-${issue.fragmentText}-${issue.suggestion}`;
+}
+
+function getIssuePopoverPosition(anchorRect: DOMRect): PopoverPosition {
+  const viewportPadding = 12;
+  const width = Math.min(280, window.innerWidth - viewportPadding * 2);
+  const topBelow = anchorRect.bottom + 8;
+
+  return {
+    left: Math.min(Math.max(viewportPadding, anchorRect.left), window.innerWidth - width - viewportPadding),
+    top: topBelow < window.innerHeight - 160 ? topBelow : Math.max(viewportPadding, anchorRect.top - 150),
+    width,
+  };
 }
