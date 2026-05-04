@@ -1,0 +1,377 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - link "Plotty, перейти в каталог" [ref=e7] [cursor=pointer]:
+        - /url: /
+        - text: Plotty
+        - img [ref=e8]
+      - navigation "Основная навигация" [ref=e11]:
+        - link "Каталог" [ref=e12] [cursor=pointer]:
+          - /url: /
+          - text: Каталог
+        - link "Мастерская" [ref=e14] [cursor=pointer]:
+          - /url: /write
+      - search [ref=e15]:
+        - img [ref=e16]
+        - textbox "Глобальный поиск по названию истории" [ref=e19]:
+          - /placeholder: Поиск по названию истории
+      - link "Войти" [ref=e49] [cursor=pointer]:
+        - /url: /auth?next=%2F
+    - generic [ref=e22]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - heading "Каталог историй и глав" [level=1] [ref=e26]: Каталог историй
+          - paragraph [ref=e27]: Откройте миры, написанные сердцем.
+        - generic [ref=e29]:
+          - generic [ref=e30]: Найдено 5 историй
+          - button "Сортировка" [ref=e32] [cursor=pointer]:
+            - img [ref=e33]
+            - generic [ref=e34]: Сначала новые
+            - generic [ref=e35]: ▾
+      - generic [ref=e36]:
+        - complementary [ref=e37]:
+          - generic [ref=e39]:
+            - generic [ref=e41]:
+              - heading "Фильтры" [level=2] [ref=e42]:
+                - img [ref=e43]
+                - text: Фильтры
+              - button "Сбросить всё" [ref=e44] [cursor=pointer]
+            - generic [ref=e50]:
+              - generic [ref=e51]: Фандом
+              - button "Фандом" [ref=e53] [cursor=pointer]:
+                - generic [ref=e54]: Любой фандом
+                - generic [ref=e55]: ▾
+            - generic [ref=e56]:
+              - heading "Рейтинг" [level=3] [ref=e58]
+              - generic [ref=e59]:
+                - button "G" [ref=e60] [cursor=pointer]:
+                  - generic [ref=e61]: G
+                - button "NC-17" [ref=e62] [cursor=pointer]:
+                  - generic [ref=e63]: NC-17
+                - button "NC-21" [ref=e64] [cursor=pointer]:
+                  - generic [ref=e65]: NC-21
+                - button "PG-13" [ref=e66] [cursor=pointer]:
+                  - generic [ref=e67]: PG-13
+                - button "R" [ref=e68] [cursor=pointer]:
+                  - generic [ref=e69]: R
+            - generic [ref=e70]:
+              - heading "Статус" [level=3] [ref=e72]
+              - generic [ref=e73]:
+                - button "В процессе" [ref=e74] [cursor=pointer]:
+                  - generic [ref=e75]: В процессе
+                - button "Завершён" [ref=e76] [cursor=pointer]:
+                  - generic [ref=e77]: Завершён
+                - button "Заморожен" [ref=e78] [cursor=pointer]:
+                  - generic [ref=e79]: Заморожен
+            - generic [ref=e80]:
+              - heading "Размер" [level=3] [ref=e82]
+              - generic [ref=e83]:
+                - button "Драббл" [ref=e84] [cursor=pointer]:
+                  - generic [ref=e85]: Драббл
+                - button "Макси" [ref=e86] [cursor=pointer]:
+                  - generic [ref=e87]: Макси
+                - button "Миди" [ref=e88] [cursor=pointer]:
+                  - generic [ref=e89]: Миди
+                - button "Мини" [ref=e90] [cursor=pointer]:
+                  - generic [ref=e91]: Мини
+            - generic [ref=e92]:
+              - heading "Жанры" [level=3] [ref=e94]
+              - generic [ref=e95]:
+                - button "Драма" [ref=e96] [cursor=pointer]:
+                  - generic [ref=e97]: Драма
+                - button "Мистика" [ref=e98] [cursor=pointer]:
+                  - generic [ref=e99]: Мистика
+                - button "Повседневность" [ref=e100] [cursor=pointer]:
+                  - generic [ref=e101]: Повседневность
+                - button "Приключения" [ref=e102] [cursor=pointer]:
+                  - generic [ref=e103]: Приключения
+                - button "Фэнтези" [ref=e104] [cursor=pointer]:
+                  - generic [ref=e105]: Фэнтези
+                - button "Юмор" [ref=e106] [cursor=pointer]:
+                  - generic [ref=e107]: Юмор
+            - generic [ref=e108]:
+              - heading "Предупреждения" [level=3] [ref=e110]
+              - generic [ref=e111]:
+                - button "OOC" [ref=e112] [cursor=pointer]:
+                  - generic [ref=e113]: OOC
+                - button "Насилие" [ref=e114] [cursor=pointer]:
+                  - generic [ref=e115]: Насилие
+                - button "Нецензурная лексика" [ref=e116] [cursor=pointer]:
+                  - generic [ref=e117]: Нецензурная лексика
+                - button "Смерть персонажа" [ref=e118] [cursor=pointer]:
+                  - generic [ref=e119]: Смерть персонажа
+        - generic [ref=e46]:
+          - article [ref=e120]:
+            - generic [ref=e121]:
+              - link "Открыть историю Изумрудная волчица" [ref=e122] [cursor=pointer]:
+                - /url: /stories/izumrudnaia-volchitsa
+                - img "Обложка истории «Изумрудная волчица»" [ref=e125]
+              - generic [ref=e126]:
+                - generic [ref=e127]:
+                  - link "Изумрудная волчица" [active] [ref=e128] [cursor=pointer]:
+                    - /url: /stories/izumrudnaia-volchitsa
+                    - heading "Изумрудная волчица" [level=2] [ref=e129]
+                  - generic [ref=e130]:
+                    - link "Автор you" [ref=e131] [cursor=pointer]:
+                      - /url: /users/you
+                    - generic [ref=e132]: •
+                    - generic [ref=e133]: Обновлена 28.04.2026
+                    - generic [ref=e134]: •
+                    - generic [ref=e135]: 2 главы
+                - paragraph [ref=e136]: "Санса Старк стоит перед величественными вратами Хогвартса, мечтая попасть именно в Слизерин. Но её спокойствие обманчиво: внутри замка её ждёт столкновение с друзьями и врагами, тайнами факультета и собственными страхами. Будет ли красота школы соответствовать ожиданиям девушки?"
+                - generic [ref=e137]:
+                  - generic [ref=e138]: Игра престолов
+                  - generic [ref=e139]: NC-17
+                  - generic [ref=e140]: Заморожен
+                  - generic [ref=e141]: Макси
+                  - generic [ref=e142]: Драма
+                  - generic [ref=e143]: Смерть персонажа
+              - complementary "Действия карточки" [ref=e144]:
+                - link "Читать" [ref=e145] [cursor=pointer]:
+                  - /url: /stories/izumrudnaia-volchitsa/chapters/1
+                  - img [ref=e146]
+                  - text: Читать
+                - link "Главы" [ref=e148] [cursor=pointer]:
+                  - /url: /stories/izumrudnaia-volchitsa?tab=chapters
+                  - img [ref=e149]
+                  - text: Главы
+                - generic [ref=e150]:
+                  - button "Поставить лайк" [ref=e151] [cursor=pointer]:
+                    - img [ref=e152]
+                    - text: "2"
+                  - link "Количество глав" [ref=e154] [cursor=pointer]:
+                    - /url: /stories/izumrudnaia-volchitsa?tab=chapters
+                    - img [ref=e155]
+                    - text: "2"
+                - generic [ref=e157]:
+                  - generic [ref=e159]:
+                    - button "Добавить в планы" [ref=e160] [cursor=pointer]:
+                      - img [ref=e161]
+                      - generic [ref=e163]: Добавить в планы
+                    - button "Выбрать статус" [ref=e164] [cursor=pointer]: ▾
+                  - generic [ref=e166]:
+                    - button "Добавить в подборку" [ref=e167] [cursor=pointer]:
+                      - img [ref=e168]
+                      - generic [ref=e172]: Добавить в подборку
+                    - button "Выбрать подборку" [ref=e173] [cursor=pointer]: ▾
+          - article [ref=e174]:
+            - generic [ref=e175]:
+              - link "Открыть историю Дождь над городом" [ref=e176] [cursor=pointer]:
+                - /url: /stories/dozhd-nad-gorodom
+                - img "Обложка истории «Дождь над городом»" [ref=e179]
+              - generic [ref=e180]:
+                - generic [ref=e181]:
+                  - link "Дождь над городом" [ref=e182] [cursor=pointer]:
+                    - /url: /stories/dozhd-nad-gorodom
+                    - heading "Дождь над городом" [level=2] [ref=e183]
+                  - generic [ref=e184]:
+                    - link "Автор Abc" [ref=e185] [cursor=pointer]:
+                      - /url: /users/Abc
+                    - generic [ref=e186]: •
+                    - generic [ref=e187]: Обновлена 13.04.2026
+                    - generic [ref=e188]: •
+                    - generic [ref=e189]: 1 глава
+                - paragraph [ref=e190]: Анна просыпается каждое утро под шум бесконечного дождя, напоминающего ей о прошлом. Двадцать лет назад её жизнь была полна счастья и надежд, но теперь осталась лишь старая фотография и воспоминания о любимом человеке, ушедшем из её жизни. Сквозь звуки стихии героиня погружается в размышления о том, что значит потерять любовь и как пережить утрату.
+                - generic [ref=e191]:
+                  - generic [ref=e192]: Ориджиналы
+                  - generic [ref=e193]: G
+                  - generic [ref=e194]: Завершён
+                  - generic [ref=e195]: Драббл
+                  - generic [ref=e196]: Драма
+                  - generic [ref=e197]: Повседневность
+                  - generic [ref=e198]: Смерть персонажа
+              - complementary "Действия карточки" [ref=e199]:
+                - link "Читать" [ref=e200] [cursor=pointer]:
+                  - /url: /stories/dozhd-nad-gorodom/chapters/1
+                  - img [ref=e201]
+                  - text: Читать
+                - link "Главы" [ref=e203] [cursor=pointer]:
+                  - /url: /stories/dozhd-nad-gorodom?tab=chapters
+                  - img [ref=e204]
+                  - text: Главы
+                - generic [ref=e205]:
+                  - button "Поставить лайк" [ref=e206] [cursor=pointer]:
+                    - img [ref=e207]
+                    - text: "1"
+                  - link "Количество глав" [ref=e209] [cursor=pointer]:
+                    - /url: /stories/dozhd-nad-gorodom?tab=chapters
+                    - img [ref=e210]
+                    - text: "1"
+                - generic [ref=e212]:
+                  - generic [ref=e214]:
+                    - button "Добавить в планы" [ref=e215] [cursor=pointer]:
+                      - img [ref=e216]
+                      - generic [ref=e218]: Добавить в планы
+                    - button "Выбрать статус" [ref=e219] [cursor=pointer]: ▾
+                  - generic [ref=e221]:
+                    - button "Добавить в подборку" [ref=e222] [cursor=pointer]:
+                      - img [ref=e223]
+                      - generic [ref=e227]: Добавить в подборку
+                    - button "Выбрать подборку" [ref=e228] [cursor=pointer]: ▾
+          - article [ref=e229]:
+            - generic [ref=e230]:
+              - link "Открыть историю Утро в академии магии" [ref=e231] [cursor=pointer]:
+                - /url: /stories/utro-v-akademii-magii
+                - img "Обложка истории «Утро в академии магии»" [ref=e234]
+              - generic [ref=e235]:
+                - generic [ref=e236]:
+                  - link "Утро в академии магии" [ref=e237] [cursor=pointer]:
+                    - /url: /stories/utro-v-akademii-magii
+                    - heading "Утро в академии магии" [level=2] [ref=e238]
+                  - generic [ref=e239]:
+                    - link "Автор Abc" [ref=e240] [cursor=pointer]:
+                      - /url: /users/Abc
+                    - generic [ref=e241]: •
+                    - generic [ref=e242]: Обновлена 13.04.2026
+                    - generic [ref=e243]: •
+                    - generic [ref=e244]: 2 главы
+                - paragraph [ref=e245]: "На пороге волшебной Академии юный Тим, с огненными волосами и дерзким характером, пытается освоить основы зельеварения. Но его нетерпение и пренебрежение правилами приводят к катастрофе: вместо лёгкого зелья ленивости он случайно создаёт мощное средство от бессонницы. Теперь Тиму предстоит научиться контролировать свою импульсивность и найти баланс между амбициями и знаниями, чтобы выжить в мире магии."
+                - generic [ref=e246]:
+                  - generic [ref=e247]: Гарри Поттер
+                  - generic [ref=e248]: PG-13
+                  - generic [ref=e249]: Завершён
+                  - generic [ref=e250]: Мини
+                  - generic [ref=e251]: Драма
+                  - generic [ref=e252]: Повседневность
+                  - generic [ref=e253]: Юмор
+                  - generic [ref=e254]: OOC
+              - complementary "Действия карточки" [ref=e255]:
+                - link "Читать" [ref=e256] [cursor=pointer]:
+                  - /url: /stories/utro-v-akademii-magii/chapters/1
+                  - img [ref=e257]
+                  - text: Читать
+                - link "Главы" [ref=e259] [cursor=pointer]:
+                  - /url: /stories/utro-v-akademii-magii?tab=chapters
+                  - img [ref=e260]
+                  - text: Главы
+                - generic [ref=e261]:
+                  - button "Поставить лайк" [ref=e262] [cursor=pointer]:
+                    - img [ref=e263]
+                    - text: "1"
+                  - link "Количество глав" [ref=e265] [cursor=pointer]:
+                    - /url: /stories/utro-v-akademii-magii?tab=chapters
+                    - img [ref=e266]
+                    - text: "2"
+                - generic [ref=e268]:
+                  - generic [ref=e270]:
+                    - button "Добавить в планы" [ref=e271] [cursor=pointer]:
+                      - img [ref=e272]
+                      - generic [ref=e274]: Добавить в планы
+                    - button "Выбрать статус" [ref=e275] [cursor=pointer]: ▾
+                  - generic [ref=e277]:
+                    - button "Добавить в подборку" [ref=e278] [cursor=pointer]:
+                      - img [ref=e279]
+                      - generic [ref=e283]: Добавить в подборку
+                    - button "Выбрать подборку" [ref=e284] [cursor=pointer]: ▾
+          - article [ref=e285]:
+            - generic [ref=e286]:
+              - link "Открыть историю Тень сломанного клинка" [ref=e287] [cursor=pointer]:
+                - /url: /stories/ten-slomannogo-klinka
+                - img "Обложка истории «Тень сломанного клинка»" [ref=e290]
+              - generic [ref=e291]:
+                - generic [ref=e292]:
+                  - link "Тень сломанного клинка" [ref=e293] [cursor=pointer]:
+                    - /url: /stories/ten-slomannogo-klinka
+                    - heading "Тень сломанного клинка" [level=2] [ref=e294]
+                  - generic [ref=e295]:
+                    - link "Автор Abc" [ref=e296] [cursor=pointer]:
+                      - /url: /users/Abc
+                    - generic [ref=e297]: •
+                    - generic [ref=e298]: Обновлена 13.04.2026
+                    - generic [ref=e299]: •
+                    - generic [ref=e300]: 2 главы
+                - paragraph [ref=e301]: Юноша Эйдан, наследник древнего рода, оказался лицом к лицу с древним злом — стаей волколаков. Сжав в руках отцовский меч из звёздной стали, он вступил в смертельную схватку, полную отчаяния и надежды. Но сможет ли герой выжить, когда оружие предаёт его в самый критический момент?
+                - generic [ref=e302]:
+                  - generic [ref=e303]: Игра престолов
+                  - generic [ref=e304]: R
+                  - generic [ref=e305]: В процессе
+                  - generic [ref=e306]: Миди
+                  - generic [ref=e307]: Мистика
+                  - generic [ref=e308]: Приключения
+                  - generic [ref=e309]: Фэнтези
+                  - generic [ref=e310]: Насилие
+              - complementary "Действия карточки" [ref=e311]:
+                - link "Читать" [ref=e312] [cursor=pointer]:
+                  - /url: /stories/ten-slomannogo-klinka/chapters/1
+                  - img [ref=e313]
+                  - text: Читать
+                - link "Главы" [ref=e315] [cursor=pointer]:
+                  - /url: /stories/ten-slomannogo-klinka?tab=chapters
+                  - img [ref=e316]
+                  - text: Главы
+                - generic [ref=e317]:
+                  - button "Поставить лайк" [ref=e318] [cursor=pointer]:
+                    - img [ref=e319]
+                    - text: "2"
+                  - link "Количество глав" [ref=e321] [cursor=pointer]:
+                    - /url: /stories/ten-slomannogo-klinka?tab=chapters
+                    - img [ref=e322]
+                    - text: "2"
+                - generic [ref=e324]:
+                  - generic [ref=e326]:
+                    - button "Добавить в планы" [ref=e327] [cursor=pointer]:
+                      - img [ref=e328]
+                      - generic [ref=e330]: Добавить в планы
+                    - button "Выбрать статус" [ref=e331] [cursor=pointer]: ▾
+                  - generic [ref=e333]:
+                    - button "Добавить в подборку" [ref=e334] [cursor=pointer]:
+                      - img [ref=e335]
+                      - generic [ref=e339]: Добавить в подборку
+                    - button "Выбрать подборку" [ref=e340] [cursor=pointer]: ▾
+          - article [ref=e341]:
+            - generic [ref=e342]:
+              - link "Открыть историю Ведьмак" [ref=e343] [cursor=pointer]:
+                - /url: /stories/ved-mak
+                - img "Обложка истории «Ведьмак»" [ref=e346]
+              - generic [ref=e347]:
+                - generic [ref=e348]:
+                  - link "Ведьмак" [ref=e349] [cursor=pointer]:
+                    - /url: /stories/ved-mak
+                    - heading "Ведьмак" [level=2] [ref=e350]
+                  - generic [ref=e351]:
+                    - link "Автор lizabr1" [ref=e352] [cursor=pointer]:
+                      - /url: /users/lizabr1
+                    - generic [ref=e353]: •
+                    - generic [ref=e354]: Обновлена 13.04.2026
+                    - generic [ref=e355]: •
+                    - generic [ref=e356]: 1 глава
+                - paragraph [ref=e357]: В мире полном магии и тайн живет ведьмак Геральт из Ривии. Его путь пересекается с музыкантом Лютиком, а рядом всегда верный конь Плотва и магический амулет в виде волка. Но за спокойной жизнью скрываются древние пророчества и опасные испытания, которые однажды заставят Геральта выйти на тропу приключений, полную загадок и неожиданных союзников.
+                - generic [ref=e358]:
+                  - generic [ref=e359]: Ведьмак
+                  - generic [ref=e360]: NC-17
+                  - generic [ref=e361]: В процессе
+                  - generic [ref=e362]: Макси
+                  - generic [ref=e363]: Приключения
+                  - generic [ref=e364]: Фэнтези
+                  - generic [ref=e365]: Насилие
+              - complementary "Действия карточки" [ref=e366]:
+                - link "Читать" [ref=e367] [cursor=pointer]:
+                  - /url: /stories/ved-mak/chapters/1
+                  - img [ref=e368]
+                  - text: Читать
+                - link "Главы" [ref=e370] [cursor=pointer]:
+                  - /url: /stories/ved-mak?tab=chapters
+                  - img [ref=e371]
+                  - text: Главы
+                - generic [ref=e372]:
+                  - button "Поставить лайк" [ref=e373] [cursor=pointer]:
+                    - img [ref=e374]
+                    - text: "3"
+                  - link "Количество глав" [ref=e376] [cursor=pointer]:
+                    - /url: /stories/ved-mak?tab=chapters
+                    - img [ref=e377]
+                    - text: "1"
+                - generic [ref=e379]:
+                  - generic [ref=e381]:
+                    - button "Добавить в планы" [ref=e382] [cursor=pointer]:
+                      - img [ref=e383]
+                      - generic [ref=e385]: Добавить в планы
+                    - button "Выбрать статус" [ref=e386] [cursor=pointer]: ▾
+                  - generic [ref=e388]:
+                    - button "Добавить в подборку" [ref=e389] [cursor=pointer]:
+                      - img [ref=e390]
+                      - generic [ref=e394]: Добавить в подборку
+                    - button "Выбрать подборку" [ref=e395] [cursor=pointer]: ▾
+  - button "Open Next.js Dev Tools" [ref=e401] [cursor=pointer]:
+    - img [ref=e402]
+  - alert [ref=e405]
