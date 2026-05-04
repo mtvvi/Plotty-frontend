@@ -113,7 +113,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
               <StoryCoverPreview
                 title={story.title}
                 imageUrl={displayCoverImage}
-                className="self-start rounded-none border-0 border-b border-[var(--plotty-line)] lg:border-b-0 lg:border-r"
+                className="self-start rounded-[var(--plotty-radius-lg)] border-0 border-b border-[var(--plotty-line)] lg:border-b-0 lg:border-r"
               />
 
               <div className="space-y-5 p-5 sm:p-6 lg:p-8">
