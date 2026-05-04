@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   aiJobQueryOptions,
@@ -19,7 +19,9 @@ import {
 import type { CanonCheckResult, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { diffWords } from "@/shared/lib/text-diff";
 import { EmptyState } from "@/shared/ui/empty-state";
+import type { HighlightRange } from "@/shared/ui/highlighted-textarea";
 
 import { ChapterImageFrame } from "./chapter-image-frame";
 import { GenerateChapterImageButton } from "./generate-chapter-image-button";
@@ -58,7 +60,6 @@ export function StoryEditorScreen({
   const [logicCheckJobId, setLogicCheckJobId] = useState("");
   const [canonCheckJobId, setCanonCheckJobId] = useState("");
   const [appliedSpellcheckFixes, setAppliedSpellcheckFixes] = useState<AppliedSpellcheckFix[]>([]);
-  const [chapterPublishedThisSession, setChapterPublishedThisSession] = useState(false);
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -72,7 +73,6 @@ export function StoryEditorScreen({
   }, [chapterQuery.data]);
 
   useEffect(() => {
-    setChapterPublishedThisSession(false);
     setSpellcheckJobId("");
     setLogicCheckJobId("");
     setCanonCheckJobId("");
@@ -132,6 +132,32 @@ export function StoryEditorScreen({
       return status === "completed" || status === "failed" ? false : 2_000;
     },
   });
+
+  const spellcheckHighlights = useMemo(
+    () =>
+      buildSpellcheckHighlights(
+        values.chapterContent,
+        spellcheckJobQuery.data?.result?.items ?? [],
+        appliedSpellcheckFixes,
+      ),
+    [appliedSpellcheckFixes, spellcheckJobQuery.data?.result?.items, values.chapterContent],
+  );
+  const publishedTitle = chapterQuery.data?.publishedTitle ?? "";
+  const publishedContent = chapterQuery.data?.publishedContent ?? null;
+  const hasPublishedVersion = typeof publishedContent === "string";
+  const hasUnpublishedChanges =
+    hasPublishedVersion &&
+    (values.chapterTitle !== publishedTitle || values.chapterContent !== publishedContent);
+  const publicationDiff = useMemo(
+    () =>
+      hasPublishedVersion
+        ? {
+            title: diffWords(publishedTitle, values.chapterTitle),
+            content: diffWords(publishedContent ?? "", values.chapterContent),
+          }
+        : undefined,
+    [hasPublishedVersion, publishedContent, publishedTitle, values.chapterContent, values.chapterTitle],
+  );
 
   async function handleSave() {
     try {
@@ -278,7 +304,6 @@ export function StoryEditorScreen({
   async function handlePublish() {
     try {
       await publishChapterMutation.mutateAsync(chapterId);
-      setChapterPublishedThisSession(true);
 
       await queryClient.invalidateQueries({ queryKey: storyKeys.all });
       await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
@@ -353,6 +378,7 @@ export function StoryEditorScreen({
         chapterNumber={chapterQuery.data.number}
         chapters={chapterQuery.data.storyChapters}
         spellcheckResult={spellcheckJobQuery.data?.result}
+        spellcheckHighlights={spellcheckHighlights}
         aiStatusLabel={aiStatusLabel}
         logicCheckResult={logicCheckJobQuery.data?.result}
         logicStatusLabel={logicStatusLabel}
@@ -385,7 +411,9 @@ export function StoryEditorScreen({
         onSave={handleSave}
         onPublish={handlePublish}
         isPublishing={publishChapterMutation.isPending}
-        chapterPublished={chapterPublishedThisSession}
+        hasPublishedVersion={hasPublishedVersion}
+        hasUnpublishedChanges={hasUnpublishedChanges}
+        publicationDiff={publicationDiff}
         onCreateNextChapter={handleCreateNextChapter}
         onDeleteChapter={handleDeleteChapter}
         onSpellcheck={handleSpellcheck}
@@ -395,4 +423,31 @@ export function StoryEditorScreen({
       />
     </PlottyShell>
   );
+}
+
+function buildSpellcheckHighlights(
+  content: string,
+  issues: SpellcheckIssue[],
+  appliedFixes: AppliedSpellcheckFix[],
+): HighlightRange[] {
+  return issues.flatMap((issue) => {
+    const issueKey = getSpellcheckIssueKey(issue);
+
+    if (appliedFixes.some((fix) => fix.key === issueKey)) {
+      return [];
+    }
+
+    const offsetShift = appliedFixes.reduce(
+      (total, fix) => (fix.startOffset < issue.startOffset ? total + fix.delta : total),
+      0,
+    );
+    const startOffset = issue.startOffset + offsetShift;
+    const endOffset = startOffset + (issue.endOffset - issue.startOffset);
+
+    if (content.slice(startOffset, endOffset) !== issue.fragmentText) {
+      return [];
+    }
+
+    return [{ startOffset, endOffset, tone: "warning" as const }];
+  });
 }

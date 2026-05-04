@@ -72,8 +72,15 @@ export function GenerateChapterImageButton({
   const hasImage = Boolean(chapterQuery.data?.imageUrl || jobQuery.data?.result?.images[0]?.imageUrl);
 
   return (
-    <Button variant="secondary" onClick={handleGenerate} disabled={isGenerating}>
-      {isGenerating ? "Генерируем..." : hasImage ? "Обновить иллюстрацию" : "Сгенерировать картинку"}
-    </Button>
+    <div className="space-y-2">
+      {isGenerating ? (
+        <p className="plotty-meta" aria-live="polite">
+          Генерируем иллюстрацию...
+        </p>
+      ) : null}
+      <Button variant="secondary" onClick={handleGenerate} isLoading={isGenerating}>
+        {hasImage ? "Обновить иллюстрацию" : "Сгенерировать картинку"}
+      </Button>
+    </div>
   );
 }
