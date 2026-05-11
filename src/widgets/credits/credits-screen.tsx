@@ -35,6 +35,13 @@ const transactionFormatter = new Intl.DateTimeFormat("ru-RU", {
   minute: "2-digit",
 });
 
+const aiTransactionTitles: Record<string, string> = {
+  spellcheck: "Проверка орфографии главы",
+  logic_check: "Проверка логики главы",
+  canon_check: "Проверка канона главы",
+  image_generation: "Генерация иллюстрации к главе",
+};
+
 export function CreditsScreen() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<CreditsTab>("packages");
@@ -268,11 +275,32 @@ function getBestPackageId(packages: CreditPackage[]) {
 }
 
 function getTransactionTitle(transaction: CreditTransaction) {
-  if (transaction.description) {
-    return transaction.description;
+  const description = transaction.description?.trim();
+  const aiTransactionTitle = description ? getAiTransactionTitle(description) : undefined;
+
+  if (aiTransactionTitle) {
+    return aiTransactionTitle;
   }
 
-  return transaction.type === "purchase" ? "Покупка кредитов" : "Списание кредитов";
+  if (transaction.type === "purchase") {
+    return "Покупка кредитов";
+  }
+
+  if (description) {
+    return description;
+  }
+
+  return transaction.amount > 0 ? "Пополнение кредитов" : "Списание кредитов за AI-инструмент";
+}
+
+function getAiTransactionTitle(description: string) {
+  const match = /^AI:\s*([a-z0-9_-]+)$/i.exec(description);
+
+  if (!match) {
+    return undefined;
+  }
+
+  return aiTransactionTitles[match[1].toLowerCase()] ?? "Списание за AI-инструмент";
 }
 
 function formatTransactionDate(value: string) {
