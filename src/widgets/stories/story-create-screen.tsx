@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, FileText, MoreHorizontal, PenLine, Plus, Settings } from "lucide-react";
+import { BookOpen, FileText, PenLine, Plus, Settings } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -23,6 +23,7 @@ import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Surface } from "@/shared/ui/card";
+import { CreditBalancePill } from "@/widgets/credits/credit-balance-pill";
 
 import { PlottyShell, ShellCard } from "./plotty-shell";
 import { StoryCoverPreview } from "./story-cover-preview";
@@ -141,7 +142,7 @@ export function StoryCreateScreen() {
                 return (
                   <article
                     key={story.id}
-                    className={`grid grid-cols-[5.5rem_minmax(0,1fr)_auto] gap-3 rounded-[var(--plotty-radius-md)] border p-2.5 transition-[background-color,border-color,box-shadow,transform] duration-150 ${
+                    className={`grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-[var(--plotty-radius-md)] border p-2.5 transition-[background-color,border-color,box-shadow,transform] duration-150 ${
                       isSelected
                         ? "border-[rgba(195,79,50,0.22)] bg-[var(--plotty-accent-wash)] shadow-[0_12px_28px_rgba(195,79,50,0.08)]"
                         : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.68)] hover:-translate-y-[1px] hover:bg-[var(--plotty-paper-strong)]"
@@ -162,7 +163,7 @@ export function StoryCreateScreen() {
                       />
                     </button>
                     <button type="button" onClick={() => setSelectedStorySlug(story.slug)} className="min-w-0 text-left">
-                      <div className="plotty-card-title line-clamp-2 break-words text-[1.04rem] leading-5">{story.title}</div>
+                      <div className="plotty-card-title line-clamp-3 break-words text-[1.04rem] leading-5">{story.title}</div>
                       <div className="mt-1 text-xs text-[var(--plotty-muted)]">
                         Обновлена {new Date(story.updatedAt).toLocaleDateString("ru-RU")}
                       </div>
@@ -172,15 +173,6 @@ export function StoryCreateScreen() {
                         </span>
                       ) : null}
                     </button>
-                    <ButtonLink
-                      href={routes.storySettings(story.id)}
-                      variant="ghost"
-                      size="sm"
-                      className="self-start px-2"
-                      aria-label={`Настройки истории ${story.title}`}
-                    >
-                      <MoreHorizontal className="size-4" aria-hidden="true" />
-                    </ButtonLink>
                   </article>
                 );
               })}
@@ -309,6 +301,7 @@ export function StoryCreateScreen() {
 
         <ShellCard title="Действия автора" variant="sidebar">
           <div className="space-y-3">
+            <CreditBalancePill variant="menu" />
             <ButtonLink href={routes.writeNew} variant="primary" className="w-full justify-start">
               <Plus className="size-4" aria-hidden="true" />
               Создать историю

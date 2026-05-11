@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { creditBalanceQueryOptions, creditsKeys } from "@/entities/credits/api/credits-api";
+import { AI_CREDIT_COSTS, formatCreditsAmount } from "@/entities/credits/model/credit-utils";
 import {
   aiJobQueryOptions,
   chapterEditorDetailsQueryOptions,
@@ -17,7 +19,7 @@ import {
   updateChapter,
 } from "@/entities/story/api/stories-api";
 import type { CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
-import { isApiError, isAuthError } from "@/shared/api/fetch-json";
+import { isApiError, isAuthError, isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { diffWords } from "@/shared/lib/text-diff";
 import { resolveTextRangeByOffsets, type ResolvedTextRange } from "@/shared/lib/text-ranges";
@@ -54,11 +56,13 @@ export function StoryEditorScreen({
   const router = useRouter();
   const queryClient = useQueryClient();
   const chapterQuery = useQuery(chapterEditorDetailsQueryOptions(storyId, chapterId));
+  const creditBalanceQuery = useQuery(creditBalanceQueryOptions());
   const [values, setValues] = useState<StoryEditorValues>(emptyValues);
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
   const [logicCheckJobId, setLogicCheckJobId] = useState("");
   const [canonCheckJobId, setCanonCheckJobId] = useState("");
   const [canonCheckError, setCanonCheckError] = useState("");
+  const [aiCreditError, setAiCreditError] = useState("");
   const [isPreparingCanonCheck, setIsPreparingCanonCheck] = useState(false);
   const [appliedSpellcheckFixes, setAppliedSpellcheckFixes] = useState<AppliedSpellcheckFix[]>([]);
 
@@ -78,6 +82,7 @@ export function StoryEditorScreen({
     setLogicCheckJobId("");
     setCanonCheckJobId("");
     setCanonCheckError("");
+    setAiCreditError("");
     setIsPreparingCanonCheck(false);
     setAppliedSpellcheckFixes([]);
   }, [chapterId]);
@@ -247,13 +252,30 @@ export function StoryEditorScreen({
   }
 
   async function handleSpellcheck() {
-    const accepted = await spellcheckMutation.mutateAsync({
-      chapterId,
-      content: values.chapterContent,
-    });
+    setAiCreditError("");
 
-    setAppliedSpellcheckFixes([]);
-    setSpellcheckJobId(accepted.jobId);
+    try {
+      const accepted = await spellcheckMutation.mutateAsync({
+        chapterId,
+        content: values.chapterContent,
+      });
+
+      setAppliedSpellcheckFixes([]);
+      setSpellcheckJobId(accepted.jobId);
+      await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+        return;
+      }
+
+      if (isInsufficientCreditsError(error)) {
+        setAiCreditError(getInsufficientCreditsMessage(AI_CREDIT_COSTS.spellcheck, creditBalanceQuery.data?.balance));
+        return;
+      }
+
+      setAiCreditError("Не удалось запустить проверку орфографии. Попробуйте ещё раз.");
+    }
   }
 
   function handleApplySpellcheckIssue(issue: SpellcheckIssue) {
@@ -288,6 +310,8 @@ export function StoryEditorScreen({
   }
 
   async function handleLogicCheck() {
+    setAiCreditError("");
+
     try {
       const accepted = await logicCheckMutation.mutateAsync({
         chapterId,
@@ -295,16 +319,26 @@ export function StoryEditorScreen({
       });
 
       setLogicCheckJobId(accepted.jobId);
+      await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+        return;
       }
+
+      if (isInsufficientCreditsError(error)) {
+        setAiCreditError(getInsufficientCreditsMessage(AI_CREDIT_COSTS.logicCheck, creditBalanceQuery.data?.balance));
+        return;
+      }
+
+      setAiCreditError("Не удалось запустить проверку логики. Попробуйте ещё раз.");
     }
   }
 
   async function handleCanonCheck() {
     setCanonCheckError("");
     setCanonCheckJobId("");
+    setAiCreditError("");
     setIsPreparingCanonCheck(true);
 
     try {
@@ -315,9 +349,15 @@ export function StoryEditorScreen({
       const accepted = await canonCheckMutation.mutateAsync(chapterId);
 
       setCanonCheckJobId(accepted.jobId);
+      await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+        return;
+      }
+
+      if (isInsufficientCreditsError(error)) {
+        setAiCreditError(getInsufficientCreditsMessage(AI_CREDIT_COSTS.canonCheck, creditBalanceQuery.data?.balance));
         return;
       }
 
@@ -416,6 +456,8 @@ export function StoryEditorScreen({
         logicStatusLabel={logicStatusLabel}
         canonCheckResult={canonCheckJobQuery.data?.result}
         canonStatusLabel={canonStatusLabel}
+        creditBalance={creditBalanceQuery.data?.balance}
+        creditError={aiCreditError}
         isSaving={updateChapterMutation.isPending}
         isSpellchecking={isSpellcheckBusy}
         isLogicChecking={isLogicCheckBusy}
@@ -526,4 +568,10 @@ function getCanonCheckErrorMessage(error: unknown) {
   }
 
   return rawMessage || "Не удалось запустить проверку канона. Попробуйте ещё раз.";
+}
+
+function getInsufficientCreditsMessage(requiredCredits: number, balance?: number) {
+  const balanceText = typeof balance === "number" ? ` Сейчас на балансе ${formatCreditsAmount(balance)}.` : "";
+
+  return `Недостаточно кредитов для запуска: нужно ${formatCreditsAmount(requiredCredits)}.${balanceText}`;
 }

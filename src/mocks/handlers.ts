@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw";
 
 import { parseStoriesQuery } from "@/entities/story/model/story-query";
 import type { ReaderShelf } from "@/entities/library/model/types";
+import { AI_CREDIT_COSTS } from "@/entities/credits/model/credit-utils";
 import { isValidUsername } from "@/shared/lib/username";
 import type {
   CreateStoryCommentPayload,
@@ -25,6 +26,8 @@ import {
   deleteChapterRecord,
   deleteStoryRecord,
   deleteUserCollection,
+  deductMockCredits,
+  getCreditBalance,
   getPublicProfile,
   getChapterComments,
   getAiJob,
@@ -33,7 +36,10 @@ import {
   getMyCollection,
   getUserCollectionByUsername,
   isChapterViewed,
+  getCreditPurchaseUrl,
   likeStoryRecord,
+  listCreditPackages,
+  listCreditTransactions,
   listMyCollections,
   listPublicStoriesByUsername,
   listReaderShelf,
@@ -98,6 +104,47 @@ export const handlers = [
     logoutMockUser();
 
     return HttpResponse.json({ status: "logged out" });
+  }),
+
+  http.get("*/credits/balance", () => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    return HttpResponse.json(getCreditBalance(session.user.id));
+  }),
+
+  http.get("*/credits/packages", () => {
+    return HttpResponse.json(listCreditPackages());
+  }),
+
+  http.get("*/credits/transactions", () => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    return HttpResponse.json(listCreditTransactions(session.user.id));
+  }),
+
+  http.post("*/credits/purchase", async ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as { packageId?: number };
+    const payUrl = typeof payload.packageId === "number" ? getCreditPurchaseUrl(session.user.id, payload.packageId) : null;
+
+    if (!payUrl) {
+      return HttpResponse.json({ error: "not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json({ payUrl });
   }),
 
   http.patch("*/profile", async ({ request }) => {
@@ -590,23 +637,53 @@ export const handlers = [
   }),
 
   http.post("*/ai/spellcheck", async ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const payload = (await request.json()) as SpellcheckPayload;
+
+    if (!deductMockCredits(session.user.id, AI_CREDIT_COSTS.spellcheck, "spellcheck")) {
+      return HttpResponse.json({ error: "insufficient credits" }, { status: 402 });
+    }
 
     return HttpResponse.json(createSpellcheckJob(payload), { status: 202 });
   }),
 
   http.post("*/ai/logic-check", async ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const payload = (await request.json()) as SpellcheckPayload;
+
+    if (!deductMockCredits(session.user.id, AI_CREDIT_COSTS.logicCheck, "logic_check")) {
+      return HttpResponse.json({ error: "insufficient credits" }, { status: 402 });
+    }
 
     return HttpResponse.json(createLogicCheckJob(payload), { status: 202 });
   }),
 
   http.post("*/chapters/:chapterId/canon-check", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const chapterId = String(params.chapterId);
     const chapter = getChapterById(chapterId);
 
     if (!chapter) {
       return HttpResponse.json({ message: "Chapter not found" }, { status: 404 });
+    }
+
+    if (!deductMockCredits(session.user.id, AI_CREDIT_COSTS.canonCheck, "canon_check")) {
+      return HttpResponse.json({ error: "insufficient credits" }, { status: 402 });
     }
 
     return HttpResponse.json(
@@ -619,7 +696,17 @@ export const handlers = [
   }),
 
   http.post("*/ai/image-generation", async ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
     const payload = (await request.json()) as ImageGenerationPayload;
+
+    if (!deductMockCredits(session.user.id, AI_CREDIT_COSTS.imageGeneration, "image_generation")) {
+      return HttpResponse.json({ error: "insufficient credits" }, { status: 402 });
+    }
 
     return HttpResponse.json(createImageGenerationJob(payload), { status: 202 });
   }),

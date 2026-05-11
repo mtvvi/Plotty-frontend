@@ -15,6 +15,7 @@ export const routes = {
   },
   write: "/write",
   writeNew: "/write/new",
+  credits: "/credits",
   library: "/library",
   user: (username: string) => `/users/${username}`,
   userCollection: (username: string, collectionId: string) => `/users/${username}/collections/${collectionId}`,

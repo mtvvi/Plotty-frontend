@@ -20,6 +20,8 @@ import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 
+import { PublicCollectionsIcon } from "./profile-icons";
+
 export function ProfileCollectionsManager({ username }: { username: string }) {
   const queryClient = useQueryClient();
   const collectionsQuery = useQuery(myCollectionsQueryOptions());
@@ -143,8 +145,11 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <div className="plotty-section-title">Публичные подборки</div>
-          <p className="plotty-meta">Соберите рекомендации и делитесь ссылкой из публичного профиля.</p>
+          <div className="plotty-section-title inline-flex items-center gap-2">
+            <PublicCollectionsIcon className="size-5 shrink-0 text-[var(--plotty-muted)]" />
+            Публичные подборки
+          </div>
+          <p className="plotty-meta">Соберите рекомендации и делитесь ими</p>
         </div>
         <Button type="button" variant="primary" onClick={() => setCreateOpen((current) => !current)}>
           Новая подборка

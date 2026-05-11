@@ -10,9 +10,10 @@ import type {
   SpellcheckIssue,
   SpellcheckResult,
 } from "@/entities/story/model/types";
+import { AI_CREDIT_COSTS, formatCreditsAmount } from "@/entities/credits/model/credit-utils";
 import type { TextDiffPart } from "@/shared/lib/text-diff";
 import { routes } from "@/shared/config/routes";
-import { Button, ButtonLink } from "@/shared/ui/button";
+import { Button, ButtonLink, type ButtonProps } from "@/shared/ui/button";
 import { Surface } from "@/shared/ui/card";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { HighlightedTextarea, type HighlightRange } from "@/shared/ui/highlighted-textarea";
@@ -45,6 +46,8 @@ export interface StoryEditorFormProps {
   logicStatusLabel?: string;
   canonCheckResult?: CanonCheckResult;
   canonStatusLabel?: string;
+  creditBalance?: number;
+  creditError?: string;
   isSaving?: boolean;
   isSpellchecking?: boolean;
   isLogicChecking?: boolean;
@@ -79,6 +82,8 @@ export function StoryEditorForm({
   logicStatusLabel,
   canonCheckResult,
   canonStatusLabel,
+  creditBalance,
+  creditError,
   isSaving,
   isSpellchecking,
   isLogicChecking,
@@ -110,6 +115,7 @@ export function StoryEditorForm({
     issue: SpellcheckIssue;
     position: PopoverPosition;
   } | null>(null);
+  const shouldOfferTopUp = typeof creditBalance === "number" && creditBalance < AI_CREDIT_COSTS.imageGeneration;
   const spellcheckHighlightById = useMemo(() => {
     const map = new Map<string, HighlightRange<SpellcheckIssue>>();
 
@@ -297,18 +303,48 @@ export function StoryEditorForm({
                       : "Опубликовать"}
                 </Button>
               ) : null}
-              <Button variant="secondary" onClick={onSpellcheck} disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}>
+              <CreditCostButton
+                cost={AI_CREDIT_COSTS.spellcheck}
+                variant="secondary"
+                onClick={onSpellcheck}
+                disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}
+              >
                 {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
-              </Button>
-              <Button variant="secondary" onClick={onLogicCheck} disabled={!chapterId || isLogicChecking || !values.chapterContent.trim()}>
+              </CreditCostButton>
+              <CreditCostButton
+                cost={AI_CREDIT_COSTS.logicCheck}
+                variant="secondary"
+                onClick={onLogicCheck}
+                disabled={!chapterId || isLogicChecking || !values.chapterContent.trim()}
+              >
                 {isLogicChecking ? "Проверяем логику..." : "Проверить логику"}
-              </Button>
-              <Button variant="secondary" onClick={onCanonCheck} disabled={!chapterId || isCanonChecking || !values.chapterContent.trim()}>
+              </CreditCostButton>
+              <CreditCostButton
+                cost={AI_CREDIT_COSTS.canonCheck}
+                variant="secondary"
+                onClick={onCanonCheck}
+                disabled={!chapterId || isCanonChecking || !values.chapterContent.trim()}
+              >
                 {isCanonChecking ? "Проверяем канон..." : "Проверить канон"}
-              </Button>
+              </CreditCostButton>
               <Button variant="ghost" onClick={onCreateNextChapter} disabled={isSaving || typeof onCreateNextChapter !== "function"}>
                 Новая глава
               </Button>
+            </div>
+            <div className="space-y-3">
+              {shouldOfferTopUp && !creditError ? (
+                <ButtonLink href={routes.credits} variant="ghost" size="sm">
+                  Пополнить баланс
+                </ButtonLink>
+              ) : null}
+              {creditError ? (
+                <Surface variant="subtle" className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-semibold text-[var(--plotty-danger)]">{creditError}</p>
+                  <ButtonLink href={routes.credits} variant="secondary" size="sm">
+                    Пополнить
+                  </ButtonLink>
+                </Surface>
+              ) : null}
             </div>
           </div>
         </ShellCard>
@@ -485,6 +521,22 @@ export function StoryEditorForm({
         </ShellCard>
       </div>
     </div>
+  );
+}
+
+function CreditCostButton({ cost, children, className, ...props }: ButtonProps & { cost: number }) {
+  return (
+    <span className="relative inline-flex pt-2">
+      <Button className={className} {...props}>
+        {children}
+      </Button>
+      <span
+        className="pointer-events-none absolute -right-2 top-0 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-[var(--plotty-accent)] px-1.5 text-[10px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(195,79,50,0.24)] ring-2 ring-[var(--plotty-paper)]"
+        aria-label={`Стоимость: ${formatCreditsAmount(cost)}`}
+      >
+        {cost}◎
+      </span>
+    </span>
   );
 }
 
