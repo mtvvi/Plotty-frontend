@@ -272,7 +272,7 @@ function GlobalSearch({ className }: { className?: string }) {
   return (
     <form
       className={cn(
-        "items-center gap-3 rounded-full border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] px-4 py-2 shadow-[0_8px_24px_rgba(58,43,27,0.05)]",
+        "items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] px-4 py-2 shadow-[0_8px_24px_rgba(58,43,27,0.05)]",
         className,
       )}
       role="search"
@@ -305,7 +305,7 @@ export function PlottySectionCard({
   className?: string;
   headerClassName?: string;
   variant?: SurfaceVariant;
-} & HTMLAttributes<HTMLDivElement>) {
+} & Omit<HTMLAttributes<HTMLDivElement>, "title">) {
   return (
     <Card variant={variant} className={cn("space-y-4 p-4 sm:p-5 lg:p-6", className)} {...props}>
       {title ? (

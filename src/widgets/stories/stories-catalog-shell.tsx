@@ -82,8 +82,6 @@ export function StoriesCatalogShell() {
   const orderedGroups = storyTagCategoryOrder
     .map((category) => [category, groupedTags[category] ?? []] as const)
     .filter(([, tags]) => tags.length);
-  const totalStories = storiesQuery.data?.pagination.total ?? catalogStories.length;
-  const totalStoriesLabel = totalStories.toLocaleString("ru-RU");
   const pageHasOnlyDraftStories = (rawListItems?.length ?? 0) > 0 && catalogStories.length === 0;
   const hasInitialLoading = storiesQuery.isLoading && !storiesQuery.data;
   const appliedActiveTags = (tagsQuery.data?.items ?? []).filter((tag) => appliedQuery.tags.includes(tag.slug));
@@ -180,7 +178,6 @@ export function StoriesCatalogShell() {
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       pageActions={
         <div className="hidden items-center gap-3 lg:flex">
-          <span className="plotty-meta whitespace-nowrap">Найдено {totalStoriesLabel} историй</span>
           <CatalogSortSelect value={currentSort} onChange={handleSortChange} />
         </div>
       }
@@ -216,9 +213,6 @@ export function StoriesCatalogShell() {
 
         <section className="min-w-0 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.78)] px-3 py-2 text-sm font-semibold text-[var(--plotty-ink)] lg:hidden">
-              Найдено {totalStoriesLabel}
-            </span>
             {appliedQuery.q ? (
               <ActiveFilter label={`Поиск: ${appliedQuery.q}`} onClear={() => navigateToQuery({ ...appliedQuery, q: "", page: 1 })} />
             ) : null}
@@ -264,7 +258,7 @@ export function StoriesCatalogShell() {
           ) : catalogStories.length ? (
             <div className="space-y-3.5" aria-live="polite">
               {catalogStories.map((story) => (
-                <StoryCard key={story.id} story={story} />
+                <StoryCard key={story.id} story={story} showChapterActions={false} />
               ))}
             </div>
           ) : (

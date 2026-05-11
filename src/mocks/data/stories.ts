@@ -29,6 +29,7 @@ import type {
   UpdateChapterPayload,
   UpdateStoryPayload,
 } from "@/entities/story/model/types";
+import type { CreditPackage, CreditTransaction } from "@/entities/credits/model/types";
 import type { AuthUser } from "@/entities/auth/model/types";
 import type { ReaderShelf } from "@/entities/library/model/types";
 import type { PublicUserProfile, UserCollectionDetail, UserCollectionSummary } from "@/entities/profile/model/types";
@@ -126,17 +127,26 @@ interface MockStoriesDb {
   collectionStories: Array<{ collectionId: string; storyId: string; createdAt: string }>;
   chapterViews: Array<{ chapterId: string; userId: number; createdAt: string }>;
   aiJobs: AiJobRecord[];
+  creditBalances: Record<number, number>;
+  creditTransactions: CreditTransaction[];
   jobSeed: number;
   storySeed: number;
   chapterSeed: number;
   commentSeed: number;
   collectionSeed: number;
   imageSeed: number;
+  creditTransactionSeed: number;
 }
 
 const tagMap = new Map(storyTags.map((tag) => [tag.slug, tag]));
 const multiMatchAnyCategories = new Set(["rating", "completion", "size"]);
 const storyTagCategoryBySlug = new Map(storyTags.map((tag) => [tag.slug, tag.category ?? "other"]));
+const initialCreditBalance = 50;
+const creditPackages: CreditPackage[] = [
+  { id: 1, credits: 50, priceKopecks: 2900 },
+  { id: 2, credits: 150, priceKopecks: 7900 },
+  { id: 3, credits: 500, priceKopecks: 21900 },
+];
 const storyAuthors: Record<number, StoryAuthor> = {
   1: {
     id: 1,
@@ -428,12 +438,17 @@ function createInitialDb(): MockStoriesDb {
       },
     ],
     aiJobs: [],
+    creditBalances: {
+      1: initialCreditBalance,
+    },
+    creditTransactions: [],
     jobSeed: 1,
     storySeed: 6,
     chapterSeed: 7,
     commentSeed: 3,
     collectionSeed: 2,
     imageSeed: 1,
+    creditTransactionSeed: 1,
   };
 }
 
@@ -441,6 +456,66 @@ let db = createInitialDb();
 
 export function resetMockStoriesDb() {
   db = createInitialDb();
+}
+
+function ensureCreditBalance(userId: number) {
+  if (db.creditBalances[userId] === undefined) {
+    db.creditBalances[userId] = initialCreditBalance;
+  }
+
+  return db.creditBalances[userId];
+}
+
+export function getCreditBalance(userId: number) {
+  return { balance: ensureCreditBalance(userId) };
+}
+
+export function listCreditPackages() {
+  return creditPackages;
+}
+
+export function listCreditTransactions(userId: number) {
+  ensureCreditBalance(userId);
+
+  return db.creditTransactions
+    .filter((transaction) => transaction.userId === userId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 50);
+}
+
+export function getCreditPurchaseUrl(userId: number, packageId: number) {
+  const pkg = creditPackages.find((item) => item.id === packageId);
+
+  if (!pkg) {
+    return null;
+  }
+
+  const label = `${userId}:${pkg.id}:mock`;
+
+  return `https://yoomoney.test/quickpay?label=${encodeURIComponent(label)}`;
+}
+
+export function deductMockCredits(userId: number, amount: number, jobType: string) {
+  const balance = ensureCreditBalance(userId);
+
+  if (balance < amount) {
+    return false;
+  }
+
+  const createdAt = nowIso();
+  db.creditBalances[userId] = balance - amount;
+  db.creditTransactions.push({
+    id: `credit-tx-${db.creditTransactionSeed}`,
+    userId,
+    amount: -amount,
+    type: "usage",
+    description: `AI: ${jobType}`,
+    status: "completed",
+    createdAt,
+  });
+  db.creditTransactionSeed += 1;
+
+  return true;
 }
 
 function nowIso() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -29,6 +29,15 @@ import { StoryCard } from "@/widgets/stories/story-card";
 import { resetViewerSessionCache } from "@/widgets/auth/viewer-session-cache";
 
 import { ProfileCollectionsManager } from "./profile-collections-manager";
+import {
+  CreativityIcon,
+  EditProfileIcon,
+  LogoutProfileIcon,
+  OpenBookIcon,
+  ProfileFileIcon,
+  ProfileLibraryIcon,
+  PublicCollectionsIcon,
+} from "./profile-icons";
 
 type ProfileTab = "works" | "collections" | "library";
 type LibraryTab = "all" | ReaderShelf;
@@ -202,9 +211,11 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 {isOwnProfile ? (
                   <div className="flex shrink-0 flex-wrap gap-2">
                     <Button type="button" variant="secondary" onClick={handleStartEdit}>
+                      <EditProfileIcon className="size-5 shrink-0" />
                       Редактировать
                     </Button>
                     <Button type="button" variant="destructive" onClick={handleLogout} disabled={logoutMutation.isPending}>
+                      <LogoutProfileIcon className="size-5 shrink-0" />
                       {logoutMutation.isPending ? "Выходим..." : "Выйти"}
                     </Button>
                   </div>
@@ -262,30 +273,41 @@ export function PublicProfileScreen({ username }: { username: string }) {
               ) : null}
             </div>
             <div className="grid gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 lg:border-l lg:border-t-0">
-              <ProfileStat label="Работ" value={(isOwnProfile ? ownStories.data?.pagination.total : publicStoriesQuery.data?.pagination.total) ?? stories.length} />
-              <ProfileStat label={isOwnProfile ? "В библиотеке" : "Подборок"} value={isOwnProfile ? shelfQuery.data?.items.length ?? 0 : collections.length} />
+              <ProfileStat
+                label="Работ"
+                value={(isOwnProfile ? ownStories.data?.pagination.total : publicStoriesQuery.data?.pagination.total) ?? stories.length}
+                icon={<ProfileFileIcon className="size-6" />}
+              />
+              <ProfileStat
+                label={isOwnProfile ? "В библиотеке" : "Подборок"}
+                value={isOwnProfile ? shelfQuery.data?.items.length ?? 0 : collections.length}
+                icon={isOwnProfile ? <ProfileLibraryIcon className="size-6" /> : <PublicCollectionsIcon className="size-6" />}
+              />
             </div>
           </div>
         </PlottySectionCard>
 
-        <div className="plotty-segmented">
-          <TabButton type="button" isActive={activeTab === "works"} onClick={() => setActiveTab("works")}>
-            Творчество
+        <div className="plotty-segmented w-full !grid grid-cols-3 items-stretch sm:!inline-flex sm:w-auto sm:grid-cols-none">
+          <TabButton type="button" className="inline-flex min-w-0 items-center justify-center gap-1.5 !px-2 !py-2 !text-xs leading-tight sm:gap-2 sm:!px-4 sm:!py-2.5 sm:!text-sm" isActive={activeTab === "works"} onClick={() => setActiveTab("works")}>
+            <CreativityIcon className="size-4 shrink-0 sm:size-5" />
+            <span className="min-w-0 text-center">Творчество</span>
           </TabButton>
-          <TabButton type="button" isActive={activeTab === "collections"} onClick={() => setActiveTab("collections")}>
-            Публичные подборки
+          <TabButton type="button" className="inline-flex min-w-0 items-center justify-center gap-1.5 !px-2 !py-2 !text-xs leading-tight sm:gap-2 sm:!px-4 sm:!py-2.5 sm:!text-sm" isActive={activeTab === "collections"} onClick={() => setActiveTab("collections")}>
+            <PublicCollectionsIcon className="size-4 shrink-0 sm:size-5" />
+            <span className="min-w-0 text-center">Публичные подборки</span>
           </TabButton>
           {isOwnProfile ? (
-            <TabButton type="button" isActive={activeTab === "library"} onClick={() => setActiveTab("library")}>
-              Библиотека
+            <TabButton type="button" className="inline-flex min-w-0 items-center justify-center gap-1.5 !px-2 !py-2 !text-xs leading-tight sm:gap-2 sm:!px-4 sm:!py-2.5 sm:!text-sm" isActive={activeTab === "library"} onClick={() => setActiveTab("library")}>
+              <OpenBookIcon className="size-4 shrink-0 sm:size-5" />
+              <span className="min-w-0 text-center">Библиотека</span>
             </TabButton>
           ) : null}
         </div>
 
         {activeTab === "works" ? (
           <PlottySectionCard
-            title="Творчество"
-            description={isOwnProfile ? "Ваши работы." : "Публичный список опубликованных работ автора."}
+            title={<ProfileTitle icon={<CreativityIcon className="size-5" />}>Творчество</ProfileTitle>}
+            description={isOwnProfile ? "Ваши работы" : "Публичный список опубликованных работ автора."}
           >
             {(isOwnProfile ? ownStories.isLoading : publicStoriesQuery.isLoading) ? (
               <div className="space-y-3">
@@ -314,7 +336,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
               <ProfileCollectionsManager username={profile.username} />
             </PlottySectionCard>
           ) : (
-            <PlottySectionCard title="Публичные подборки" description="Подборки, которыми пользователь поделился с читателями.">
+            <PlottySectionCard
+              title={<ProfileTitle icon={<PublicCollectionsIcon className="size-5" />}>Публичные подборки</ProfileTitle>}
+              description="Подборки, которыми пользователь поделился с читателями."
+            >
               {collectionsQuery.isLoading ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="h-36 rounded-[22px] bg-white/50" />
@@ -350,7 +375,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
         ) : null}
 
         {activeTab === "library" && isOwnProfile ? (
-          <PlottySectionCard title="Библиотека" description="Ваши приватные статусы чтения.">
+          <PlottySectionCard title={<ProfileTitle icon={<OpenBookIcon className="size-5" />}>Библиотека</ProfileTitle>}>
               <div className="mb-4 flex flex-wrap gap-2">
                 <TabButton type="button" isActive={libraryTab === "all"} onClick={() => setLibraryTab("all")}>
                   Все
@@ -402,23 +427,37 @@ export function ProfileAvatar({
       <img
         src={avatarUrl}
         alt={`Аватар ${username}`}
-        className={`${className} shrink-0 rounded-full border border-[rgba(41,38,34,0.08)] object-cover`}
+        className={`${className} shrink-0 rounded-[var(--plotty-radius-md)] border border-[rgba(41,38,34,0.08)] object-cover`}
       />
     );
   }
 
   return (
-    <div className={`${className} flex shrink-0 items-center justify-center rounded-full bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)]`}>
+    <div className={`${className} flex shrink-0 items-center justify-center rounded-[var(--plotty-radius-md)] bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)]`}>
       {username.slice(0, 1).toUpperCase()}
     </div>
   );
 }
 
-function ProfileStat({ label, value }: { label: string; value: number }) {
+function ProfileTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-flex shrink-0 text-[var(--plotty-muted)]">{icon}</span>
+      {children}
+    </span>
+  );
+}
+
+function ProfileStat({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
     <div className="rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/70 p-4">
-      <div className="text-2xl font-bold text-[var(--plotty-ink)]">{value.toLocaleString("ru-RU")}</div>
-      <div className="plotty-meta">{label}</div>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-2xl font-bold text-[var(--plotty-ink)]">{value.toLocaleString("ru-RU")}</div>
+          <div className="plotty-meta">{label}</div>
+        </div>
+        <span className="mt-1 inline-flex shrink-0 text-[var(--plotty-muted)]">{icon}</span>
+      </div>
     </div>
   );
 }

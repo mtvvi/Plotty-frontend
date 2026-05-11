@@ -23,10 +23,12 @@ export function StoryCard({
   story,
   storyHref,
   showShelfControl = true,
+  showChapterActions = true,
 }: {
   story: StoryListItem;
   storyHref?: string;
   showShelfControl?: boolean;
+  showChapterActions?: boolean;
 }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
@@ -137,17 +139,19 @@ export function StoryCard({
             extraTags={extraTags}
           />
           <div className="grid gap-2 pt-1 md:hidden">
-            <div className="grid grid-cols-2 gap-2">
+            <div className={showChapterActions ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
               <ButtonLink href={readHref} variant="primary" size="sm" className="w-full" aria-label="Читать историю">
                 <BookOpen className="size-4" aria-hidden="true" />
                 Читать
               </ButtonLink>
-              <ButtonLink href={chaptersHref} variant="secondary" size="sm" className="w-full" aria-label="Открыть главы">
-                <List className="size-4" aria-hidden="true" />
-                Главы
-              </ButtonLink>
+              {showChapterActions ? (
+                <ButtonLink href={chaptersHref} variant="secondary" size="sm" className="w-full" aria-label="Открыть главы">
+                  <List className="size-4" aria-hidden="true" />
+                  Главы
+                </ButtonLink>
+              ) : null}
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className={showChapterActions ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
               <Button
                 type="button"
                 onClick={() => void handleToggleLike()}
@@ -161,10 +165,12 @@ export function StoryCard({
                 <Heart className="size-4" fill={viewerHasLiked ? "currentColor" : "none"} aria-hidden="true" />
                 {formatCount(likesCount)}
               </Button>
-              <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
-                <List className="size-4" aria-hidden="true" />
-                {story.chaptersCount}
-              </Link>
+              {showChapterActions ? (
+                <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
+                  <List className="size-4" aria-hidden="true" />
+                  {story.chaptersCount}
+                </Link>
+              ) : null}
             </div>
             {showShelfControl && isAuthenticated ? (
               <div className="grid gap-2 sm:grid-cols-2">
@@ -183,27 +189,32 @@ export function StoryCard({
             <BookOpen className="size-4" aria-hidden="true" />
             Читать
           </ButtonLink>
-          <ButtonLink href={chaptersHref} variant="secondary" className="min-w-0 w-full">
-            <List className="size-4" aria-hidden="true" />
-            Главы
-          </ButtonLink>
-          <div className="grid grid-cols-2 gap-2">
+          {showChapterActions ? (
+            <ButtonLink href={chaptersHref} variant="secondary" className="min-w-0 w-full">
+              <List className="size-4" aria-hidden="true" />
+              Главы
+            </ButtonLink>
+          ) : null}
+          <div className={showChapterActions ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
             <Button
               type="button"
               onClick={() => void handleToggleLike()}
               disabled={likeMutation.isPending}
               variant={viewerHasLiked ? "primary" : "secondary"}
               size="sm"
+              className="w-full"
               aria-pressed={viewerHasLiked}
               aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
             >
               <Heart className="size-4" fill={viewerHasLiked ? "currentColor" : "none"} aria-hidden="true" />
               {formatCount(likesCount)}
             </Button>
-            <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
-              <List className="size-4" aria-hidden="true" />
-              {story.chaptersCount}
-            </Link>
+            {showChapterActions ? (
+              <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
+                <List className="size-4" aria-hidden="true" />
+                {story.chaptersCount}
+              </Link>
+            ) : null}
           </div>
           {showShelfControl && isAuthenticated ? (
             <div className="hidden space-y-2 border-t border-[var(--plotty-line)] pt-3 md:block">

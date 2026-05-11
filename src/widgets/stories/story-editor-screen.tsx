@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { creditBalanceQueryOptions, creditsKeys } from "@/entities/credits/api/credits-api";
+import { AI_CREDIT_COSTS, formatCreditsAmount } from "@/entities/credits/model/credit-utils";
 import {
   aiJobQueryOptions,
   chapterEditorDetailsQueryOptions,
@@ -17,7 +19,7 @@ import {
   updateChapter,
 } from "@/entities/story/api/stories-api";
 import type { CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
-import { isApiError, isAuthError } from "@/shared/api/fetch-json";
+import { isApiError, isAuthError, isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { diffWords } from "@/shared/lib/text-diff";
 import { resolveTextRangeByOffsets, type ResolvedTextRange } from "@/shared/lib/text-ranges";
@@ -38,7 +40,21 @@ const emptyChapterDraft = "Черновик новой главы. Открой�
 
 type AppliedSpellcheckFix = {
   key: string;
+  delta: number;
+  endOffset: number;
+  startOffset: number;
 };
+
+type StoredSpellcheckState = {
+  appliedFixes: AppliedSpellcheckFix[];
+  contentHash: string;
+  result: SpellcheckResult;
+  savedAt: number;
+  version: 1;
+};
+
+const SPELLCHECK_STORAGE_PREFIX = "plotty:chapter-spellcheck:";
+const SPELLCHECK_STORAGE_VERSION = 1;
 
 function getSpellcheckIssueKey(issue: SpellcheckIssue) {
   return `${issue.startOffset}-${issue.endOffset}-${issue.fragmentText}-${issue.suggestion}`;
@@ -54,13 +70,17 @@ export function StoryEditorScreen({
   const router = useRouter();
   const queryClient = useQueryClient();
   const chapterQuery = useQuery(chapterEditorDetailsQueryOptions(storyId, chapterId));
+  const creditBalanceQuery = useQuery(creditBalanceQueryOptions());
   const [values, setValues] = useState<StoryEditorValues>(emptyValues);
   const [spellcheckJobId, setSpellcheckJobId] = useState("");
   const [logicCheckJobId, setLogicCheckJobId] = useState("");
   const [canonCheckJobId, setCanonCheckJobId] = useState("");
   const [canonCheckError, setCanonCheckError] = useState("");
+  const [aiCreditError, setAiCreditError] = useState("");
   const [isPreparingCanonCheck, setIsPreparingCanonCheck] = useState(false);
   const [appliedSpellcheckFixes, setAppliedSpellcheckFixes] = useState<AppliedSpellcheckFix[]>([]);
+  const [storedSpellcheckState, setStoredSpellcheckState] = useState<StoredSpellcheckState | null>(null);
+  const [spellcheckContentSnapshot, setSpellcheckContentSnapshot] = useState("");
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -69,7 +89,7 @@ export function StoryEditorScreen({
 
     setValues({
       chapterTitle: getEditableChapterTitle(chapterQuery.data),
-      chapterContent: getEditableChapterContent(chapterQuery.data),
+      chapterContent: normalizeEditorText(getEditableChapterContent(chapterQuery.data)),
     });
   }, [chapterQuery.data]);
 
@@ -78,9 +98,51 @@ export function StoryEditorScreen({
     setLogicCheckJobId("");
     setCanonCheckJobId("");
     setCanonCheckError("");
+    setAiCreditError("");
     setIsPreparingCanonCheck(false);
     setAppliedSpellcheckFixes([]);
+    setStoredSpellcheckState(null);
+    setSpellcheckContentSnapshot("");
   }, [chapterId]);
+
+  useEffect(() => {
+    const stored = readStoredSpellcheckState(chapterId);
+    const content = chapterQuery.data ? getEditableChapterContent(chapterQuery.data) : "";
+
+    setStoredSpellcheckState(stored);
+    setAppliedSpellcheckFixes(getStoredAppliedFixesForContent(stored, content));
+  }, [chapterId, chapterQuery.data]);
+
+  useEffect(() => {
+    function syncStoredSpellcheckState() {
+      const stored = readStoredSpellcheckState(chapterId);
+
+      setStoredSpellcheckState(stored);
+      setAppliedSpellcheckFixes(getStoredAppliedFixesForContent(stored, values.chapterContent));
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === getSpellcheckStorageKey(chapterId)) {
+        syncStoredSpellcheckState();
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (!document.hidden) {
+        syncStoredSpellcheckState();
+      }
+    }
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", syncStoredSpellcheckState);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", syncStoredSpellcheckState);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [chapterId, values.chapterContent]);
 
   const updateChapterMutation = useMutation({
     mutationFn: ({ targetChapterId, targetPayload }: { targetChapterId: string; targetPayload: StoryEditorValues }) =>
@@ -137,15 +199,38 @@ export function StoryEditorScreen({
       return status === "completed" || status === "failed" ? false : 2_000;
     },
   });
+  const latestSpellcheckResult =
+    spellcheckJobQuery.data?.status === "completed" ? spellcheckJobQuery.data.result : undefined;
+  const activeSpellcheckResult = latestSpellcheckResult ?? storedSpellcheckState?.result;
+
+  useEffect(() => {
+    if (!latestSpellcheckResult) {
+      return;
+    }
+
+    const stored = writeStoredSpellcheckState({
+      appliedFixes: [],
+      chapterId,
+      content: spellcheckContentSnapshot || values.chapterContent,
+      result: latestSpellcheckResult,
+    });
+
+    setStoredSpellcheckState(stored);
+    setAppliedSpellcheckFixes([]);
+  }, [chapterId, latestSpellcheckResult, spellcheckContentSnapshot, values.chapterContent]);
 
   const spellcheckHighlights = useMemo(
     () =>
       buildSpellcheckHighlights(
         values.chapterContent,
-        spellcheckJobQuery.data?.result?.items ?? [],
+        activeSpellcheckResult?.items ?? [],
         appliedSpellcheckFixes,
       ),
-    [appliedSpellcheckFixes, spellcheckJobQuery.data?.result?.items, values.chapterContent],
+    [activeSpellcheckResult?.items, appliedSpellcheckFixes, values.chapterContent],
+  );
+  const visibleSpellcheckResult = useMemo(
+    () => getVisibleSpellcheckResult(activeSpellcheckResult, appliedSpellcheckFixes),
+    [activeSpellcheckResult, appliedSpellcheckFixes],
   );
   const publishedTitle =
     chapterQuery.data?.publishedTitle ??
@@ -247,13 +332,32 @@ export function StoryEditorScreen({
   }
 
   async function handleSpellcheck() {
-    const accepted = await spellcheckMutation.mutateAsync({
-      chapterId,
-      content: values.chapterContent,
-    });
+    setAiCreditError("");
+    const contentSnapshot = normalizeEditorText(values.chapterContent);
 
-    setAppliedSpellcheckFixes([]);
-    setSpellcheckJobId(accepted.jobId);
+    try {
+      const accepted = await spellcheckMutation.mutateAsync({
+        chapterId,
+        content: contentSnapshot,
+      });
+
+      setAppliedSpellcheckFixes([]);
+      setSpellcheckContentSnapshot(contentSnapshot);
+      setSpellcheckJobId(accepted.jobId);
+      await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
+    } catch (error) {
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+        return;
+      }
+
+      if (isInsufficientCreditsError(error)) {
+        setAiCreditError(getInsufficientCreditsMessage(AI_CREDIT_COSTS.spellcheck, creditBalanceQuery.data?.balance));
+        return;
+      }
+
+      setAiCreditError("Не удалось запустить проверку орфографии. Попробуйте ещё раз.");
+    }
   }
 
   function handleApplySpellcheckIssue(issue: SpellcheckIssue) {
@@ -263,11 +367,15 @@ export function StoryEditorScreen({
       return false;
     }
 
-    const range = resolveSpellcheckIssueRange(values.chapterContent, issue);
+    const range = resolveSpellcheckIssueRange(values.chapterContent, issue, appliedSpellcheckFixes);
 
     if (!range) {
       return false;
     }
+
+    const delta = issue.suggestion.length - (range.endIndex - range.startIndex);
+    const nextContent =
+      values.chapterContent.slice(0, range.startIndex) + issue.suggestion + values.chapterContent.slice(range.endIndex);
 
     setValues((current) => ({
       ...current,
@@ -281,30 +389,63 @@ export function StoryEditorScreen({
         return current;
       }
 
-      return [...current, { key: issueKey }];
+      const nextFixes = [
+        ...current,
+        {
+          key: issueKey,
+          delta,
+          endOffset: issue.endOffset,
+          startOffset: issue.startOffset,
+        },
+      ];
+
+      if (activeSpellcheckResult) {
+        const stored = writeStoredSpellcheckState({
+          appliedFixes: nextFixes,
+          chapterId,
+          content: nextContent,
+          result: activeSpellcheckResult,
+        });
+
+        setStoredSpellcheckState(stored);
+      }
+
+      return nextFixes;
     });
 
     return true;
   }
 
   async function handleLogicCheck() {
+    setAiCreditError("");
+
     try {
       const accepted = await logicCheckMutation.mutateAsync({
         chapterId,
-        content: values.chapterContent,
+        content: normalizeEditorText(values.chapterContent),
       });
 
       setLogicCheckJobId(accepted.jobId);
+      await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+        return;
       }
+
+      if (isInsufficientCreditsError(error)) {
+        setAiCreditError(getInsufficientCreditsMessage(AI_CREDIT_COSTS.logicCheck, creditBalanceQuery.data?.balance));
+        return;
+      }
+
+      setAiCreditError("Не удалось запустить проверку логики. Попробуйте ещё раз.");
     }
   }
 
   async function handleCanonCheck() {
     setCanonCheckError("");
     setCanonCheckJobId("");
+    setAiCreditError("");
     setIsPreparingCanonCheck(true);
 
     try {
@@ -315,9 +456,15 @@ export function StoryEditorScreen({
       const accepted = await canonCheckMutation.mutateAsync(chapterId);
 
       setCanonCheckJobId(accepted.jobId);
+      await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
+        return;
+      }
+
+      if (isInsufficientCreditsError(error)) {
+        setAiCreditError(getInsufficientCreditsMessage(AI_CREDIT_COSTS.canonCheck, creditBalanceQuery.data?.balance));
         return;
       }
 
@@ -409,13 +556,15 @@ export function StoryEditorScreen({
         chapterId={chapterId}
         chapterNumber={chapterQuery.data.number}
         chapters={chapterQuery.data.storyChapters}
-        spellcheckResult={spellcheckJobQuery.data?.result}
+        spellcheckResult={visibleSpellcheckResult}
         spellcheckHighlights={spellcheckHighlights}
         aiStatusLabel={aiStatusLabel}
         logicCheckResult={logicCheckJobQuery.data?.result}
         logicStatusLabel={logicStatusLabel}
         canonCheckResult={canonCheckJobQuery.data?.result}
         canonStatusLabel={canonStatusLabel}
+        creditBalance={creditBalanceQuery.data?.balance}
+        creditError={aiCreditError}
         isSaving={updateChapterMutation.isPending}
         isSpellchecking={isSpellcheckBusy}
         isLogicChecking={isLogicCheckBusy}
@@ -439,7 +588,7 @@ export function StoryEditorScreen({
             </div>
           </div>
         }
-        onChange={setValues}
+        onChange={(next) => setValues({ ...next, chapterContent: normalizeEditorText(next.chapterContent) })}
         onSave={handleSave}
         onPublish={handlePublish}
         isPublishing={publishChapterMutation.isPending}
@@ -479,7 +628,7 @@ function buildSpellcheckHighlights(
       return [];
     }
 
-    const range = resolveSpellcheckIssueRange(content, issue);
+    const range = resolveSpellcheckIssueRange(content, issue, appliedFixes);
 
     if (!range) {
       return [];
@@ -490,6 +639,7 @@ function buildSpellcheckHighlights(
         id: issueKey,
         startOffset: range.startIndex,
         endOffset: range.endIndex,
+        expectedText: issue.fragmentText,
         tone: "warning" as const,
         data: issue,
       },
@@ -497,13 +647,166 @@ function buildSpellcheckHighlights(
   });
 }
 
-function resolveSpellcheckIssueRange(content: string, issue: SpellcheckIssue): ResolvedTextRange | null {
+function resolveSpellcheckIssueRange(
+  content: string,
+  issue: SpellcheckIssue,
+  appliedFixes: AppliedSpellcheckFix[] = [],
+): ResolvedTextRange | null {
+  const adjustedOffsets = getAdjustedSpellcheckOffsets(issue, appliedFixes);
+
+  if (!adjustedOffsets) {
+    return null;
+  }
+
   return resolveTextRangeByOffsets({
     text: content,
-    startOffset: issue.startOffset,
-    endOffset: issue.endOffset,
+    startOffset: adjustedOffsets.startOffset,
+    endOffset: adjustedOffsets.endOffset,
     fragmentText: issue.fragmentText,
   });
+}
+
+function getAdjustedSpellcheckOffsets(
+  issue: SpellcheckIssue,
+  appliedFixes: AppliedSpellcheckFix[],
+): { startOffset: number; endOffset: number } | null {
+  const issueKey = getSpellcheckIssueKey(issue);
+  let offsetDelta = 0;
+
+  for (const fix of appliedFixes) {
+    if (fix.key === issueKey) {
+      return null;
+    }
+
+    if (fix.endOffset <= issue.startOffset) {
+      offsetDelta += fix.delta;
+      continue;
+    }
+
+    if (fix.startOffset < issue.endOffset && fix.endOffset > issue.startOffset) {
+      return null;
+    }
+  }
+
+  return {
+    startOffset: issue.startOffset + offsetDelta,
+    endOffset: issue.endOffset + offsetDelta,
+  };
+}
+
+function getVisibleSpellcheckResult(
+  result: SpellcheckResult | undefined,
+  appliedFixes: AppliedSpellcheckFix[],
+): SpellcheckResult | undefined {
+  if (!result) {
+    return undefined;
+  }
+
+  const appliedIssueKeys = new Set(appliedFixes.map((fix) => fix.key));
+  const items = result.items.filter((issue) => !appliedIssueKeys.has(getSpellcheckIssueKey(issue)));
+
+  if (items.length === result.items.length) {
+    return result;
+  }
+
+  return {
+    ...result,
+    items,
+    summary: items.length ? result.summary : "Все найденные замечания исправлены.",
+  };
+}
+
+function normalizeEditorText(text: string) {
+  return text.replace(/\r\n?/g, "\n");
+}
+
+function getSpellcheckStorageKey(chapterId: string) {
+  return `${SPELLCHECK_STORAGE_PREFIX}${chapterId}`;
+}
+
+function readStoredSpellcheckState(chapterId: string): StoredSpellcheckState | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(getSpellcheckStorageKey(chapterId));
+
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawValue) as Partial<StoredSpellcheckState>;
+
+    if (!isStoredSpellcheckState(parsed)) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSpellcheckState({
+  appliedFixes,
+  chapterId,
+  content,
+  result,
+}: {
+  appliedFixes: AppliedSpellcheckFix[];
+  chapterId: string;
+  content: string;
+  result: SpellcheckResult;
+}) {
+  const stored: StoredSpellcheckState = {
+    appliedFixes,
+    contentHash: hashText(normalizeEditorText(content)),
+    result,
+    savedAt: Date.now(),
+    version: SPELLCHECK_STORAGE_VERSION,
+  };
+
+  if (typeof window === "undefined") {
+    return stored;
+  }
+
+  try {
+    window.localStorage.setItem(getSpellcheckStorageKey(chapterId), JSON.stringify(stored));
+  } catch {
+    // Losing the cache must not block editing or applying a correction.
+  }
+
+  return stored;
+}
+
+function getStoredAppliedFixesForContent(stored: StoredSpellcheckState | null, content: string) {
+  if (!stored || stored.contentHash !== hashText(normalizeEditorText(content))) {
+    return [];
+  }
+
+  return stored.appliedFixes;
+}
+
+function isStoredSpellcheckState(value: Partial<StoredSpellcheckState>): value is StoredSpellcheckState {
+  return (
+    value.version === SPELLCHECK_STORAGE_VERSION &&
+    typeof value.savedAt === "number" &&
+    typeof value.contentHash === "string" &&
+    Boolean(value.result) &&
+    Array.isArray(value.result?.items) &&
+    Array.isArray(value.appliedFixes)
+  );
+}
+
+function hashText(text: string) {
+  let hash = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) | 0;
+  }
+
+  return `${text.length}:${hash >>> 0}`;
 }
 
 function getCanonCheckErrorMessage(error: unknown) {
@@ -526,4 +829,10 @@ function getCanonCheckErrorMessage(error: unknown) {
   }
 
   return rawMessage || "Не удалось запустить проверку канона. Попробуйте ещё раз.";
+}
+
+function getInsufficientCreditsMessage(requiredCredits: number, balance?: number) {
+  const balanceText = typeof balance === "number" ? ` Сейчас на балансе ${formatCreditsAmount(balance)}.` : "";
+
+  return `Недостаточно кредитов для запуска: нужно ${formatCreditsAmount(requiredCredits)}.${balanceText}`;
 }

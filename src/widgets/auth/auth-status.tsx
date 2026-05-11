@@ -30,12 +30,12 @@ function AccountAvatar({
   if (avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={avatarUrl} alt={`Аватар ${username}`} className={cn("shrink-0 rounded-full object-cover", className)} />
+      <img src={avatarUrl} alt={`Аватар ${username}`} className={cn("shrink-0 rounded-[var(--plotty-radius-md)] object-cover", className)} />
     );
   }
 
   return (
-    <span className={cn("flex shrink-0 items-center justify-center rounded-full bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)]", className)}>
+    <span className={cn("flex shrink-0 items-center justify-center rounded-[var(--plotty-radius-md)] bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)]", className)}>
       {username.slice(0, 1).toUpperCase()}
     </span>
   );
@@ -95,14 +95,16 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
   }
 
   const avatarUrl = user.avatarUrl ?? user.avatar_url ?? null;
+  const profileHref = routes.user(user.username);
+  const isProfileActive = pathname === profileHref || pathname.startsWith(`${profileHref}/`);
 
   if (variant === "menu") {
     return (
       <div className="space-y-3.5">
         <div className="plotty-kicker">Аккаунт</div>
         <Link
-          href={routes.user(user.username)}
-          className="flex items-center gap-3 rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/84 p-4 transition-colors hover:bg-white"
+          href={profileHref}
+          className="flex items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[rgba(41,38,34,0.08)] bg-white/84 p-4 transition-colors hover:bg-white"
         >
           <AccountAvatar username={user.username} avatarUrl={avatarUrl} className="size-11 text-sm" />
           <span className="min-w-0">
@@ -127,9 +129,13 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
 
   return (
     <Link
-      href={routes.user(user.username)}
-      className="inline-flex min-h-[54px] items-center justify-start gap-3 rounded-full border border-[rgba(41,38,34,0.08)] bg-white/84 px-2.5 py-1.5 pr-4 text-left shadow-[0_8px_24px_rgba(46,35,23,0.08)] transition-[background-color,border-color,box-shadow] duration-150 ease-out hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+      href={profileHref}
+      className={cn(
+        "plotty-button-label relative inline-flex min-h-[92px] items-center justify-start gap-3 rounded-[var(--plotty-radius-md)] px-2.5 py-1.5 pr-4 text-left text-[var(--plotty-ink)] transition-colors duration-150 ease-out hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+        isProfileActive ? "text-[var(--plotty-accent)]" : null,
+      )}
       aria-label={`Открыть профиль ${user.username}`}
+      aria-current={isProfileActive ? "page" : undefined}
     >
       <AccountAvatar username={user.username} avatarUrl={avatarUrl} className="size-[2.75rem] text-sm" />
       <span className="min-w-0 text-left leading-none">
@@ -139,6 +145,12 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
       <span className="ml-0.5 text-[var(--plotty-muted)]" aria-hidden="true">
         →
       </span>
+      {isProfileActive ? (
+        <span
+          className="absolute inset-x-2.5 bottom-0 h-0.5 bg-[var(--plotty-accent)]"
+          aria-hidden="true"
+        />
+      ) : null}
     </Link>
   );
 }
