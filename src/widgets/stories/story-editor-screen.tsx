@@ -45,6 +45,17 @@ type AppliedSpellcheckFix = {
   startOffset: number;
 };
 
+type StoredSpellcheckState = {
+  appliedFixes: AppliedSpellcheckFix[];
+  contentHash: string;
+  result: SpellcheckResult;
+  savedAt: number;
+  version: 1;
+};
+
+const SPELLCHECK_STORAGE_PREFIX = "plotty:chapter-spellcheck:";
+const SPELLCHECK_STORAGE_VERSION = 1;
+
 function getSpellcheckIssueKey(issue: SpellcheckIssue) {
   return `${issue.startOffset}-${issue.endOffset}-${issue.fragmentText}-${issue.suggestion}`;
 }
@@ -68,6 +79,8 @@ export function StoryEditorScreen({
   const [aiCreditError, setAiCreditError] = useState("");
   const [isPreparingCanonCheck, setIsPreparingCanonCheck] = useState(false);
   const [appliedSpellcheckFixes, setAppliedSpellcheckFixes] = useState<AppliedSpellcheckFix[]>([]);
+  const [storedSpellcheckState, setStoredSpellcheckState] = useState<StoredSpellcheckState | null>(null);
+  const [spellcheckContentSnapshot, setSpellcheckContentSnapshot] = useState("");
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -88,7 +101,48 @@ export function StoryEditorScreen({
     setAiCreditError("");
     setIsPreparingCanonCheck(false);
     setAppliedSpellcheckFixes([]);
+    setStoredSpellcheckState(null);
+    setSpellcheckContentSnapshot("");
   }, [chapterId]);
+
+  useEffect(() => {
+    const stored = readStoredSpellcheckState(chapterId);
+    const content = chapterQuery.data ? getEditableChapterContent(chapterQuery.data) : "";
+
+    setStoredSpellcheckState(stored);
+    setAppliedSpellcheckFixes(getStoredAppliedFixesForContent(stored, content));
+  }, [chapterId, chapterQuery.data]);
+
+  useEffect(() => {
+    function syncStoredSpellcheckState() {
+      const stored = readStoredSpellcheckState(chapterId);
+
+      setStoredSpellcheckState(stored);
+      setAppliedSpellcheckFixes(getStoredAppliedFixesForContent(stored, values.chapterContent));
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === getSpellcheckStorageKey(chapterId)) {
+        syncStoredSpellcheckState();
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (!document.hidden) {
+        syncStoredSpellcheckState();
+      }
+    }
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", syncStoredSpellcheckState);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", syncStoredSpellcheckState);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [chapterId, values.chapterContent]);
 
   const updateChapterMutation = useMutation({
     mutationFn: ({ targetChapterId, targetPayload }: { targetChapterId: string; targetPayload: StoryEditorValues }) =>
@@ -145,19 +199,38 @@ export function StoryEditorScreen({
       return status === "completed" || status === "failed" ? false : 2_000;
     },
   });
+  const latestSpellcheckResult =
+    spellcheckJobQuery.data?.status === "completed" ? spellcheckJobQuery.data.result : undefined;
+  const activeSpellcheckResult = latestSpellcheckResult ?? storedSpellcheckState?.result;
+
+  useEffect(() => {
+    if (!latestSpellcheckResult) {
+      return;
+    }
+
+    const stored = writeStoredSpellcheckState({
+      appliedFixes: [],
+      chapterId,
+      content: spellcheckContentSnapshot || values.chapterContent,
+      result: latestSpellcheckResult,
+    });
+
+    setStoredSpellcheckState(stored);
+    setAppliedSpellcheckFixes([]);
+  }, [chapterId, latestSpellcheckResult, spellcheckContentSnapshot, values.chapterContent]);
 
   const spellcheckHighlights = useMemo(
     () =>
       buildSpellcheckHighlights(
         values.chapterContent,
-        spellcheckJobQuery.data?.result?.items ?? [],
+        activeSpellcheckResult?.items ?? [],
         appliedSpellcheckFixes,
       ),
-    [appliedSpellcheckFixes, spellcheckJobQuery.data?.result?.items, values.chapterContent],
+    [activeSpellcheckResult?.items, appliedSpellcheckFixes, values.chapterContent],
   );
   const visibleSpellcheckResult = useMemo(
-    () => getVisibleSpellcheckResult(spellcheckJobQuery.data?.result, appliedSpellcheckFixes),
-    [appliedSpellcheckFixes, spellcheckJobQuery.data?.result],
+    () => getVisibleSpellcheckResult(activeSpellcheckResult, appliedSpellcheckFixes),
+    [activeSpellcheckResult, appliedSpellcheckFixes],
   );
   const publishedTitle =
     chapterQuery.data?.publishedTitle ??
@@ -260,14 +333,16 @@ export function StoryEditorScreen({
 
   async function handleSpellcheck() {
     setAiCreditError("");
+    const contentSnapshot = normalizeEditorText(values.chapterContent);
 
     try {
       const accepted = await spellcheckMutation.mutateAsync({
         chapterId,
-        content: normalizeEditorText(values.chapterContent),
+        content: contentSnapshot,
       });
 
       setAppliedSpellcheckFixes([]);
+      setSpellcheckContentSnapshot(contentSnapshot);
       setSpellcheckJobId(accepted.jobId);
       await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
     } catch (error) {
@@ -299,6 +374,8 @@ export function StoryEditorScreen({
     }
 
     const delta = issue.suggestion.length - (range.endIndex - range.startIndex);
+    const nextContent =
+      values.chapterContent.slice(0, range.startIndex) + issue.suggestion + values.chapterContent.slice(range.endIndex);
 
     setValues((current) => ({
       ...current,
@@ -312,7 +389,7 @@ export function StoryEditorScreen({
         return current;
       }
 
-      return [
+      const nextFixes = [
         ...current,
         {
           key: issueKey,
@@ -321,6 +398,19 @@ export function StoryEditorScreen({
           startOffset: issue.startOffset,
         },
       ];
+
+      if (activeSpellcheckResult) {
+        const stored = writeStoredSpellcheckState({
+          appliedFixes: nextFixes,
+          chapterId,
+          content: nextContent,
+          result: activeSpellcheckResult,
+        });
+
+        setStoredSpellcheckState(stored);
+      }
+
+      return nextFixes;
     });
 
     return true;
@@ -628,6 +718,95 @@ function getVisibleSpellcheckResult(
 
 function normalizeEditorText(text: string) {
   return text.replace(/\r\n?/g, "\n");
+}
+
+function getSpellcheckStorageKey(chapterId: string) {
+  return `${SPELLCHECK_STORAGE_PREFIX}${chapterId}`;
+}
+
+function readStoredSpellcheckState(chapterId: string): StoredSpellcheckState | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(getSpellcheckStorageKey(chapterId));
+
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawValue) as Partial<StoredSpellcheckState>;
+
+    if (!isStoredSpellcheckState(parsed)) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSpellcheckState({
+  appliedFixes,
+  chapterId,
+  content,
+  result,
+}: {
+  appliedFixes: AppliedSpellcheckFix[];
+  chapterId: string;
+  content: string;
+  result: SpellcheckResult;
+}) {
+  const stored: StoredSpellcheckState = {
+    appliedFixes,
+    contentHash: hashText(normalizeEditorText(content)),
+    result,
+    savedAt: Date.now(),
+    version: SPELLCHECK_STORAGE_VERSION,
+  };
+
+  if (typeof window === "undefined") {
+    return stored;
+  }
+
+  try {
+    window.localStorage.setItem(getSpellcheckStorageKey(chapterId), JSON.stringify(stored));
+  } catch {
+    // Losing the cache must not block editing or applying a correction.
+  }
+
+  return stored;
+}
+
+function getStoredAppliedFixesForContent(stored: StoredSpellcheckState | null, content: string) {
+  if (!stored || stored.contentHash !== hashText(normalizeEditorText(content))) {
+    return [];
+  }
+
+  return stored.appliedFixes;
+}
+
+function isStoredSpellcheckState(value: Partial<StoredSpellcheckState>): value is StoredSpellcheckState {
+  return (
+    value.version === SPELLCHECK_STORAGE_VERSION &&
+    typeof value.savedAt === "number" &&
+    typeof value.contentHash === "string" &&
+    Boolean(value.result) &&
+    Array.isArray(value.result?.items) &&
+    Array.isArray(value.appliedFixes)
+  );
+}
+
+function hashText(text: string) {
+  let hash = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) | 0;
+  }
+
+  return `${text.length}:${hash >>> 0}`;
 }
 
 function getCanonCheckErrorMessage(error: unknown) {
