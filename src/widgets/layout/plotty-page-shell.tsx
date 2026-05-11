@@ -305,7 +305,7 @@ export function PlottySectionCard({
   className?: string;
   headerClassName?: string;
   variant?: SurfaceVariant;
-} & HTMLAttributes<HTMLDivElement>) {
+} & Omit<HTMLAttributes<HTMLDivElement>, "title">) {
   return (
     <Card variant={variant} className={cn("space-y-4 p-4 sm:p-5 lg:p-6", className)} {...props}>
       {title ? (

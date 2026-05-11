@@ -114,17 +114,17 @@ export function HighlightedTextarea<TData = unknown>({
       boxSizing: "border-box",
       fontFamily: computed.fontFamily,
       fontSize: computed.fontSize,
-      fontWeight: computed.fontWeight,
+      fontWeight: computed.fontWeight as CSSProperties["fontWeight"],
       letterSpacing: computed.letterSpacing,
       lineHeight: computed.lineHeight,
-      overflowWrap: computed.overflowWrap,
+      overflowWrap: computed.overflowWrap as CSSProperties["overflowWrap"],
       paddingBottom: computed.paddingBottom,
       paddingLeft: computed.paddingLeft,
       paddingRight: computed.paddingRight,
       paddingTop: computed.paddingTop,
-      tabSize: computed.tabSize,
+      tabSize: computed.tabSize as CSSProperties["tabSize"],
       whiteSpace: "pre-wrap",
-      wordBreak: computed.wordBreak,
+      wordBreak: computed.wordBreak as CSSProperties["wordBreak"],
     });
     syncMirrorScroll(textarea.scrollTop, textarea.scrollLeft);
   }, [syncMirrorScroll]);
@@ -265,10 +265,12 @@ export function HighlightedTextarea<TData = unknown>({
         width: metrics.width,
       }
     : undefined;
+  const currentScrollLeft = textareaRef.current?.scrollLeft ?? 0;
+  const currentScrollTop = textareaRef.current?.scrollTop ?? 0;
   const contentStyle: CSSProperties = {
     ...mirrorTextStyle,
     minHeight: metrics?.scrollHeight,
-    transform: `translate(${-textareaRef.current?.scrollLeft || 0}px, ${-textareaRef.current?.scrollTop || 0}px)`,
+    transform: `translate(${-currentScrollLeft}px, ${-currentScrollTop}px)`,
     width: metrics?.scrollWidth,
   };
 
