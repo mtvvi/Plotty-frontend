@@ -147,6 +147,11 @@ export function StoryEditorForm({
     [],
   );
 
+  const handleActiveHighlightHidden = useCallback(() => {
+    setSpellcheckPopover(null);
+    setActiveSpellcheckIssueId("");
+  }, []);
+
   function update<K extends keyof StoryEditorValues>(key: K, value: StoryEditorValues[K]) {
     onChange({
       ...values,
@@ -277,8 +282,8 @@ export function StoryEditorForm({
                   activeHighlightScrollKey={highlightScrollKey}
                   highlightRanges={spellcheckHighlights}
                   onActiveHighlightAnchorChange={handleActiveHighlightAnchorChange}
+                  onActiveHighlightHidden={handleActiveHighlightHidden}
                   onHighlightClick={handleActiveHighlightAnchorChange}
-                  onHighlightViewportScroll={() => setSpellcheckPopover(null)}
                 />
               </Field>
             </div>

@@ -29,6 +29,7 @@ interface HighlightedTextareaProps<TData = unknown> extends TextareaHTMLAttribut
   activeHighlightScrollKey?: number;
   highlightRanges?: HighlightRange<TData>[];
   onActiveHighlightAnchorChange?: (range: HighlightRange<TData>, anchorRect: DOMRect) => void;
+  onActiveHighlightHidden?: () => void;
   onHighlightClick?: (range: HighlightRange<TData>, anchorRect: DOMRect) => void;
   onHighlightViewportScroll?: () => void;
 }
@@ -54,6 +55,7 @@ export function HighlightedTextarea<TData = unknown>({
   className,
   highlightRanges = [],
   onActiveHighlightAnchorChange,
+  onActiveHighlightHidden,
   onHighlightClick,
   onHighlightViewportScroll,
   onScroll,
@@ -143,6 +145,12 @@ export function HighlightedTextarea<TData = unknown>({
     textarea.setSelectionRange(range.startOffset, range.endOffset);
   }, []);
 
+  const getHighlightViewportRect = useCallback(() => {
+    const highlightLayer = highlightContentRef.current?.parentElement;
+
+    return highlightLayer?.getBoundingClientRect() ?? textareaRef.current?.getBoundingClientRect() ?? null;
+  }, []);
+
   const reportActiveHighlightAnchor = useCallback(() => {
     if (!activeHighlightId) {
       return;
@@ -152,11 +160,19 @@ export function HighlightedTextarea<TData = unknown>({
     const range = rangeById.get(activeHighlightId);
 
     if (!node || !range) {
+      onActiveHighlightHidden?.();
       return;
     }
 
-    onActiveHighlightAnchorChange?.(range, node.getBoundingClientRect());
-  }, [activeHighlightId, onActiveHighlightAnchorChange, rangeById]);
+    const nodeRect = node.getBoundingClientRect();
+
+    if (!isRectVisibleInside(nodeRect, getHighlightViewportRect())) {
+      onActiveHighlightHidden?.();
+      return;
+    }
+
+    onActiveHighlightAnchorChange?.(range, nodeRect);
+  }, [activeHighlightId, getHighlightViewportRect, onActiveHighlightAnchorChange, onActiveHighlightHidden, rangeById]);
 
   useSafeLayoutEffect(() => {
     updateMirrorMeasurements();
@@ -268,7 +284,11 @@ export function HighlightedTextarea<TData = unknown>({
           syncMirrorScroll(event.currentTarget.scrollTop, event.currentTarget.scrollLeft);
 
           if (!programmaticScrollRef.current) {
-            onHighlightViewportScroll?.();
+            if (activeHighlightId) {
+              window.requestAnimationFrame(reportActiveHighlightAnchor);
+            } else {
+              onHighlightViewportScroll?.();
+            }
           }
 
           onScroll?.(event);
@@ -434,5 +454,18 @@ function areMetricsEqual(current: MirrorMetrics | null, next: MirrorMetrics) {
     current.scrollWidth === next.scrollWidth &&
     current.top === next.top &&
     current.width === next.width
+  );
+}
+
+function isRectVisibleInside(rect: DOMRect, viewportRect: DOMRect | null) {
+  if (!viewportRect) {
+    return false;
+  }
+
+  return (
+    rect.bottom > viewportRect.top &&
+    rect.top < viewportRect.bottom &&
+    rect.right > viewportRect.left &&
+    rect.left < viewportRect.right
   );
 }
