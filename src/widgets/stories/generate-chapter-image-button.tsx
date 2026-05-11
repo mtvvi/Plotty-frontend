@@ -16,6 +16,7 @@ import { isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Surface } from "@/shared/ui/card";
+import { CreditCostBadge } from "@/widgets/credits/credit-cost-badge";
 
 export function GenerateChapterImageButton({
   chapterId,
@@ -116,12 +117,7 @@ export function GenerateChapterImageButton({
         <Button variant="secondary" onClick={handleGenerate} isLoading={isGenerating}>
           {hasImage ? "Обновить иллюстрацию" : "Сгенерировать картинку"}
         </Button>
-        <span
-          className="pointer-events-none absolute -right-2 top-0 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-[var(--plotty-accent)] px-1.5 text-[10px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(195,79,50,0.24)] ring-2 ring-[var(--plotty-paper)]"
-          aria-label={`Стоимость: ${formatCreditsAmount(AI_CREDIT_COSTS.imageGeneration)}`}
-        >
-          {AI_CREDIT_COSTS.imageGeneration}◎
-        </span>
+        <CreditCostBadge cost={AI_CREDIT_COSTS.imageGeneration} />
       </span>
     </div>
   );

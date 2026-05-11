@@ -34,12 +34,16 @@ export function getSidebarStoryCoverImageUrl({
   story,
   selectedStorySlug,
   selectedStoryDisplayCover,
+  storyFirstChapterImageUrl,
 }: {
   story: Pick<StoryListItem, "slug" | "coverImageUrl">;
   selectedStorySlug: string;
   selectedStoryDisplayCover?: string | null;
+  storyFirstChapterImageUrl?: string | null;
 }) {
-  return story.coverImageUrl ?? (story.slug === selectedStorySlug ? selectedStoryDisplayCover ?? undefined : undefined);
+  const selectedStoryFallback = story.slug === selectedStorySlug ? selectedStoryDisplayCover : undefined;
+
+  return story.coverImageUrl ?? storyFirstChapterImageUrl ?? selectedStoryFallback ?? undefined;
 }
 
 export function StoryCreateScreen() {
@@ -133,47 +137,16 @@ export function StoryCreateScreen() {
             <div className="space-y-3">
               {storiesQuery.data.items.map((story) => {
                 const isSelected = selectedStorySlug === story.slug;
-                const sidebarCoverImage = getSidebarStoryCoverImageUrl({
-                  story,
-                  selectedStorySlug,
-                  selectedStoryDisplayCover,
-                });
 
                 return (
-                  <article
+                  <StorySidebarItem
                     key={story.id}
-                    className={`grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-[var(--plotty-radius-md)] border p-2.5 transition-[background-color,border-color,box-shadow,transform] duration-150 ${
-                      isSelected
-                        ? "border-[rgba(195,79,50,0.22)] bg-[var(--plotty-accent-wash)] shadow-[0_12px_28px_rgba(195,79,50,0.08)]"
-                        : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.68)] hover:-translate-y-[1px] hover:bg-[var(--plotty-paper-strong)]"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedStorySlug(story.slug)}
-                      className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)]"
-                      aria-label={`Выбрать историю ${story.title}`}
-                    >
-                      <StoryCoverPreview
-                        title={story.title}
-                        imageUrl={sidebarCoverImage ?? undefined}
-                        compact
-                        className="aspect-square rounded-[12px]"
-                        imageClassName="h-full"
-                      />
-                    </button>
-                    <button type="button" onClick={() => setSelectedStorySlug(story.slug)} className="min-w-0 text-left">
-                      <div className="plotty-card-title line-clamp-3 break-words text-[1.04rem] leading-5">{story.title}</div>
-                      <div className="mt-1 text-xs text-[var(--plotty-muted)]">
-                        Обновлена {new Date(story.updatedAt).toLocaleDateString("ru-RU")}
-                      </div>
-                      {story.statusLabel ? (
-                        <span className="mt-2 inline-flex rounded-full bg-[var(--plotty-olive-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--plotty-olive)]">
-                          {story.statusLabel}
-                        </span>
-                      ) : null}
-                    </button>
-                  </article>
+                    story={story}
+                    isSelected={isSelected}
+                    selectedStorySlug={selectedStorySlug}
+                    selectedStoryDisplayCover={selectedStoryDisplayCover}
+                    onSelect={setSelectedStorySlug}
+                  />
                 );
               })}
 
@@ -336,6 +309,76 @@ export function StoryCreateScreen() {
         </ShellCard>
       </div>
     </PlottyShell>
+  );
+}
+
+function StorySidebarItem({
+  story,
+  isSelected,
+  selectedStorySlug,
+  selectedStoryDisplayCover,
+  onSelect,
+}: {
+  story: StoryListItem;
+  isSelected: boolean;
+  selectedStorySlug: string;
+  selectedStoryDisplayCover?: string | null;
+  onSelect: (slug: string) => void;
+}) {
+  const storyDetailsQuery = useQuery({
+    ...storyDetailsQueryOptions(story.slug),
+    enabled: Boolean(story.slug && !story.coverImageUrl),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const firstChapterId = storyDetailsQuery.data?.chapters[0]?.id ?? "";
+  const firstChapterQuery = useQuery({
+    ...chapterDetailsQueryOptions(firstChapterId),
+    enabled: Boolean(firstChapterId && !story.coverImageUrl),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const sidebarCoverImage = getSidebarStoryCoverImageUrl({
+    story,
+    selectedStorySlug,
+    selectedStoryDisplayCover,
+    storyFirstChapterImageUrl: firstChapterQuery.data?.imageUrl,
+  });
+
+  return (
+    <article
+      className={`grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-[var(--plotty-radius-md)] border p-2.5 transition-[background-color,border-color,box-shadow,transform] duration-150 ${
+        isSelected
+          ? "border-[rgba(195,79,50,0.22)] bg-[var(--plotty-accent-wash)] shadow-[0_12px_28px_rgba(195,79,50,0.08)]"
+          : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.68)] hover:-translate-y-[1px] hover:bg-[var(--plotty-paper-strong)]"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => onSelect(story.slug)}
+        className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)]"
+        aria-label={`Выбрать историю ${story.title}`}
+      >
+        <StoryCoverPreview
+          title={story.title}
+          imageUrl={sidebarCoverImage}
+          compact
+          className="aspect-square rounded-[12px]"
+          imageClassName="h-full"
+        />
+      </button>
+      <button type="button" onClick={() => onSelect(story.slug)} className="min-w-0 text-left">
+        <div className="plotty-card-title line-clamp-3 break-words text-[1.04rem] leading-5">{story.title}</div>
+        <div className="mt-1 text-xs text-[var(--plotty-muted)]">
+          Обновлена {new Date(story.updatedAt).toLocaleDateString("ru-RU")}
+        </div>
+        {story.statusLabel ? (
+          <span className="mt-2 inline-flex rounded-full bg-[var(--plotty-olive-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--plotty-olive)]">
+            {story.statusLabel}
+          </span>
+        ) : null}
+      </button>
+    </article>
   );
 }
 

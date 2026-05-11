@@ -32,39 +32,7 @@ export function resolveTextRangeByOffsets({
     return { startIndex: codePointStart, endIndex: codePointEnd };
   }
 
-  return findNearestFragment(text, fragmentText, codePointStart);
-}
-
-function findNearestFragment(text: string, fragmentText: string, preferredIndex: number): ResolvedTextRange | null {
-  let bestIndex = -1;
-  let bestDistance = Number.POSITIVE_INFINITY;
-  let cursor = 0;
-
-  while (cursor <= text.length) {
-    const index = text.indexOf(fragmentText, cursor);
-
-    if (index === -1) {
-      break;
-    }
-
-    const distance = Math.abs(index - preferredIndex);
-
-    if (distance < bestDistance) {
-      bestIndex = index;
-      bestDistance = distance;
-    }
-
-    cursor = index + Math.max(fragmentText.length, 1);
-  }
-
-  if (bestIndex === -1) {
-    return null;
-  }
-
-  return {
-    startIndex: bestIndex,
-    endIndex: bestIndex + fragmentText.length,
-  };
+  return null;
 }
 
 function codePointOffsetToCodeUnitIndex(text: string, offset: number) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 
 import type {
@@ -10,7 +11,7 @@ import type {
   SpellcheckIssue,
   SpellcheckResult,
 } from "@/entities/story/model/types";
-import { AI_CREDIT_COSTS, formatCreditsAmount } from "@/entities/credits/model/credit-utils";
+import { AI_CREDIT_COSTS } from "@/entities/credits/model/credit-utils";
 import type { TextDiffPart } from "@/shared/lib/text-diff";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink, type ButtonProps } from "@/shared/ui/button";
@@ -19,6 +20,7 @@ import { Field, FieldLabel } from "@/shared/ui/field";
 import { HighlightedTextarea, type HighlightRange } from "@/shared/ui/highlighted-textarea";
 import { Input } from "@/shared/ui/input";
 import { PopoverContent, type PopoverPosition } from "@/shared/ui/popover";
+import { CreditCostBadge } from "@/widgets/credits/credit-cost-badge";
 
 import { ShellCard } from "./plotty-shell";
 
@@ -115,6 +117,7 @@ export function StoryEditorForm({
     issue: SpellcheckIssue;
     position: PopoverPosition;
   } | null>(null);
+  const isMobileCorrectionOverlay = useCorrectionOverlayMode();
   const shouldOfferTopUp = typeof creditBalance === "number" && creditBalance < AI_CREDIT_COSTS.imageGeneration;
   const spellcheckHighlightById = useMemo(() => {
     const map = new Map<string, HighlightRange<SpellcheckIssue>>();
@@ -193,7 +196,7 @@ export function StoryEditorForm({
       return;
     }
 
-    function handlePointerDown(event: MouseEvent) {
+    function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
 
       if (!popoverContentRef.current?.contains(target)) {
@@ -207,11 +210,11 @@ export function StoryEditorForm({
       }
     }
 
-    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("keydown", handleEscape);
 
     return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("keydown", handleEscape);
     };
   }, [spellcheckPopover]);
@@ -275,6 +278,7 @@ export function StoryEditorForm({
                   highlightRanges={spellcheckHighlights}
                   onActiveHighlightAnchorChange={handleActiveHighlightAnchorChange}
                   onHighlightClick={handleActiveHighlightAnchorChange}
+                  onHighlightViewportScroll={() => setSpellcheckPopover(null)}
                 />
               </Field>
             </div>
@@ -419,34 +423,13 @@ export function StoryEditorForm({
                     </Surface>
                   )}
                 </div>
-                <PopoverContent
+                <SpellcheckIssueOverlay
                   contentRef={popoverContentRef}
-                  open={Boolean(spellcheckPopover)}
-                  position={spellcheckPopover?.position ?? { left: 0, top: 0, width: 0 }}
-                  className="rounded-[var(--plotty-radius-lg)] p-4"
-                >
-                  {spellcheckPopover ? (
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold">{spellcheckPopover.issue.fragmentText}</div>
-                        <div className="text-sm leading-5 text-[var(--plotty-muted)]">
-                          {spellcheckPopover.issue.message}
-                        </div>
-                        <div className="text-sm text-[var(--plotty-accent)]">
-                          Предложение: {spellcheckPopover.issue.suggestion}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => applySpellcheckIssue(spellcheckPopover.issue)}
-                      >
-                        Исправить
-                      </Button>
-                    </div>
-                  ) : null}
-                </PopoverContent>
+                  isMobile={isMobileCorrectionOverlay}
+                  onApply={applySpellcheckIssue}
+                  onClose={() => setSpellcheckPopover(null)}
+                  popover={spellcheckPopover}
+                />
               </div>
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
@@ -459,7 +442,7 @@ export function StoryEditorForm({
             title="Логика"
             description={
               logicStatusLabel ??
-              "Сервис проверяет причинно-следственные связи и внутренние нестыковки сцены."
+              "ИИ проверяет причинно-следственные связи, мотивацию персонажей и внутренние нестыковки сцены."
             }
           >
             {logicCheckResult ? (
@@ -475,7 +458,7 @@ export function StoryEditorForm({
             title="Канон"
             description={
               canonStatusLabel ||
-              "Сервис сверяет текст с каноном и правилами мира отдельно от логики главы."
+              "ИИ сверяет текст с каноном и правилами мира."
             }
           >
             {canonCheckResult ? (
@@ -530,12 +513,7 @@ function CreditCostButton({ cost, children, className, ...props }: ButtonProps &
       <Button className={className} {...props}>
         {children}
       </Button>
-      <span
-        className="pointer-events-none absolute -right-2 top-0 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-[var(--plotty-accent)] px-1.5 text-[10px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(195,79,50,0.24)] ring-2 ring-[var(--plotty-paper)]"
-        aria-label={`Стоимость: ${formatCreditsAmount(cost)}`}
-      >
-        {cost}◎
-      </span>
+      <CreditCostBadge cost={cost} />
     </span>
   );
 }
@@ -575,14 +553,136 @@ function getSpellcheckIssueKey(issue: SpellcheckIssue) {
   return `${issue.startOffset}-${issue.endOffset}-${issue.fragmentText}-${issue.suggestion}`;
 }
 
+function SpellcheckIssueOverlay({
+  contentRef,
+  isMobile,
+  onApply,
+  onClose,
+  popover,
+}: {
+  contentRef: RefObject<HTMLDivElement | null>;
+  isMobile: boolean;
+  onApply: (issue: SpellcheckIssue) => void;
+  onClose: () => void;
+  popover: { issue: SpellcheckIssue; position: PopoverPosition } | null;
+}) {
+  if (!popover) {
+    return null;
+  }
+
+  if (isMobile) {
+    return <SpellcheckIssueBottomSheet contentRef={contentRef} issue={popover.issue} onApply={onApply} onClose={onClose} />;
+  }
+
+  return (
+    <PopoverContent
+      contentRef={contentRef}
+      open
+      position={popover.position}
+      className="rounded-[var(--plotty-radius-lg)] p-4"
+    >
+      <SpellcheckIssueContent issue={popover.issue} onApply={onApply} />
+    </PopoverContent>
+  );
+}
+
+function SpellcheckIssueBottomSheet({
+  contentRef,
+  issue,
+  onApply,
+  onClose,
+}: {
+  contentRef: RefObject<HTMLDivElement | null>;
+  issue: SpellcheckIssue;
+  onApply: (issue: SpellcheckIssue) => void;
+  onClose: () => void;
+}) {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[110]">
+      <button
+        type="button"
+        aria-label="Закрыть исправление"
+        onClick={onClose}
+        className="absolute inset-0 bg-[rgba(31,26,22,0.4)] backdrop-blur-sm"
+      />
+      <div
+        ref={contentRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Исправление ошибки"
+        className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] px-5 pt-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.25rem)" }}
+      >
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="plotty-section-title">Исправление</h2>
+          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            Закрыть
+          </Button>
+        </div>
+        <SpellcheckIssueContent issue={issue} onApply={onApply} />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function SpellcheckIssueContent({
+  issue,
+  onApply,
+}: {
+  issue: SpellcheckIssue;
+  onApply: (issue: SpellcheckIssue) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <div className="text-sm font-semibold">{issue.fragmentText}</div>
+        <div className="text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
+        <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+      </div>
+      <Button type="button" variant="secondary" size="sm" onClick={() => onApply(issue)}>
+        Исправить
+      </Button>
+    </div>
+  );
+}
+
+function useCorrectionOverlayMode() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 640px), (pointer: coarse)");
+    const update = () => setIsMobile(mediaQuery.matches);
+
+    update();
+    mediaQuery.addEventListener("change", update);
+
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
+
+  return isMobile;
+}
+
 function getIssuePopoverPosition(anchorRect: DOMRect): PopoverPosition {
   const viewportPadding = 12;
-  const width = Math.min(280, window.innerWidth - viewportPadding * 2);
+  const width = Math.min(320, window.innerWidth - viewportPadding * 2);
+  const estimatedHeight = 164;
   const topBelow = anchorRect.bottom + 8;
 
   return {
     left: Math.min(Math.max(viewportPadding, anchorRect.left), window.innerWidth - width - viewportPadding),
-    top: topBelow < window.innerHeight - 160 ? topBelow : Math.max(viewportPadding, anchorRect.top - 150),
+    top:
+      topBelow + estimatedHeight < window.innerHeight - viewportPadding
+        ? topBelow
+        : Math.max(viewportPadding, anchorRect.top - estimatedHeight - 8),
     width,
   };
 }
