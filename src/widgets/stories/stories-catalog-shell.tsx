@@ -264,7 +264,7 @@ export function StoriesCatalogShell() {
           ) : catalogStories.length ? (
             <div className="space-y-3.5" aria-live="polite">
               {catalogStories.map((story) => (
-                <StoryCard key={story.id} story={story} />
+                <StoryCard key={story.id} story={story} showChapterActions={false} />
               ))}
             </div>
           ) : (
