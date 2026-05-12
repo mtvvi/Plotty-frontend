@@ -220,7 +220,7 @@ export function PublicCollectionScreen({
           <div className="space-y-4">
             {collection.stories.map((story) => (
               <div key={story.id} className="space-y-2">
-                <StoryCard story={story} />
+                <StoryCard story={story} showChapterActions={false} />
                 {isOwner ? (
                   <div className="flex justify-end">
                     <Button

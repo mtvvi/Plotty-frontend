@@ -320,7 +320,8 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   <StoryCard
                     key={story.id}
                     story={story}
-                    showShelfControl={!isOwnProfile}
+                    showShelfControl
+                    showChapterActions={false}
                   />
                 ))}
               </div>
@@ -396,7 +397,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   {visibleShelfEntries.map((entry) => (
                     <div key={`${entry.storyId}-${entry.shelf}`} className="space-y-2">
                       <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]}`}</div>
-                      <StoryCard story={entry.story} />
+                      <StoryCard story={entry.story} showChapterActions={false} />
                     </div>
                   ))}
                 </div>

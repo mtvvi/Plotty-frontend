@@ -71,7 +71,7 @@ function ReaderLibraryContent() {
               {visibleEntries.map((entry) => (
                 <div key={`${entry.storyId}-${entry.shelf}`} className="space-y-2">
                   <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]} · обновлен ${new Date(entry.updatedAt).toLocaleDateString("ru-RU")}`}</div>
-                  <StoryCard story={entry.story} />
+                  <StoryCard story={entry.story} showChapterActions={false} />
                 </div>
               ))}
             </div>
