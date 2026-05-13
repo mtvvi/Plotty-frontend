@@ -4,7 +4,7 @@ import { cn } from "@/shared/lib/utils";
 
 export function fieldClassName(className?: string) {
   return cn(
-    "w-full rounded-[18px] border border-[rgba(41,38,34,0.09)] bg-white/88 px-4 text-[15px] text-[var(--plotty-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] outline-none transition-[background-color,border-color,color,box-shadow] duration-150 ease-out placeholder:text-[var(--plotty-muted-soft)] focus:border-[var(--plotty-accent)] focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+    "w-full rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] px-4 text-[15px] text-[var(--plotty-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] outline-none transition-[background-color,border-color,color,box-shadow] duration-150 ease-out placeholder:text-[var(--plotty-muted-soft)] focus:border-[var(--plotty-accent)] focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
     className,
   );
 }

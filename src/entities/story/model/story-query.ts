@@ -1,6 +1,6 @@
 import { storyTags } from "@/shared/config/story-tags";
 
-import type { ChapterListItem, StoriesQuery, StoryListItem } from "./types";
+import type { ChapterListItem, StoriesQuery, StoriesSort, StoryListItem } from "./types";
 
 export function isStoryInPublicCatalog(story: StoryListItem): boolean {
   return story.status === "published";
@@ -25,6 +25,10 @@ export const defaultStoriesQuery: StoriesQuery = {
   page: 1,
   pageSize: 20,
 };
+
+export const defaultStoriesSort: StoriesSort = "updated-desc";
+
+const storiesSortValues = new Set<StoriesSort>(["updated-desc", "updated-asc", "title-asc", "title-desc"]);
 
 const legacyQueryCategories = {
   fandom: "directionality",
@@ -53,10 +57,21 @@ function resolveLegacyTagSlug(category: string, value: string) {
   );
 }
 
+function parseStoriesSort(value: string | null): StoriesSort | undefined {
+  if (!value || !storiesSortValues.has(value as StoriesSort)) {
+    return undefined;
+  }
+
+  const sort = value as StoriesSort;
+
+  return sort === defaultStoriesSort ? undefined : sort;
+}
+
 export function parseStoriesQuery(searchParams: URLSearchParams): StoriesQuery {
   const rawTags = searchParams.getAll("tag");
   const rawPage = Number(searchParams.get("page") ?? defaultStoriesQuery.page);
   const rawPageSize = Number(searchParams.get("pageSize") ?? defaultStoriesQuery.pageSize);
+  const sort = parseStoriesSort(searchParams.get("sort"));
   const legacyTags = Object.entries(legacyQueryCategories)
     .map(([param, category]) => resolveLegacyTagSlug(category, searchParams.get(param) ?? ""))
     .filter((tagSlug): tagSlug is string => Boolean(tagSlug));
@@ -66,6 +81,7 @@ export function parseStoriesQuery(searchParams: URLSearchParams): StoriesQuery {
     q: searchParams.get("q")?.trim() ?? "",
     page: Number.isFinite(rawPage) && rawPage > 0 ? rawPage : defaultStoriesQuery.page,
     pageSize: Number.isFinite(rawPageSize) && rawPageSize > 0 ? rawPageSize : defaultStoriesQuery.pageSize,
+    ...(sort ? { sort } : {}),
   };
 }
 
@@ -84,6 +100,10 @@ export function serializeStoriesQuery(query: StoriesQuery) {
 
   if (query.pageSize !== defaultStoriesQuery.pageSize) {
     params.set("pageSize", String(query.pageSize));
+  }
+
+  if (query.sort && query.sort !== defaultStoriesSort) {
+    params.set("sort", query.sort);
   }
 
   return params;

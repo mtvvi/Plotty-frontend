@@ -1,12 +1,16 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 
-import { fetchJson } from "@/shared/api/fetch-json";
+import { fetchJson, isApiError } from "@/shared/api/fetch-json";
 
+import { getTagName, mapStoryListItem, type BackendStoriesResponse } from "./story-mappers";
 import { serializeStoriesQuery } from "../model/story-query";
 import type {
   AiJobAccepted,
   AiJobResponse,
+  CanonCheckResult,
   ChapterDetails,
+  ChaptersViewedResponse,
+  ChapterWiki,
   ChapterListItem,
   CreateStoryCommentPayload,
   CreateChapterPayload,
@@ -38,25 +42,13 @@ interface BackendStory {
   updatedAt: string;
 }
 
-interface BackendStoryListItem extends BackendStory {
-  tags?: StoryTag[];
-  chaptersCount: number;
-  status?: StoryDetails["status"];
-  likesCount?: number;
-  aiHint?: string;
-  author?: {
-    id: number;
-    username: string;
-    avatarUrl?: string | null;
-  };
-}
-
 interface BackendStoryDetails extends BackendStory {
   tags?: StoryTag[];
   aiHint?: string;
   status?: StoryDetails["status"];
   likesCount?: number;
   likedByMe?: boolean;
+  coverImageUrl?: string | null;
   author?: {
     id: number;
     username: string;
@@ -76,19 +68,17 @@ interface BackendChapterDetails {
   title: string;
   content: string;
   updatedAt: string;
+  status?: string;
+  draftTitle?: string | null;
+  draftContent?: string | null;
+  hasUnpublishedChanges?: boolean;
+  publishedTitle?: string | null;
+  publishedContent?: string | null;
+  publishedUpdatedAt?: string | null;
   number?: number;
   imageUrl?: string;
   storySlug?: string;
   storyTitle?: string;
-}
-
-interface BackendStoriesResponse {
-  items: BackendStoryListItem[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-  };
 }
 
 interface BackendChapterComment {
@@ -122,38 +112,15 @@ export const storyKeys = {
   detailsById: (storyId: string) => ["stories", "details-by-id", storyId] as const,
   chapterComments: (chapterId: string) => ["stories", "chapter-comments", chapterId] as const,
   chapter: (chapterId: string) => ["stories", "chapter", chapterId] as const,
+  chaptersViewed: (slug: string) => ["stories", "chapters-viewed", slug] as const,
+  chapterViewed: (chapterId: string) => ["stories", "chapter-viewed", chapterId] as const,
+  chapterWiki: (chapterId: string) => ["stories", "chapter-wiki", chapterId] as const,
   chapterEditor: (storyId: string, chapterId: string) => ["stories", "chapter-editor", storyId, chapterId] as const,
   aiJob: (jobId: string) => ["stories", "ai-job", jobId] as const,
 };
 
 function countWords(content: string) {
   return content.trim() ? content.trim().split(/\s+/).length : 0;
-}
-
-function getTagName(tags: StoryTag[], category: string) {
-  return tags.find((tag) => tag.category === category)?.name;
-}
-
-function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
-  const tags = item.tags ?? [];
-
-  return {
-    id: item.id,
-    slug: item.slug,
-    title: item.title,
-    tags,
-    chaptersCount: item.chaptersCount,
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
-    status: item.status,
-    fandom: getTagName(tags, "directionality"),
-    ratingLabel: getTagName(tags, "rating"),
-    statusLabel: getTagName(tags, "completion"),
-    sizeLabel: getTagName(tags, "size"),
-    likesCount: item.likesCount,
-    aiHint: item.aiHint,
-    author: item.author,
-  };
 }
 
 function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
@@ -184,16 +151,33 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     aiHint: item.aiHint,
     viewerHasLiked: item.likedByMe,
     author: item.author,
+    coverImageUrl: item.coverImageUrl ?? null,
   };
 }
 
 function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
+  const status = item.status === "draft" || item.status === "published" ? item.status : undefined;
+  const draftTitle = item.draftTitle ?? item.title;
+  const draftContent = item.draftContent ?? item.content;
+  const publishedTitle = item.publishedTitle ?? (status === "published" ? item.title : null);
+  const publishedContent = item.publishedContent ?? (status === "published" ? item.content : null);
+
   return {
     id: item.id,
     storyId: item.storyId,
     title: item.title,
     content: item.content,
     updatedAt: item.updatedAt,
+    status,
+    draftTitle,
+    draftContent,
+    hasUnpublishedChanges:
+      item.hasUnpublishedChanges ??
+      (typeof publishedContent === "string" &&
+        (draftTitle !== publishedTitle || draftContent !== publishedContent)),
+    publishedTitle,
+    publishedContent,
+    publishedUpdatedAt: item.publishedUpdatedAt ?? (status === "published" ? item.updatedAt : null),
     number: item.number,
     imageUrl: item.imageUrl,
     storySlug: item.storySlug,
@@ -222,13 +206,16 @@ function mapChapterComment(comment: BackendChapterComment, storyId: string): Sto
 function enrichChapterDetails(chapter: BackendChapterDetails, story: StoryDetails): ChapterDetails {
   const mappedChapter = mapChapterDetails(chapter);
   const storyChapter = story.chapters.find((item) => item.id === chapter.id);
+  const chapterTitle = mappedChapter.draftTitle ?? mappedChapter.title;
 
   return {
     ...mappedChapter,
     storySlug: story.slug,
     storyTitle: story.title,
     storyTags: story.tags,
-    storyChapters: story.chapters,
+    storyChapters: story.chapters.map((item) =>
+      item.id === chapter.id ? { ...item, title: chapterTitle, status: mappedChapter.status ?? item.status } : item,
+    ),
     number: storyChapter?.number,
   };
 }
@@ -359,6 +346,36 @@ export function chapterDetailsQueryOptions(chapterId: string) {
   });
 }
 
+export function chaptersViewedQueryOptions(slug: string) {
+  return queryOptions({
+    queryKey: storyKeys.chaptersViewed(slug),
+    queryFn: () => fetchJson<ChaptersViewedResponse>(`/stories/${slug}/chapters/viewed`),
+    enabled: Boolean(slug),
+  });
+}
+
+export function chapterViewedQueryOptions(chapterId: string) {
+  return queryOptions({
+    queryKey: storyKeys.chapterViewed(chapterId),
+    queryFn: () => fetchJson<{ viewed: boolean }>(`/chapters/${chapterId}/viewed`),
+    enabled: Boolean(chapterId),
+  });
+}
+
+export function markChapterViewed(chapterId: string) {
+  return fetchJson<null>(`/chapters/${chapterId}/view`, {
+    method: "POST",
+  });
+}
+
+export function chapterWikiQueryOptions(chapterId: string, options?: { enabled?: boolean }) {
+  return queryOptions({
+    queryKey: storyKeys.chapterWiki(chapterId),
+    queryFn: () => fetchJson<ChapterWiki>(`/chapters/${chapterId}/wiki`),
+    enabled: Boolean(chapterId) && (options?.enabled ?? true),
+  });
+}
+
 export function chapterEditorDetailsQueryOptions(storyId: string, chapterId: string) {
   return queryOptions({
     queryKey: storyKeys.chapterEditor(storyId, chapterId),
@@ -429,11 +446,53 @@ export function createChapter(storyId: string, payload: CreateChapterPayload) {
   }).then(mapChapterDetails);
 }
 
-export function updateChapter(chapterId: string, payload: UpdateChapterPayload) {
+type ChapterPatchBody = Partial<Pick<UpdateChapterPayload, "title" | "content" | "draftTitle" | "draftContent">>;
+
+function patchChapter(chapterId: string, body: ChapterPatchBody) {
   return fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   }).then(mapChapterDetails);
+}
+
+function shouldRetryChapterPatch(error: unknown) {
+  return isApiError(error) && (error.status === 400 || error.status === 422 || error.status === 500);
+}
+
+export async function updateChapter(chapterId: string, payload: UpdateChapterPayload) {
+  const title = payload.title.trim();
+  const content = payload.content.trim();
+  const draftTitle = payload.draftTitle ?? title;
+  const draftContent = payload.draftContent ?? content;
+  const fallbackBodies: ChapterPatchBody[] = [
+    { draftTitle, draftContent },
+    { title, content },
+  ];
+
+  try {
+    return await patchChapter(chapterId, {
+      title,
+      content,
+      draftTitle,
+      draftContent,
+    });
+  } catch (error) {
+    if (!shouldRetryChapterPatch(error)) {
+      throw error;
+    }
+  }
+
+  for (const body of fallbackBodies) {
+    try {
+      return await patchChapter(chapterId, body);
+    } catch (error) {
+      if (!shouldRetryChapterPatch(error)) {
+        throw error;
+      }
+    }
+  }
+
+  return patchChapter(chapterId, { title, content });
 }
 
 export function deleteChapter(chapterId: string) {
@@ -495,6 +554,12 @@ export function startLogicCheck(payload: SpellcheckPayload) {
   });
 }
 
+export function startCanonCheck(chapterId: string) {
+  return fetchJson<AiJobAccepted>(`/chapters/${chapterId}/canon-check`, {
+    method: "POST",
+  });
+}
+
 export function startImageGeneration(payload: ImageGenerationPayload) {
   return fetchJson<AiJobAccepted>("/ai/image-generation", {
     method: "POST",
@@ -532,4 +597,5 @@ export function patchStorySummaryCaches(
 
 export type SpellcheckJobResponse = AiJobResponse<SpellcheckResult>;
 export type LogicCheckJobResponse = AiJobResponse<LogicCheckResult>;
+export type CanonCheckJobResponse = AiJobResponse<CanonCheckResult>;
 export type ImageGenerationJobResponse = AiJobResponse<ImageGenerationResult>;

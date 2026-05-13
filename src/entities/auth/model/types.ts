@@ -2,7 +2,9 @@ export interface AuthUser {
   id: number;
   email: string;
   username: string;
+  avatarUrl?: string | null;
   avatar_url?: string | null;
+  bio?: string | null;
   created_at: string;
   updated_at?: string | null;
 }
@@ -22,4 +24,6 @@ export interface RegisterPayload extends LoginPayload {
 
 export interface UpdateProfilePayload {
   username: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
 }

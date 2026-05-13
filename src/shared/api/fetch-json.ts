@@ -9,6 +9,7 @@ export interface ApiFieldError {
 
 export interface ApiErrorPayload {
   error?: string;
+  code?: string;
   errors?: ApiFieldError[];
 }
 
@@ -110,4 +111,8 @@ export function isApiError(error: unknown): error is ApiError {
 
 export function isAuthError(error: unknown) {
   return isApiError(error) && (error.status === 401 || error.status === 403);
+}
+
+export function isInsufficientCreditsError(error: unknown) {
+  return isApiError(error) && error.status === 402;
 }

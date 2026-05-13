@@ -4,6 +4,7 @@ import type {
   AiJobAccepted,
   AiJobStatus,
   AiJobType,
+  CanonCheckResult,
   ChapterDetails,
   ChapterListItem,
   CreateStoryCommentPayload,
@@ -28,7 +29,10 @@ import type {
   UpdateChapterPayload,
   UpdateStoryPayload,
 } from "@/entities/story/model/types";
+import type { CreditPackage, CreditTransaction } from "@/entities/credits/model/types";
 import type { AuthUser } from "@/entities/auth/model/types";
+import type { ReaderShelf } from "@/entities/library/model/types";
+import type { PublicUserProfile, UserCollectionDetail, UserCollectionSummary } from "@/entities/profile/model/types";
 
 interface StoryRecord {
   id: string;
@@ -75,6 +79,11 @@ interface ChapterRecord {
   title: string;
   content: string;
   status?: "draft" | "published";
+  draftTitle?: string | null;
+  draftContent?: string | null;
+  publishedTitle?: string | null;
+  publishedContent?: string | null;
+  publishedUpdatedAt?: string | null;
   imageUrl?: string;
   imagePrompt?: string;
   createdAt: string;
@@ -89,25 +98,55 @@ interface AiJobRecord {
   createdAt: number;
   readyAt: number;
   payload: SpellcheckPayload | ImageGenerationPayload;
-  result?: SpellcheckResult | ImageGenerationResult | LogicCheckResult;
+  result?: SpellcheckResult | ImageGenerationResult | LogicCheckResult | CanonCheckResult;
   errorMessage?: string;
+}
+
+interface ReaderShelfRecord {
+  userId: number;
+  storyId: string;
+  shelf: ReaderShelf;
+  updatedAt: string;
+}
+
+interface UserCollectionRecord {
+  id: string;
+  userId: number;
+  title: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface MockStoriesDb {
   stories: StoryRecord[];
   chapters: ChapterRecord[];
   comments: CommentRecord[];
+  shelves: ReaderShelfRecord[];
+  collections: UserCollectionRecord[];
+  collectionStories: Array<{ collectionId: string; storyId: string; createdAt: string }>;
+  chapterViews: Array<{ chapterId: string; userId: number; createdAt: string }>;
   aiJobs: AiJobRecord[];
+  creditBalances: Record<number, number>;
+  creditTransactions: CreditTransaction[];
   jobSeed: number;
   storySeed: number;
   chapterSeed: number;
   commentSeed: number;
+  collectionSeed: number;
   imageSeed: number;
+  creditTransactionSeed: number;
 }
 
 const tagMap = new Map(storyTags.map((tag) => [tag.slug, tag]));
 const multiMatchAnyCategories = new Set(["rating", "completion", "size"]);
 const storyTagCategoryBySlug = new Map(storyTags.map((tag) => [tag.slug, tag.category ?? "other"]));
+const initialCreditBalance = 50;
+const creditPackages: CreditPackage[] = [
+  { id: 1, credits: 50, priceKopecks: 2900 },
+  { id: 2, credits: 150, priceKopecks: 7900 },
+  { id: 3, credits: 500, priceKopecks: 21900 },
+];
 const storyAuthors: Record<number, StoryAuthor> = {
   1: {
     id: 1,
@@ -361,12 +400,55 @@ function createInitialDb(): MockStoriesDb {
         updatedAt: "2026-03-21T09:12:00.000Z",
       },
     ],
+    shelves: [
+      {
+        userId: 1,
+        storyId: "story-1",
+        shelf: "reading",
+        updatedAt: "2026-03-21T11:00:00.000Z",
+      },
+    ],
+    collections: [
+      {
+        id: "collection-1",
+        userId: 1,
+        title: "Фанфики по Гарри Поттеру от лица Драко",
+        description: "Истории с камерной атмосферой, школьными архивами и фокусом на Драко.",
+        createdAt: "2026-03-21T11:00:00.000Z",
+        updatedAt: "2026-03-21T11:00:00.000Z",
+      },
+    ],
+    collectionStories: [
+      {
+        collectionId: "collection-1",
+        storyId: "story-1",
+        createdAt: "2026-03-21T11:05:00.000Z",
+      },
+      {
+        collectionId: "collection-1",
+        storyId: "story-4",
+        createdAt: "2026-03-21T11:06:00.000Z",
+      },
+    ],
+    chapterViews: [
+      {
+        chapterId: "chapter-1",
+        userId: 1,
+        createdAt: "2026-03-21T11:10:00.000Z",
+      },
+    ],
     aiJobs: [],
+    creditBalances: {
+      1: initialCreditBalance,
+    },
+    creditTransactions: [],
     jobSeed: 1,
     storySeed: 6,
     chapterSeed: 7,
     commentSeed: 3,
+    collectionSeed: 2,
     imageSeed: 1,
+    creditTransactionSeed: 1,
   };
 }
 
@@ -374,6 +456,66 @@ let db = createInitialDb();
 
 export function resetMockStoriesDb() {
   db = createInitialDb();
+}
+
+function ensureCreditBalance(userId: number) {
+  if (db.creditBalances[userId] === undefined) {
+    db.creditBalances[userId] = initialCreditBalance;
+  }
+
+  return db.creditBalances[userId];
+}
+
+export function getCreditBalance(userId: number) {
+  return { balance: ensureCreditBalance(userId) };
+}
+
+export function listCreditPackages() {
+  return creditPackages;
+}
+
+export function listCreditTransactions(userId: number) {
+  ensureCreditBalance(userId);
+
+  return db.creditTransactions
+    .filter((transaction) => transaction.userId === userId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 50);
+}
+
+export function getCreditPurchaseUrl(userId: number, packageId: number) {
+  const pkg = creditPackages.find((item) => item.id === packageId);
+
+  if (!pkg) {
+    return null;
+  }
+
+  const label = `${userId}:${pkg.id}:mock`;
+
+  return `https://yoomoney.test/quickpay?label=${encodeURIComponent(label)}`;
+}
+
+export function deductMockCredits(userId: number, amount: number, jobType: string) {
+  const balance = ensureCreditBalance(userId);
+
+  if (balance < amount) {
+    return false;
+  }
+
+  const createdAt = nowIso();
+  db.creditBalances[userId] = balance - amount;
+  db.creditTransactions.push({
+    id: `credit-tx-${db.creditTransactionSeed}`,
+    userId,
+    amount: -amount,
+    type: "usage",
+    description: `AI: ${jobType}`,
+    status: "completed",
+    createdAt,
+  });
+  db.creditTransactionSeed += 1;
+
+  return true;
 }
 
 function nowIso() {
@@ -454,7 +596,300 @@ function toChapterDetails(chapter: ChapterRecord): ChapterDetails {
     content: chapter.content,
     wordCount: countWords(chapter.content),
     updatedAt: chapter.updatedAt,
+    status: chapter.status,
+    draftTitle: chapter.draftTitle ?? chapter.title,
+    draftContent: chapter.draftContent ?? chapter.content,
+    hasUnpublishedChanges:
+      isChapterPublishedMock(chapter) &&
+      Boolean(chapter.publishedContent) &&
+      ((chapter.draftTitle ?? chapter.title) !== (chapter.publishedTitle ?? chapter.title) ||
+        (chapter.draftContent ?? chapter.content) !== (chapter.publishedContent ?? chapter.content)),
+    publishedTitle: chapter.publishedTitle ?? (isChapterPublishedMock(chapter) ? chapter.title : null),
+    publishedContent: chapter.publishedContent ?? (isChapterPublishedMock(chapter) ? chapter.content : null),
+    publishedUpdatedAt: chapter.publishedUpdatedAt ?? (isChapterPublishedMock(chapter) ? chapter.updatedAt : null),
     imageUrl: chapter.imageUrl,
+  };
+}
+
+function getStoryAuthorByUsername(username: string) {
+  const normalized = username.trim().toLowerCase();
+
+  return Object.values(storyAuthors).find((author) => author.username.toLowerCase() === normalized) ?? null;
+}
+
+export function getPublicProfile(username: string): PublicUserProfile | null {
+  const author = getStoryAuthorByUsername(username);
+
+  if (!author) {
+    return null;
+  }
+
+  return {
+    id: author.id,
+    username: author.username,
+    avatarUrl: author.avatarUrl,
+    bio: author.username === "writer" ? "Автор и читатель Plotty." : null,
+  };
+}
+
+export function listPublicStoriesByUsername(username: string, query: StoriesQuery, viewerUserId?: number) {
+  const author = getStoryAuthorByUsername(username);
+
+  if (!author) {
+    return null;
+  }
+
+  const filtered = sortStoryRecords(
+    db.stories
+      .filter((story) => story.authorId === author.id && story.status === "published")
+      .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+      .filter((story) => matchesStoryTags(story, query.tags)),
+    query,
+  );
+  const start = (query.page - 1) * query.pageSize;
+  const paged = filtered.slice(start, start + query.pageSize);
+
+  return {
+    items: paged.map((story) => toStoryListItem(story, viewerUserId)),
+    pagination: {
+      page: query.page,
+      pageSize: query.pageSize,
+      total: filtered.length,
+    },
+  };
+}
+
+function toCollectionSummary(collection: UserCollectionRecord): UserCollectionSummary {
+  return {
+    ...collection,
+    storiesCount: db.collectionStories.filter((item) => item.collectionId === collection.id).length,
+  };
+}
+
+function toCollectionDetail(collection: UserCollectionRecord, viewerUserId?: number): UserCollectionDetail {
+  const stories = db.collectionStories
+    .filter((item) => item.collectionId === collection.id)
+    .map((item) => db.stories.find((story) => story.id === item.storyId))
+    .filter((story): story is StoryRecord => Boolean(story && story.status === "published"))
+    .map((story) => toStoryListItem(story, viewerUserId));
+
+  return {
+    ...collection,
+    stories,
+  };
+}
+
+export function listUserCollectionsByUsername(username: string) {
+  const author = getStoryAuthorByUsername(username);
+
+  if (!author) {
+    return null;
+  }
+
+  return {
+    items: db.collections
+      .filter((collection) => collection.userId === author.id)
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+      .map(toCollectionSummary),
+  };
+}
+
+export function getUserCollectionByUsername(username: string, collectionId: string, viewerUserId?: number) {
+  const author = getStoryAuthorByUsername(username);
+  const collection = db.collections.find((item) => item.id === collectionId);
+
+  if (!author || !collection || collection.userId !== author.id) {
+    return null;
+  }
+
+  return {
+    collection: toCollectionDetail(collection, viewerUserId),
+  };
+}
+
+export function listReaderShelf(userId: number, shelf?: ReaderShelf | null) {
+  return {
+    items: db.shelves
+      .filter((entry) => entry.userId === userId && (!shelf || entry.shelf === shelf))
+      .map((entry) => {
+        const story = db.stories.find((item) => item.id === entry.storyId);
+
+        return story
+          ? {
+              storyId: entry.storyId,
+              shelf: entry.shelf,
+              updatedAt: entry.updatedAt,
+              story: toStoryListItem(story, userId),
+            }
+          : null;
+      })
+      .filter(Boolean),
+  };
+}
+
+export function setReaderShelf(userId: number, storyId: string, shelf: ReaderShelf) {
+  const story = db.stories.find((item) => item.id === storyId && item.status === "published");
+
+  if (!story) {
+    return false;
+  }
+
+  const existing = db.shelves.find((entry) => entry.userId === userId && entry.storyId === storyId);
+  const timestamp = nowIso();
+
+  if (existing) {
+    existing.shelf = shelf;
+    existing.updatedAt = timestamp;
+  } else {
+    db.shelves.push({ userId, storyId, shelf, updatedAt: timestamp });
+  }
+
+  return true;
+}
+
+export function removeReaderShelf(userId: number, storyId: string) {
+  db.shelves = db.shelves.filter((entry) => !(entry.userId === userId && entry.storyId === storyId));
+}
+
+export function listMyCollections(userId: number) {
+  return {
+    items: db.collections
+      .filter((collection) => collection.userId === userId)
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+      .map(toCollectionSummary),
+  };
+}
+
+export function getMyCollection(userId: number, collectionId: string) {
+  const collection = db.collections.find((item) => item.id === collectionId && item.userId === userId);
+
+  return collection ? { collection: toCollectionDetail(collection, userId) } : null;
+}
+
+export function createUserCollection(userId: number, payload: { title?: string; description?: string | null }) {
+  const title = payload.title?.trim() ?? "";
+
+  if (!title || title.length > 200) {
+    return null;
+  }
+
+  const description = payload.description?.trim() ? payload.description.trim() : null;
+  const timestamp = nowIso();
+  const collection: UserCollectionRecord = {
+    id: `collection-${db.collectionSeed}`,
+    userId,
+    title,
+    description,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  db.collectionSeed += 1;
+  db.collections.unshift(collection);
+
+  return { collection };
+}
+
+export function updateUserCollection(
+  userId: number,
+  collectionId: string,
+  payload: { title?: string; description?: string | null },
+) {
+  const collection = db.collections.find((item) => item.id === collectionId && item.userId === userId);
+
+  if (!collection) {
+    return null;
+  }
+
+  if (payload.title !== undefined) {
+    const title = payload.title.trim();
+
+    if (!title || title.length > 200) {
+      return null;
+    }
+
+    collection.title = title;
+  }
+
+  if (payload.description !== undefined) {
+    collection.description = payload.description?.trim() ? payload.description.trim() : null;
+  }
+
+  collection.updatedAt = nowIso();
+
+  return { collection };
+}
+
+export function deleteUserCollection(userId: number, collectionId: string) {
+  const before = db.collections.length;
+
+  db.collections = db.collections.filter((item) => !(item.id === collectionId && item.userId === userId));
+  db.collectionStories = db.collectionStories.filter((item) => item.collectionId !== collectionId);
+
+  return db.collections.length !== before;
+}
+
+export function addStoryToUserCollection(userId: number, collectionId: string, storyId: string) {
+  const collection = db.collections.find((item) => item.id === collectionId && item.userId === userId);
+  const story = db.stories.find((item) => item.id === storyId && item.status === "published");
+
+  if (!collection || !story) {
+    return false;
+  }
+
+  if (!db.collectionStories.some((item) => item.collectionId === collectionId && item.storyId === storyId)) {
+    db.collectionStories.push({ collectionId, storyId, createdAt: nowIso() });
+  }
+
+  collection.updatedAt = nowIso();
+
+  return true;
+}
+
+export function removeStoryFromUserCollection(userId: number, collectionId: string, storyId: string) {
+  const collection = db.collections.find((item) => item.id === collectionId && item.userId === userId);
+
+  if (!collection) {
+    return false;
+  }
+
+  db.collectionStories = db.collectionStories.filter(
+    (item) => !(item.collectionId === collectionId && item.storyId === storyId),
+  );
+  collection.updatedAt = nowIso();
+
+  return true;
+}
+
+export function markChapterViewed(chapterId: string, userId?: number) {
+  if (!userId || !db.chapters.some((chapter) => chapter.id === chapterId)) {
+    return;
+  }
+
+  if (!db.chapterViews.some((view) => view.chapterId === chapterId && view.userId === userId)) {
+    db.chapterViews.push({ chapterId, userId, createdAt: nowIso() });
+  }
+}
+
+export function isChapterViewed(chapterId: string, userId?: number) {
+  return Boolean(userId && db.chapterViews.some((view) => view.chapterId === chapterId && view.userId === userId));
+}
+
+export function listStoryChaptersViewed(slug: string, userId?: number) {
+  const story = db.stories.find((item) => item.slug === slug);
+
+  if (!story) {
+    return null;
+  }
+
+  return {
+    items: getChaptersForStory(story.id)
+      .filter(isChapterPublishedMock)
+      .map((chapter) => ({
+        chapterId: chapter.id,
+        title: chapter.title,
+        viewed: isChapterViewed(chapter.id, userId),
+      })),
   };
 }
 
@@ -490,12 +925,34 @@ function countWords(content: string) {
   return trimmed.split(/\s+/).length;
 }
 
+function sortStoryRecords(stories: StoryRecord[], query: StoriesQuery) {
+  const sort = query.sort ?? "updated-desc";
+
+  return [...stories].sort((a, b) => {
+    if (sort === "updated-asc") {
+      return a.updatedAt.localeCompare(b.updatedAt);
+    }
+
+    if (sort === "title-asc") {
+      return a.title.localeCompare(b.title, "ru");
+    }
+
+    if (sort === "title-desc") {
+      return b.title.localeCompare(a.title, "ru");
+    }
+
+    return b.updatedAt.localeCompare(a.updatedAt);
+  });
+}
+
 function buildStoriesQueryResult(query: StoriesQuery): StoriesResponse {
-  const filtered = db.stories
-    .filter((story) => story.status === "published")
-    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
-    .filter((story) => matchesStoryTags(story, query.tags))
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  const filtered = sortStoryRecords(
+    db.stories
+      .filter((story) => story.status === "published")
+      .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+      .filter((story) => matchesStoryTags(story, query.tags)),
+    query,
+  );
 
   const start = (query.page - 1) * query.pageSize;
   const paged = filtered.slice(start, start + query.pageSize);
@@ -535,11 +992,13 @@ export function listMyStories(query: StoriesQuery, viewerUserId?: number) {
     } satisfies StoriesResponse;
   }
 
-  const filtered = db.stories
-    .filter((story) => story.authorId === viewerUserId)
-    .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
-    .filter((story) => matchesStoryTags(story, query.tags))
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  const filtered = sortStoryRecords(
+    db.stories
+      .filter((story) => story.authorId === viewerUserId)
+      .filter((story) => (query.q ? story.title.toLowerCase().includes(query.q.toLowerCase()) : true))
+      .filter((story) => matchesStoryTags(story, query.tags)),
+    query,
+  );
 
   const start = (query.page - 1) * query.pageSize;
   const paged = filtered.slice(start, start + query.pageSize);
@@ -716,6 +1175,9 @@ export function deleteStoryRecord(storyId: string) {
   db.stories.splice(storyIndex, 1);
   db.comments = db.comments.filter((comment) => !chapterIds.includes(comment.chapterId));
   db.chapters = db.chapters.filter((chapter) => chapter.storyId !== storyId);
+  db.shelves = db.shelves.filter((entry) => entry.storyId !== storyId);
+  db.collectionStories = db.collectionStories.filter((entry) => entry.storyId !== storyId);
+  db.chapterViews = db.chapterViews.filter((entry) => !chapterIds.includes(entry.chapterId));
   db.aiJobs = db.aiJobs.filter((job) => db.chapters.some((chapter) => chapter.id === job.chapterId));
 
   return true;
@@ -733,7 +1195,7 @@ function toStoryComment(comment: CommentRecord, viewerUserId?: number): StoryCom
       id: comment.authorId,
       username: comment.authorUsername,
       email: comment.authorEmail,
-      avatarUrl: null,
+      avatarUrl: storyAuthors[comment.authorId]?.avatarUrl ?? null,
     },
     content: comment.content,
     createdAt: comment.createdAt,
@@ -881,8 +1343,16 @@ export function updateChapterRecord(chapterId: string, payload: UpdateChapterPay
     return null;
   }
 
-  chapter.title = payload.title;
-  chapter.content = payload.content;
+  if (isChapterPublishedMock(chapter) && chapter.publishedContent === undefined) {
+    chapter.publishedTitle = chapter.title;
+    chapter.publishedContent = chapter.content;
+    chapter.publishedUpdatedAt = chapter.updatedAt;
+  }
+
+  chapter.title = payload.draftTitle ?? payload.title;
+  chapter.content = payload.draftContent ?? payload.content;
+  chapter.draftTitle = chapter.title;
+  chapter.draftContent = chapter.content;
   chapter.updatedAt = nowIso();
 
   const story = db.stories.find((item) => item.id === chapter.storyId);
@@ -906,6 +1376,7 @@ export function deleteChapterRecord(chapterId: string) {
 
   db.chapters.splice(chapterIndex, 1);
   db.aiJobs = db.aiJobs.filter((job) => job.chapterId !== chapterId);
+  db.chapterViews = db.chapterViews.filter((view) => view.chapterId !== chapterId);
 
   const story = db.stories.find((item) => item.id === chapter.storyId);
 
@@ -928,12 +1399,13 @@ export function publishChapterRecord(chapterId: string) {
     return null;
   }
 
-  if (isChapterPublishedMock(chapter)) {
-    return { status: "published" as const };
-  }
-
   chapter.status = "published";
   chapter.updatedAt = nowIso();
+  chapter.title = chapter.draftTitle ?? chapter.title;
+  chapter.content = chapter.draftContent ?? chapter.content;
+  chapter.publishedTitle = chapter.title;
+  chapter.publishedContent = chapter.content;
+  chapter.publishedUpdatedAt = chapter.updatedAt;
 
   const story = db.stories.find((item) => item.id === chapter.storyId);
 
@@ -998,6 +1470,21 @@ function createLogicCheckResult(payload: SpellcheckPayload): LogicCheckResult {
   };
 }
 
+function createCanonCheckResult(payload: SpellcheckPayload): CanonCheckResult {
+  const lower = payload.content.toLowerCase();
+
+  if (lower.includes("канон") || lower.includes("лор") || lower.includes("ooc")) {
+    return {
+      message:
+        "Возможное расхождение с каноном: проверьте факты, мотивацию персонажей и правила мира отдельно от логики сцены.",
+    };
+  }
+
+  return {
+    message: "Расхождений с каноном не найдено.",
+  };
+}
+
 function createChapterImage(prompt: string, title: string) {
   const accent = ["#36513f", "#bc5f3d", "#253349", "#7f5a3b"][db.imageSeed % 4];
   const safePrompt = encodeURIComponent(prompt.slice(0, 80));
@@ -1049,6 +1536,10 @@ function getOrCompleteJob(job: AiJobRecord) {
       job.result = createLogicCheckResult(job.payload as SpellcheckPayload);
     }
 
+    if (job.type === "canon_check") {
+      job.result = createCanonCheckResult(job.payload as SpellcheckPayload);
+    }
+
     if (job.type === "image_generation") {
       job.result = createImageResult(job.payload as ImageGenerationPayload);
     }
@@ -1082,6 +1573,25 @@ export function createLogicCheckJob(payload: SpellcheckPayload): AiJobAccepted {
   db.aiJobs.push({
     id: jobId,
     type: "logic_check",
+    chapterId: payload.chapterId,
+    status: "queued",
+    createdAt: Date.now(),
+    readyAt: Date.now() + 280,
+    payload,
+  });
+
+  return {
+    jobId,
+    status: "queued",
+  };
+}
+
+export function createCanonCheckJob(payload: SpellcheckPayload): AiJobAccepted {
+  const jobId = `job-${db.jobSeed}`;
+  db.jobSeed += 1;
+  db.aiJobs.push({
+    id: jobId,
+    type: "canon_check",
     chapterId: payload.chapterId,
     status: "queued",
     createdAt: Date.now(),

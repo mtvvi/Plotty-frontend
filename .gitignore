@@ -3,6 +3,8 @@ node_modules
 coverage
 playwright-report
 test-results
+.playwright-cli
+output/playwright
 vitest.workspace.ts
 *.log
 .DS_Store
@@ -10,3 +12,4 @@ vitest.workspace.ts
 backend
 *.sh
 *.txt
+AGENTS.md

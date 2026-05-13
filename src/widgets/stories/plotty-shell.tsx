@@ -15,7 +15,7 @@ export function PlottyShell({
   mobileBackHref,
   children,
 }: {
-  title: string;
+  title: ReactNode;
   description: string;
   actions?: ReactNode;
   showMobileBack?: boolean;

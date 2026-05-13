@@ -1,6 +1,6 @@
 export type StoryStatus = "draft" | "published";
 export type AiJobStatus = "queued" | "processing" | "completed" | "failed";
-export type AiJobType = "spellcheck" | "image_generation" | "logic_check";
+export type AiJobType = "spellcheck" | "image_generation" | "logic_check" | "canon_check";
 
 export interface StoryTag {
   id: string;
@@ -32,6 +32,7 @@ export interface StoryListItem {
   viewerHasLiked?: boolean;
   aiHint?: string;
   author?: StoryAuthor | null;
+  coverImageUrl?: string | null;
 }
 
 export interface ChapterListItem {
@@ -40,6 +41,16 @@ export interface ChapterListItem {
   updatedAt: string;
   number?: number;
   status?: StoryStatus;
+}
+
+export interface ChapterViewed {
+  chapterId: string;
+  title: string;
+  viewed: boolean;
+}
+
+export interface ChaptersViewedResponse {
+  items: ChapterViewed[];
 }
 
 export interface StoryDetails {
@@ -59,6 +70,7 @@ export interface StoryDetails {
   viewerHasLiked?: boolean;
   aiHint?: string;
   author?: StoryAuthor | null;
+  coverImageUrl?: string | null;
 }
 
 export interface ChapterDetails {
@@ -67,6 +79,13 @@ export interface ChapterDetails {
   title: string;
   content: string;
   updatedAt: string;
+  status?: StoryStatus;
+  draftTitle?: string | null;
+  draftContent?: string | null;
+  hasUnpublishedChanges?: boolean;
+  publishedTitle?: string | null;
+  publishedContent?: string | null;
+  publishedUpdatedAt?: string | null;
   storySlug?: string;
   storyTitle?: string;
   storyTags?: StoryTag[];
@@ -76,12 +95,29 @@ export interface ChapterDetails {
   imageUrl?: string;
 }
 
+export interface ChapterWikiEntity {
+  name?: string;
+  state?: string;
+  description?: string;
+  [key: string]: unknown;
+}
+
+export interface ChapterWiki {
+  characters?: ChapterWikiEntity[];
+  locations?: ChapterWikiEntity[];
+  items?: ChapterWikiEntity[];
+  [key: string]: unknown;
+}
+
 export interface StoriesQuery {
   tags: string[];
   q: string;
   page: number;
   pageSize: number;
+  sort?: StoriesSort;
 }
+
+export type StoriesSort = "updated-desc" | "updated-asc" | "title-asc" | "title-desc";
 
 export interface StoriesResponse {
   items: StoryListItem[];
@@ -107,7 +143,10 @@ export interface CreateChapterPayload {
   content: string;
 }
 
-export type UpdateChapterPayload = CreateChapterPayload;
+export interface UpdateChapterPayload extends CreateChapterPayload {
+  draftTitle?: string;
+  draftContent?: string;
+}
 
 export interface SpellcheckIssue {
   fragmentText: string;
@@ -123,6 +162,10 @@ export interface SpellcheckResult {
 }
 
 export interface LogicCheckResult {
+  message: string;
+}
+
+export interface CanonCheckResult {
   message: string;
 }
 
