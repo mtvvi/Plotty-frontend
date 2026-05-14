@@ -2,11 +2,12 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { listStories } from "@/mocks/data/stories";
 import { loginMockUser, resetMockAuthDb } from "@/mocks/data/auth";
 import { StorySettingsScreen } from "@/widgets/stories/story-settings-screen";
+import { routes } from "@/shared/config/routes";
 
 const push = vi.fn();
 
@@ -35,6 +36,10 @@ function renderStorySettings() {
 }
 
 describe("StorySettingsScreen", () => {
+  beforeEach(() => {
+    push.mockReset();
+  });
+
   it("uses the same staged edit flow pattern without chapter creation", async () => {
     const user = userEvent.setup();
     renderStorySettings();
@@ -57,5 +62,28 @@ describe("StorySettingsScreen", () => {
 
     expect(screen.getByRole("button", { name: "Удалить историю" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Название главы")).not.toBeInTheDocument();
+  });
+
+  it("returns to the workshop story after saving", async () => {
+    const user = userEvent.setup();
+    const story = renderStorySettings();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Название/i })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /Теги и категории/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "DC" })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "DC" }));
+    await user.click(screen.getByRole("button", { name: "NC-17" }));
+    await user.click(screen.getByRole("button", { name: "В процессе" }));
+    await user.click(screen.getByRole("button", { name: "Макси" }));
+
+    await user.click(screen.getByRole("button", { name: /Проверка и сохранение/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сохранить изменения" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Сохранить изменения" }));
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(`${routes.write}?story=${encodeURIComponent(story.slug)}`);
+    });
   });
 });
