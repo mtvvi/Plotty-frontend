@@ -173,7 +173,7 @@ export function StoryCreateScreen() {
             </div>
           ) : selectedStoryQuery.data ? (
             <div className="space-y-5">
-              <div className="grid gap-5 lg:grid-cols-[clamp(18rem,46%,30rem)_minmax(0,1fr)]">
+              <div className="grid gap-5 lg:grid-cols-[clamp(22rem,52%,38rem)_minmax(0,1fr)]">
                 <StoryCoverPreview
                   title={selectedStoryQuery.data.title}
                   imageUrl={selectedStoryDisplayCover}
