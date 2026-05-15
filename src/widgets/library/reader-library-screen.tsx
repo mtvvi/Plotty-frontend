@@ -40,14 +40,20 @@ function ReaderLibraryContent() {
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       <div className="space-y-5">
-        <SegmentedControl className="overflow-x-auto">
-          <TabButton type="button" isActive={activeTab === "all"} onClick={() => setActiveTab("all")}>
+        <SegmentedControl className="w-full flex-wrap overflow-visible sm:w-auto">
+          <TabButton
+            type="button"
+            className="min-w-0 text-center leading-tight"
+            isActive={activeTab === "all"}
+            onClick={() => setActiveTab("all")}
+          >
             Все
           </TabButton>
           {readerShelfOptions.map((option) => (
             <TabButton
               key={option.value}
               type="button"
+              className="min-w-0 text-center leading-tight"
               isActive={activeTab === option.value}
               onClick={() => setActiveTab(option.value)}
             >
