@@ -279,7 +279,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 icon={<ProfileFileIcon className="size-6" />}
               />
               <ProfileStat
-                label={isOwnProfile ? "В библиотеке" : "Подборок"}
+                label={isOwnProfile ? "На полке" : "Подборок"}
                 value={isOwnProfile ? shelfQuery.data?.items.length ?? 0 : collections.length}
                 icon={isOwnProfile ? <ProfileLibraryIcon className="size-6" /> : <PublicCollectionsIcon className="size-6" />}
               />
@@ -299,7 +299,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
           {isOwnProfile ? (
             <TabButton type="button" className="inline-flex min-w-0 items-center justify-center gap-1.5 !px-2 !py-2 !text-xs leading-tight sm:gap-2 sm:!px-4 sm:!py-2.5 sm:!text-sm" isActive={activeTab === "library"} onClick={() => setActiveTab("library")}>
               <OpenBookIcon className="size-4 shrink-0 sm:size-5" />
-              <span className="min-w-0 text-center">Библиотека</span>
+              <span className="min-w-0 text-center">Моя полка</span>
             </TabButton>
           ) : null}
         </div>
@@ -376,7 +376,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
         ) : null}
 
         {activeTab === "library" && isOwnProfile ? (
-          <PlottySectionCard title={<ProfileTitle icon={<OpenBookIcon className="size-5" />}>Библиотека</ProfileTitle>}>
+          <PlottySectionCard title={<ProfileTitle icon={<OpenBookIcon className="size-5" />}>Моя полка</ProfileTitle>}>
               <div className="mb-4 flex flex-wrap gap-2">
                 <TabButton type="button" isActive={libraryTab === "all"} onClick={() => setLibraryTab("all")}>
                   Все

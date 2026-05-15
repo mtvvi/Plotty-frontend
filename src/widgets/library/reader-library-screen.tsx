@@ -36,8 +36,8 @@ function ReaderLibraryContent() {
 
   return (
     <PlottyPageShell
-      pageTitle="Библиотека"
-      pageDescription="Ваши приватные статусы чтения. Они не отображаются в публичном профиле."
+      pageTitle="Моя полка"
+      pageDescription="Истории, которым вы поставили статус чтения. Они не отображаются в публичном профиле."
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       <div className="space-y-5">
@@ -58,7 +58,7 @@ function ReaderLibraryContent() {
         </SegmentedControl>
 
         <PlottySectionCard
-          title={activeTab === "all" ? "Все статусы" : readerShelfLabels[activeTab]}
+          title={activeTab === "all" ? "Вся полка" : readerShelfLabels[activeTab]}
           description={`${visibleEntries.length} ${getStoryLabel(visibleEntries.length)}`}
         >
           {shelfQuery.isLoading ? (

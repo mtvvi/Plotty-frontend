@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { PlottyPageShell } from "@/widgets/layout/plotty-page-shell";
@@ -28,5 +28,17 @@ describe("PlottyPageShell", () => {
     );
 
     expect(screen.getByLabelText("Назад")).toBeInTheDocument();
+  });
+
+  it("renders the reading shelf in the primary navigation", () => {
+    render(
+      <PlottyPageShell suppressPageIntro desktopHeaderActions={<div />}>
+        <div>content</div>
+      </PlottyPageShell>,
+    );
+
+    const primaryNav = screen.getByRole("navigation", { name: "Основная навигация" });
+
+    expect(within(primaryNav).getByRole("link", { name: "Моя полка" })).toHaveAttribute("href", "/library");
   });
 });

@@ -25,6 +25,7 @@ import { AuthStatus } from "@/widgets/auth/auth-status";
 export const plottyPrimaryNavItems = [
   { href: routes.home, label: "Каталог" },
   { href: routes.write, label: "Мастерская" },
+  { href: routes.library, label: "Моя полка" },
 ] as const;
 
 function isPrimaryNavItemActive(pathname: string, href: string) {
@@ -382,7 +383,7 @@ function PlottyBottomNav() {
   const items = useMemo(
     () => [
       { href: routes.home, label: "Каталог", icon: BookOpen, active: pathname === routes.home },
-      { href: libraryHref, label: "Мои истории", icon: Library, active: pathname.startsWith(routes.library) },
+      { href: libraryHref, label: "Моя полка", icon: Library, active: pathname.startsWith(routes.library) },
       { href: writeHref, label: "Мастерская", icon: PenLine, active: pathname.startsWith(routes.write) },
       { href: profileHref, label: "Профиль", icon: UserRound, active: pathname.startsWith("/users/") },
     ],
