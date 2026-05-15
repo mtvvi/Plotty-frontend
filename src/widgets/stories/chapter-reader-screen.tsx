@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
 import {
@@ -199,10 +200,14 @@ export function ChapterReaderScreen({
     <PlottyShell
       title={
         <>
-          <Link href={routes.story(story.slug)} className="transition-colors hover:text-[var(--plotty-accent)] hover:underline">
-            {story.title}
+          <Link
+            href={routes.story(story.slug)}
+            className="plotty-story-title-anchor plotty-story-title-inline-anchor group text-[var(--plotty-ink)] transition-colors hover:text-[var(--plotty-accent)] focus-visible:text-[var(--plotty-accent)]"
+          >
+            <ArrowLeft className="size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
+            <span className="plotty-story-title-text text-[2rem]">{story.title}</span>
           </Link>
-          <span>{` • Глава ${displayChapterNumber}`}</span>
+          <span className="text-[2rem]">{` • Глава ${displayChapterNumber}`}</span>
         </>
       }
       description={`Обновлена ${new Date(chapter.updatedAt).toLocaleString("ru-RU")}`}

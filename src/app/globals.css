@@ -215,6 +215,12 @@ select {
   max-width: 100%;
 }
 
+.plotty-story-title-inline-anchor {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .plotty-story-title-text {
   background-image: linear-gradient(90deg, currentColor, currentColor);
   background-position: 0 100%;
@@ -225,6 +231,7 @@ select {
     background-size 260ms ease;
 }
 
+.plotty-story-title-anchor:is(:hover, :focus-visible, :focus-within) .plotty-story-title-text,
 .plotty-story-card:is(:hover, :focus-within) .plotty-story-title-text {
   color: var(--plotty-accent);
   background-size: 100% 2px;
