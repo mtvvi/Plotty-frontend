@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ListFilter, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListFilter, Search, SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { storiesQueryOptions, storyTagsQueryOptions } from "@/entities/story/api/stories-api";
@@ -14,6 +14,7 @@ import { Button } from "@/shared/ui/button";
 import { Surface } from "@/shared/ui/card";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { IconButton } from "@/shared/ui/icon-button";
 import { Input } from "@/shared/ui/input";
 import { PopoverContent, usePopover } from "@/shared/ui/popover";
 import { PlottyAppMenu, PlottyMobileSheet, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
@@ -30,6 +31,13 @@ const sortOptions: Array<{ value: StoriesSort; label: string }> = [
   { value: "title-asc", label: "Название А-Я" },
   { value: "title-desc", label: "Название Я-А" },
 ];
+
+type CatalogPageItem = number | "ellipsis";
+type CatalogPaginationData = {
+  page: number;
+  pageSize: number;
+  total: number;
+};
 
 export function StoriesCatalogShell() {
   const router = useRouter();
@@ -269,6 +277,14 @@ export function StoriesCatalogShell() {
               onAction={clearAppliedFilters}
             />
           )}
+
+          {!hasInitialLoading && !storiesQuery.isError ? (
+            <CatalogPagination
+              disabled={isRouting}
+              pagination={storiesQuery.data?.pagination}
+              onPageChange={(page) => navigateToQuery({ ...appliedQuery, page })}
+            />
+          ) : null}
         </section>
       </div>
 
@@ -484,6 +500,121 @@ function ActiveFilter({ label, onClear }: { label: string; onClear: () => void }
       <X className="size-3.5" aria-hidden="true" />
     </button>
   );
+}
+
+function CatalogPagination({
+  disabled,
+  pagination,
+  onPageChange,
+}: {
+  disabled?: boolean;
+  pagination?: CatalogPaginationData;
+  onPageChange: (page: number) => void;
+}) {
+  if (!pagination || pagination.total <= pagination.pageSize || pagination.pageSize <= 0) {
+    return null;
+  }
+
+  const totalPages = Math.ceil(pagination.total / pagination.pageSize);
+  const currentPage = Math.min(Math.max(pagination.page, 1), totalPages);
+  const firstItem = (currentPage - 1) * pagination.pageSize + 1;
+  const lastItem = Math.min(currentPage * pagination.pageSize, pagination.total);
+  const pageItems = getCatalogPageItems(currentPage, totalPages);
+
+  function changePage(page: number) {
+    if (page === currentPage || page < 1 || page > totalPages) {
+      return;
+    }
+
+    onPageChange(page);
+  }
+
+  return (
+    <nav
+      aria-label="Пагинация каталога"
+      className="flex flex-col gap-3 border-t border-[var(--plotty-line)] pt-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p className="plotty-meta text-sm">
+        {firstItem}-{lastItem} из {pagination.total}
+      </p>
+
+      <div className="flex items-center gap-1.5">
+        <IconButton
+          aria-label="Предыдущая страница"
+          disabled={disabled || currentPage <= 1}
+          onClick={() => changePage(currentPage - 1)}
+          size="sm"
+          variant="secondary"
+        >
+          <ChevronLeft className="size-4" aria-hidden="true" />
+        </IconButton>
+
+        <div className="flex items-center gap-1">
+          {pageItems.map((item, index) =>
+            item === "ellipsis" ? (
+              <span
+                key={`ellipsis-${index}`}
+                aria-hidden="true"
+                className="inline-flex size-10 items-center justify-center text-sm font-semibold text-[var(--plotty-muted)]"
+              >
+                ...
+              </span>
+            ) : (
+              <button
+                key={item}
+                type="button"
+                aria-current={item === currentPage ? "page" : undefined}
+                aria-label={`Страница ${item}`}
+                disabled={disabled}
+                onClick={() => changePage(item)}
+                className={cn(
+                  "inline-flex size-10 items-center justify-center rounded-[var(--plotty-radius-sm)] border text-sm font-semibold transition-[background-color,border-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60",
+                  item === currentPage
+                    ? "border-[var(--plotty-accent)] bg-[var(--plotty-accent)] text-white shadow-[0_8px_18px_rgba(195,79,50,0.18)]"
+                    : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.78)] text-[var(--plotty-ink)] hover:border-[var(--plotty-line-strong)] hover:bg-[var(--plotty-paper-strong)]",
+                )}
+              >
+                {item}
+              </button>
+            ),
+          )}
+        </div>
+
+        <IconButton
+          aria-label="Следующая страница"
+          disabled={disabled || currentPage >= totalPages}
+          onClick={() => changePage(currentPage + 1)}
+          size="sm"
+          variant="secondary"
+        >
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </IconButton>
+      </div>
+    </nav>
+  );
+}
+
+function getCatalogPageItems(currentPage: number, totalPages: number): CatalogPageItem[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const nearbyPages = [1, currentPage - 1, currentPage, currentPage + 1, totalPages]
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+  const pageItems: CatalogPageItem[] = [];
+
+  nearbyPages.forEach((page, index) => {
+    const previousPage = nearbyPages[index - 1];
+
+    if (previousPage && page - previousPage > 1) {
+      pageItems.push(page - previousPage === 2 ? previousPage + 1 : "ellipsis");
+    }
+
+    pageItems.push(page);
+  });
+
+  return pageItems;
 }
 
 function CatalogFandomDropdown({

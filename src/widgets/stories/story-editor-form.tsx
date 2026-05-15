@@ -225,8 +225,8 @@ export function StoryEditorForm({
   }, [spellcheckPopover]);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="space-y-5">
+    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0 space-y-5">
         <ShellCard
           title={`Глава ${chapterNumber ?? "—"}`}
           description="Редактируйте только текущую главу: текст, название, иллюстрацию и AI-инструменты."
@@ -369,7 +369,7 @@ export function StoryEditorForm({
         ) : null}
       </div>
 
-      <div className="space-y-5">
+      <div className="min-w-0 space-y-5">
         {imagePanel}
 
         <div className="space-y-5">
@@ -377,7 +377,7 @@ export function StoryEditorForm({
             {spellcheckResult ? (
               <div className="space-y-3">
                 <p className="text-sm leading-6 text-[var(--plotty-muted)]">{spellcheckResult.summary}</p>
-                <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+                <div className="min-w-0 max-h-[32rem] space-y-2 overflow-y-auto pr-1">
                   {spellcheckResult.items.length ? (
                     spellcheckResult.items.map((issue) => {
                       const issueId = getSpellcheckIssueKey(issue);
@@ -388,7 +388,7 @@ export function StoryEditorForm({
                         <Surface
                           key={issueId}
                           variant="listItem"
-                          className={`p-3 transition-[border-color,background-color] duration-150 ${
+                          className={`min-w-0 p-3 transition-[border-color,background-color] duration-150 ${
                             isActive
                               ? "border-[rgba(195,79,50,0.28)] bg-[var(--plotty-accent-wash)]"
                               : ""
@@ -396,13 +396,13 @@ export function StoryEditorForm({
                         >
                           <button
                             type="button"
-                            className="block w-full text-left"
+                            className="block min-w-0 w-full text-left"
                             onClick={() => openSpellcheckIssue(issue)}
                           >
-                            <div className="space-y-1">
+                            <div className="min-w-0 space-y-1">
                               <div className="truncate text-sm font-semibold">{issue.fragmentText}</div>
-                              <div className="text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
-                              <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+                              <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
+                              <div className="break-words text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
                               {isUnresolved ? (
                                 <div className="text-xs font-semibold text-[var(--plotty-danger)]">
                                   Фрагмент не найден в текущем тексте. Запустите проверку заново.
@@ -626,7 +626,7 @@ function SpellcheckIssueBottomSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Исправление ошибки"
-        className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] px-5 pt-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
+        className="absolute inset-x-0 bottom-0 min-w-0 max-h-[82vh] overflow-y-auto overflow-x-hidden rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] px-5 pt-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.25rem)" }}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -650,11 +650,11 @@ function SpellcheckIssueContent({
   onApply: (issue: SpellcheckIssue) => void;
 }) {
   return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <div className="text-sm font-semibold">{issue.fragmentText}</div>
-        <div className="text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
-        <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+    <div className="min-w-0 space-y-3">
+      <div className="min-w-0 space-y-1">
+        <div className="break-words text-sm font-semibold">{issue.fragmentText}</div>
+        <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
+        <div className="break-words text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
       </div>
       <Button type="button" variant="secondary" size="sm" onClick={() => onApply(issue)}>
         Исправить

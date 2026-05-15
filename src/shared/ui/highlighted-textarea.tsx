@@ -38,7 +38,6 @@ interface MirrorMetrics {
   height: number;
   left: number;
   scrollHeight: number;
-  scrollWidth: number;
   top: number;
   width: number;
 }
@@ -104,7 +103,6 @@ export function HighlightedTextarea<TData = unknown>({
       height: textarea.clientHeight,
       left: textarea.offsetLeft + textarea.clientLeft,
       scrollHeight: Math.max(textarea.scrollHeight, textarea.clientHeight),
-      scrollWidth: Math.max(textarea.scrollWidth, textarea.clientWidth),
       top: textarea.offsetTop + textarea.clientTop,
       width: textarea.clientWidth,
     };
@@ -271,11 +269,11 @@ export function HighlightedTextarea<TData = unknown>({
     ...mirrorTextStyle,
     minHeight: metrics?.scrollHeight,
     transform: `translate(${-currentScrollLeft}px, ${-currentScrollTop}px)`,
-    width: metrics?.scrollWidth,
+    width: metrics?.width,
   };
 
   return (
-    <div className="plotty-highlighted-textarea-shell relative">
+    <div className="plotty-highlighted-textarea-shell relative min-w-0 max-w-full">
       <textarea
         ref={textareaRef}
         className={cn(textareaClassName, className)}
@@ -299,12 +297,12 @@ export function HighlightedTextarea<TData = unknown>({
       />
       {hasHighlights ? (
         <div
-          className="plotty-highlighted-textarea-layer pointer-events-none absolute z-20 overflow-hidden"
+          className="plotty-highlighted-textarea-layer pointer-events-none absolute z-20 max-w-full overflow-hidden"
           style={layerStyle}
         >
           <div
             ref={highlightContentRef}
-            className={cn("plotty-highlighted-textarea-content text-transparent", className, "!bg-transparent shadow-none")}
+            className={cn("plotty-highlighted-textarea-content max-w-full text-transparent", className, "!bg-transparent shadow-none")}
             style={contentStyle}
           >
             {buildHighlightMarkup(text, normalizedRanges, {
@@ -453,7 +451,6 @@ function areMetricsEqual(current: MirrorMetrics | null, next: MirrorMetrics) {
     current?.height === next.height &&
     current.left === next.left &&
     current.scrollHeight === next.scrollHeight &&
-    current.scrollWidth === next.scrollWidth &&
     current.top === next.top &&
     current.width === next.width
   );

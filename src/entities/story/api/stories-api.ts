@@ -220,16 +220,22 @@ function enrichChapterDetails(chapter: BackendChapterDetails, story: StoryDetail
   };
 }
 
+function appendQueryString(path: string, params: URLSearchParams) {
+  const queryString = params.toString();
+
+  return queryString ? `${path}?${queryString}` : path;
+}
+
 async function fetchStoriesPage(query: StoriesQuery, signal?: AbortSignal) {
   const params = serializeStoriesQuery(query);
 
-  return fetchJson<BackendStoriesResponse>(`/stories?${params.toString()}`, { signal });
+  return fetchJson<BackendStoriesResponse>(appendQueryString("/stories", params), { signal });
 }
 
 async function fetchMyStoriesPage(query: StoriesQuery, signal?: AbortSignal) {
   const params = serializeStoriesQuery(query);
 
-  return fetchJson<BackendStoriesResponse>(`/stories/mine?${params.toString()}`, { signal });
+  return fetchJson<BackendStoriesResponse>(appendQueryString("/stories/mine", params), { signal });
 }
 
 async function fetchStoryDetails(slug: string) {

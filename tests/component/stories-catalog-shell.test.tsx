@@ -2,8 +2,10 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { server } from "@/mocks/server";
 import { StoriesCatalogShell } from "@/widgets/stories/stories-catalog-shell";
 
 let currentSearchParams = new URLSearchParams();
@@ -28,6 +30,19 @@ function renderCatalogShell() {
       <StoriesCatalogShell />
     </QueryClientProvider>,
   );
+}
+
+function makeStoryResponseItem(index: number) {
+  return {
+    id: `story-${index}`,
+    slug: `story-${index}`,
+    title: `История ${index}`,
+    tags: [],
+    chaptersCount: 1,
+    status: "published",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: `2026-01-${String((index % 28) + 1).padStart(2, "0")}T00:00:00.000Z`,
+  };
 }
 
 describe("StoriesCatalogShell", () => {
@@ -154,5 +169,36 @@ describe("StoriesCatalogShell", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Драма" })).toBeInTheDocument());
 
     expect(screen.queryByRole("button", { name: "Применить" })).not.toBeInTheDocument();
+  });
+
+  it("renders catalog pagination and navigates to the next page", async () => {
+    const user = userEvent.setup();
+
+    server.use(
+      http.get("*/stories", ({ request }) => {
+        const url = new URL(request.url);
+        const page = Number(url.searchParams.get("page") ?? 1);
+        const pageSize = Number(url.searchParams.get("pageSize") ?? 20);
+        const start = (page - 1) * pageSize;
+
+        return HttpResponse.json({
+          items: Array.from({ length: pageSize }, (_, index) => makeStoryResponseItem(start + index + 1)),
+          pagination: {
+            page,
+            pageSize,
+            total: 42,
+          },
+        });
+      }),
+    );
+
+    renderCatalogShell();
+
+    expect(await screen.findByRole("navigation", { name: "Пагинация каталога" })).toBeInTheDocument();
+    expect(screen.getByText("1-20 из 42")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Следующая страница" }));
+
+    expect(replace).toHaveBeenLastCalledWith("/?page=2", { scroll: false });
   });
 });

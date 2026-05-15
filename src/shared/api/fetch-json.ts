@@ -2,6 +2,22 @@ function stripTrailingSlash(value: string) {
   return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
+function withoutIncompatibleAbortSignal(init: RequestInit): RequestInit {
+  if (!init.signal) {
+    return init;
+  }
+
+  try {
+    new Request("http://localhost", { signal: init.signal });
+
+    return init;
+  } catch {
+    const { signal: _signal, ...compatibleInit } = init;
+
+    return compatibleInit;
+  }
+}
+
 export interface ApiFieldError {
   field: string;
   message: string;
@@ -79,8 +95,7 @@ function getErrorMessage(status: number, payload?: ApiErrorPayload | string) {
 
 export async function fetchJson<T>(input: string, init?: RequestInit) {
   const url = resolveApiInput(input);
-
-  const response = await fetch(url, {
+  const requestInit = withoutIncompatibleAbortSignal({
     cache: "no-store",
     credentials: "include",
     ...init,
@@ -89,6 +104,8 @@ export async function fetchJson<T>(input: string, init?: RequestInit) {
       ...(init?.headers ?? {}),
     },
   });
+
+  const response = await fetch(url, requestInit);
 
   if (!response.ok) {
     const payload = await readErrorPayload(response);
