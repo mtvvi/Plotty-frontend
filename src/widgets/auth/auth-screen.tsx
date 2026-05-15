@@ -77,7 +77,7 @@ export function AuthScreen() {
       mode === "register"
         ? {
             title: "Создать аккаунт",
-            description: "После регистрации вы сразу попадёте в авторскую зону и сможете продолжить работу.",
+            description: "Создайте аккаунт, чтобы сохранять понравившиеся истории и работать над своими сюжетами.",
             submitLabel: "Зарегистрироваться",
             switchLabel: "Уже есть аккаунт?",
             switchHref: routes.auth({ next: nextUrl }),
@@ -85,7 +85,7 @@ export function AuthScreen() {
           }
         : {
             title: "Войти в Plotty",
-            description: "Авторские сценарии доступны только после входа в аккаунт.",
+            description: "Войдите, чтобы сохранять понравившиеся истории и работать над своими сюжетами.",
             submitLabel: "Войти",
             switchLabel: "Нет аккаунта?",
             switchHref: routes.auth({ mode: "register", next: nextUrl }),
