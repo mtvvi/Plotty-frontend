@@ -47,7 +47,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   });
   const chaptersViewedQuery = useQuery({
     ...chaptersViewedQueryOptions(slug),
-    enabled: Boolean(storyQuery.data && readerChapters.length),
+    enabled: Boolean(isAuthenticated && storyQuery.data && readerChapters.length),
   });
   const viewedByChapterId = useMemo(() => {
     const items = chaptersViewedQuery.data?.items ?? [];
@@ -238,9 +238,11 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                         </Link>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-[var(--plotty-muted)]">
                           <span>{new Date(chapter.updatedAt).toLocaleDateString("ru-RU")}</span>
-                          <span className={viewed ? "text-[var(--plotty-olive)]" : "text-[var(--plotty-accent)]"}>
-                            {viewed ? "Прочитано" : "Новая"}
-                          </span>
+                          {isAuthenticated ? (
+                            <span className={viewed ? "text-[var(--plotty-olive)]" : "text-[var(--plotty-accent)]"}>
+                              {viewed ? "Прочитано" : "Новая"}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       <ButtonLink href={routes.chapter(story.slug, chapter.number ?? 1)} variant="secondary" size="sm">

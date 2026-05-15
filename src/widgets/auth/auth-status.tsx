@@ -138,9 +138,9 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
       aria-current={isProfileActive ? "page" : undefined}
     >
       <AccountAvatar username={user.username} avatarUrl={avatarUrl} className="size-[2.75rem] text-sm" />
-      <span className="min-w-0 text-left leading-none">
-        <span className="block max-w-[8rem] truncate text-[0.95rem] font-semibold text-[var(--plotty-ink)]">{user.username}</span>
-        <span className="mt-1 hidden max-w-[8rem] truncate text-[11px] text-[var(--plotty-muted)] md:block">{user.email}</span>
+      <span className="min-w-0 text-left leading-normal">
+        <span className="block max-w-[8rem] truncate text-[0.95rem] font-semibold leading-[1.2] text-[var(--plotty-ink)]">{user.username}</span>
+        <span className="mt-1 hidden max-w-[8rem] truncate text-[11px] leading-[1.35] text-[var(--plotty-muted)] md:block">{user.email}</span>
       </span>
       <span className="ml-0.5 text-[var(--plotty-muted)]" aria-hidden="true">
         →

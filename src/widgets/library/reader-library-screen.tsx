@@ -37,7 +37,6 @@ function ReaderLibraryContent() {
   return (
     <PlottyPageShell
       pageTitle="Моя полка"
-      pageDescription="Истории, которым вы поставили статус чтения. Они не отображаются в публичном профиле."
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       <div className="space-y-5">

@@ -42,6 +42,7 @@ describe("StoryDetailsScreen", () => {
     expect(screen.getByRole("link", { name: "Комментарии" })).toBeInTheDocument();
     expect(screen.getAllByText(/AI автора: 2 замечания по канону/i).length).toBeGreaterThan(0);
     expect(document.querySelector("#story-content")).not.toBeNull();
+    expect(screen.queryByText("Новая")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Удалить историю" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Настройки истории" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Новая глава" })).not.toBeInTheDocument();
