@@ -314,6 +314,7 @@ export function StoryEditorForm({
               ) : null}
               <CreditCostButton
                 cost={AI_CREDIT_COSTS.spellcheck}
+                showCostBadge={false}
                 variant="secondary"
                 onClick={onSpellcheck}
                 disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}
@@ -512,13 +513,19 @@ export function StoryEditorForm({
   );
 }
 
-function CreditCostButton({ cost, children, className, ...props }: ButtonProps & { cost: number }) {
+function CreditCostButton({
+  cost,
+  children,
+  className,
+  showCostBadge = true,
+  ...props
+}: ButtonProps & { cost: number; showCostBadge?: boolean }) {
   return (
     <span className="relative inline-flex pt-2">
       <Button className={className} {...props}>
         {children}
       </Button>
-      <CreditCostBadge cost={cost} />
+      {showCostBadge ? <CreditCostBadge cost={cost} /> : null}
     </span>
   );
 }

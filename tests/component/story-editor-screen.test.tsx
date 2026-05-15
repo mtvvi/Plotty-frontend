@@ -72,6 +72,15 @@ describe("StoryEditorScreen", () => {
     expect(screen.getByText(/нечаянно/i)).toBeInTheDocument();
   });
 
+  it("does not show a credit badge on the spellcheck button", async () => {
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+
+    expect(screen.queryByLabelText("Стоимость: 1 кредит")).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Стоимость: 2 кредита")).toHaveLength(2);
+  });
+
   it("runs logic check and renders the verdict", async () => {
     const user = userEvent.setup();
 
