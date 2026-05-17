@@ -84,22 +84,41 @@ function getNavIndicatorStyle(measurement: NavIndicatorMeasurement | null, optio
   };
 }
 
+function getCollapsedNavIndicatorStyle(measurement: NavIndicatorMeasurement, options?: { disableTransition?: boolean }): CSSProperties {
+  return {
+    opacity: 1,
+    transform: `translate3d(${(measurement.left + measurement.width / 2).toFixed(2)}px, 0, 0)`,
+    transition: options?.disableTransition ? "none" : undefined,
+    width: 0,
+  };
+}
+
 function useSlidingNavIndicator<ItemKey extends string>(scope: string, activeKey: ItemKey | null) {
   const containerRef = useRef<HTMLElement | null>(null);
   const itemRefs = useRef(new Map<ItemKey, HTMLElement>());
   const frameRef = useRef<number | null>(null);
   const hasMeasuredRef = useRef(false);
+  const isIndicatorVisibleRef = useRef(false);
+  const [layoutVersion, setLayoutVersion] = useState(0);
   const [indicatorStyle, setIndicatorStyle] = useState<CSSProperties>(hiddenNavIndicatorStyle);
 
   const setContainerRef = useCallback((node: HTMLElement | null) => {
+    if (containerRef.current === node) {
+      return;
+    }
+
     containerRef.current = node;
+    setLayoutVersion((current) => current + 1);
   }, []);
 
   const setItemRef = useCallback((key: ItemKey, node: HTMLElement | null) => {
     if (node) {
+      if (itemRefs.current.get(key) === node) {
+        return;
+      }
+
       itemRefs.current.set(key, node);
-    } else {
-      itemRefs.current.delete(key);
+      setLayoutVersion((current) => current + 1);
     }
   }, []);
 
@@ -127,6 +146,7 @@ function useSlidingNavIndicator<ItemKey extends string>(scope: string, activeKey
       if (!activeKey || !currentMeasurement) {
         setIndicatorStyle(hiddenNavIndicatorStyle);
         hasMeasuredRef.current = true;
+        isIndicatorVisibleRef.current = false;
         navIndicatorLastActiveKeys.delete(scope);
         return;
       }
@@ -143,11 +163,20 @@ function useSlidingNavIndicator<ItemKey extends string>(scope: string, activeKey
             frameRef.current = null;
           });
         });
+      } else if (!hasMeasuredRef.current || !isIndicatorVisibleRef.current) {
+        setIndicatorStyle(getCollapsedNavIndicatorStyle(currentMeasurement, { disableTransition: true }));
+        frameRef.current = window.requestAnimationFrame(() => {
+          frameRef.current = window.requestAnimationFrame(() => {
+            setIndicatorStyle(getNavIndicatorStyle(currentMeasurement));
+            frameRef.current = null;
+          });
+        });
       } else {
         setIndicatorStyle(getNavIndicatorStyle(currentMeasurement));
       }
 
       hasMeasuredRef.current = true;
+      isIndicatorVisibleRef.current = true;
       navIndicatorLastActiveKeys.set(scope, activeKey);
     }
 
@@ -173,7 +202,7 @@ function useSlidingNavIndicator<ItemKey extends string>(scope: string, activeKey
       resizeObserver?.disconnect();
       window.removeEventListener("resize", updateIndicator);
     };
-  }, [activeKey, scope]);
+  }, [activeKey, layoutVersion, scope]);
 
   return { containerRef: setContainerRef, indicatorStyle, setItemRef };
 }
@@ -219,10 +248,18 @@ function shouldUseMinimalPersistentChrome(pathname: string) {
   return chromeMinimalRoutes.has(pathname);
 }
 
-function DefaultDesktopActions() {
+function DefaultDesktopActions({
+  profileIndicatorRef,
+}: {
+  profileIndicatorRef?: (node: HTMLAnchorElement | null) => void;
+}) {
   return (
     <Suspense fallback={<span className="plotty-meta">...</span>}>
-      <AuthStatus variant="compact" />
+      <AuthStatus
+        variant="compact"
+        profileIndicatorRef={profileIndicatorRef}
+        showInlineActiveIndicator={!profileIndicatorRef}
+      />
     </Suspense>
   );
 }
@@ -257,13 +294,17 @@ function PlottyPageShellFallback({
 }: PlottyPageShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const activePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const profileHref = isAuthenticated && user?.username ? routes.user(user.username) : null;
+  const isProfileActive = Boolean(profileHref && (pathname === profileHref || pathname.startsWith(`${profileHref}/`)));
+  const activeHeaderNavKey = desktopHeaderActions === undefined && isProfileActive ? "profile" : activePrimaryNavHref;
   const {
     containerRef: primaryNavRef,
     indicatorStyle: primaryNavIndicatorStyle,
     setItemRef: setPrimaryNavItemRef,
-  } = useSlidingNavIndicator("desktop-primary", activePrimaryNavHref);
+  } = useSlidingNavIndicator("desktop-primary", activeHeaderNavKey);
 
   useEffect(() => {
     onMenuOpenChange?.(isMobileMenuOpen);
@@ -273,9 +314,7 @@ function PlottyPageShellFallback({
     desktopHeaderActions !== undefined ? (
       desktopHeaderActions
     ) : (
-      <Suspense fallback={<span className="plotty-meta">...</span>}>
-        <AuthStatus variant="compact" />
-      </Suspense>
+      <DefaultDesktopActions profileIndicatorRef={(node) => setPrimaryNavItemRef("profile", node)} />
     );
 
   return (
@@ -314,7 +353,7 @@ function PlottyPageShellFallback({
       <section className="plotty-frame">
         <header className="sticky top-0 z-40 border-b border-[var(--plotty-line)] bg-[rgba(251,247,242,0.88)] backdrop-blur-xl">
           <div className="plotty-frame-inner">
-            <div className="flex min-h-[76px] items-center gap-3 lg:min-h-[92px] lg:gap-6">
+            <div ref={primaryNavRef} className="relative flex min-h-[76px] items-center gap-3 lg:min-h-[92px] lg:gap-6">
               <Link
                 href={routes.home}
                 className="plotty-logo inline-flex shrink-0 items-end gap-1 transition-opacity hover:opacity-80"
@@ -324,7 +363,7 @@ function PlottyPageShellFallback({
                 <Feather className="mb-1 size-6 text-[var(--plotty-accent)] lg:size-7" aria-hidden="true" />
               </Link>
 
-              <nav ref={primaryNavRef} className="relative hidden items-stretch gap-1 lg:flex" aria-label="Основная навигация">
+              <nav className="relative hidden items-stretch gap-1 lg:flex" aria-label="Основная навигация">
                 {plottyPrimaryNavItems.map((item) => {
                   const isActive = isPrimaryNavItemActive(pathname, item.href);
 
@@ -344,7 +383,6 @@ function PlottyPageShellFallback({
                     </Link>
                   );
                 })}
-                <span className="plotty-nav-indicator" style={primaryNavIndicatorStyle} aria-hidden="true" />
               </nav>
 
               <GlobalSearch className="ml-auto hidden w-full max-w-[30rem] lg:flex" />
@@ -360,6 +398,7 @@ function PlottyPageShellFallback({
               ) : (
                 <div className="ml-auto lg:hidden" />
               )}
+              <span className="plotty-nav-indicator" style={primaryNavIndicatorStyle} aria-hidden="true" />
             </div>
 
             {mobileToolbar ? <div className="border-t border-[var(--plotty-line)] py-3 lg:hidden">{mobileToolbar}</div> : null}
@@ -429,16 +468,20 @@ function PersistentPlottyHeader({
 }) {
   const pathname = usePathname();
   const activePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const { user, isAuthenticated } = useAuth();
+  const profileHref = isAuthenticated && user?.username ? routes.user(user.username) : null;
+  const isProfileActive = Boolean(profileHref && (pathname === profileHref || pathname.startsWith(`${profileHref}/`)));
+  const activeHeaderNavKey = showDesktopActions && isProfileActive ? "profile" : activePrimaryNavHref;
   const {
     containerRef: primaryNavRef,
     indicatorStyle: primaryNavIndicatorStyle,
     setItemRef: setPrimaryNavItemRef,
-  } = useSlidingNavIndicator("desktop-primary", activePrimaryNavHref);
+  } = useSlidingNavIndicator("desktop-primary", activeHeaderNavKey);
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--plotty-line)] bg-[rgba(251,247,242,0.88)] backdrop-blur-xl">
       <div className="plotty-frame-inner">
-        <div className="flex min-h-[76px] items-center gap-3 lg:min-h-[92px] lg:gap-6">
+        <div ref={primaryNavRef} className="relative flex min-h-[76px] items-center gap-3 lg:min-h-[92px] lg:gap-6">
           <Link
             href={routes.home}
             className="plotty-logo inline-flex shrink-0 items-end gap-1 transition-opacity hover:opacity-80"
@@ -448,7 +491,7 @@ function PersistentPlottyHeader({
             <Feather className="mb-1 size-6 text-[var(--plotty-accent)] lg:size-7" aria-hidden="true" />
           </Link>
 
-          <nav ref={primaryNavRef} className="relative hidden items-stretch gap-1 lg:flex" aria-label="Primary navigation">
+          <nav className="relative hidden items-stretch gap-1 lg:flex" aria-label="Primary navigation">
             {plottyPrimaryNavItems.map((item) => {
               const isActive = isPrimaryNavItemActive(pathname, item.href);
 
@@ -468,14 +511,13 @@ function PersistentPlottyHeader({
                 </Link>
               );
             })}
-            <span className="plotty-nav-indicator" style={primaryNavIndicatorStyle} aria-hidden="true" />
           </nav>
 
           <GlobalSearch className="ml-auto hidden w-full max-w-[30rem] lg:flex" />
 
           {showDesktopActions ? (
             <div className="ml-auto hidden items-center gap-3 lg:flex">
-              <DefaultDesktopActions />
+              <DefaultDesktopActions profileIndicatorRef={(node) => setPrimaryNavItemRef("profile", node)} />
             </div>
           ) : null}
 
@@ -484,6 +526,7 @@ function PersistentPlottyHeader({
               <Menu className="size-5" aria-hidden="true" />
             </IconButton>
           </div>
+          <span className="plotty-nav-indicator" style={primaryNavIndicatorStyle} aria-hidden="true" />
         </div>
       </div>
     </header>

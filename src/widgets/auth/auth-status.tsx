@@ -41,7 +41,15 @@ function AccountAvatar({
   );
 }
 
-export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" | "menu" }) {
+export function AuthStatus({
+  variant = "full",
+  profileIndicatorRef,
+  showInlineActiveIndicator = true,
+}: {
+  variant?: "full" | "compact" | "menu";
+  profileIndicatorRef?: (node: HTMLAnchorElement | null) => void;
+  showInlineActiveIndicator?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -129,6 +137,7 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
 
   return (
     <Link
+      ref={profileIndicatorRef}
       href={profileHref}
       className={cn(
         "plotty-button-label relative inline-flex min-h-[92px] items-center justify-start gap-3 rounded-[var(--plotty-radius-md)] px-2.5 py-1.5 pr-4 text-left text-[var(--plotty-ink)] transition-colors duration-150 ease-out hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
@@ -145,7 +154,7 @@ export function AuthStatus({ variant = "full" }: { variant?: "full" | "compact" 
       <span className="ml-0.5 text-[var(--plotty-muted)]" aria-hidden="true">
         →
       </span>
-      {isProfileActive ? (
+      {showInlineActiveIndicator && isProfileActive ? (
         <span
           className="absolute inset-x-2.5 bottom-0 h-0.5 bg-[var(--plotty-accent)]"
           aria-hidden="true"
