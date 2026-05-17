@@ -1,11 +1,12 @@
 "use client";
 
-import type { FormEvent, HTMLAttributes, ReactNode } from "react";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import type { CSSProperties, FormEvent, HTMLAttributes, ReactNode } from "react";
+import { createContext, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Feather,
   Library,
+  Menu,
   PenLine,
   Search,
   UserRound,
@@ -28,12 +29,153 @@ export const plottyPrimaryNavItems = [
   { href: routes.library, label: "Моя полка" },
 ] as const;
 
+const navIndicatorLastActiveKeys = new Map<string, string>();
+const hiddenNavIndicatorStyle: CSSProperties = {
+  opacity: 0,
+  transform: "translate3d(0px, 0, 0)",
+  width: 0,
+};
+
+interface NavIndicatorMeasurement {
+  left: number;
+  width: number;
+}
+
 function isPrimaryNavItemActive(pathname: string, href: string) {
   if (href === routes.home) {
     return pathname === href;
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function getNavItemMeasurement(container: HTMLElement | null, item: HTMLElement | null): NavIndicatorMeasurement | null {
+  if (!container || !item) {
+    return null;
+  }
+
+  const containerRect = container.getBoundingClientRect();
+  const itemRect = item.getBoundingClientRect();
+  const itemStyle = window.getComputedStyle(item);
+  const paddingLeft = Number.parseFloat(itemStyle.paddingLeft) || 0;
+  const paddingRight = Number.parseFloat(itemStyle.paddingRight) || 0;
+  const width = Math.max(0, itemRect.width - paddingLeft - paddingRight);
+
+  if (!width) {
+    return null;
+  }
+
+  return {
+    left: itemRect.left - containerRect.left + paddingLeft,
+    width,
+  };
+}
+
+function getNavIndicatorStyle(measurement: NavIndicatorMeasurement | null, options?: { disableTransition?: boolean }): CSSProperties {
+  if (!measurement) {
+    return hiddenNavIndicatorStyle;
+  }
+
+  return {
+    opacity: 1,
+    transform: `translate3d(${measurement.left.toFixed(2)}px, 0, 0)`,
+    transition: options?.disableTransition ? "none" : undefined,
+    width: `${measurement.width.toFixed(2)}px`,
+  };
+}
+
+function useSlidingNavIndicator<ItemKey extends string>(scope: string, activeKey: ItemKey | null) {
+  const containerRef = useRef<HTMLElement | null>(null);
+  const itemRefs = useRef(new Map<ItemKey, HTMLElement>());
+  const frameRef = useRef<number | null>(null);
+  const hasMeasuredRef = useRef(false);
+  const [indicatorStyle, setIndicatorStyle] = useState<CSSProperties>(hiddenNavIndicatorStyle);
+
+  const setContainerRef = useCallback((node: HTMLElement | null) => {
+    containerRef.current = node;
+  }, []);
+
+  const setItemRef = useCallback((key: ItemKey, node: HTMLElement | null) => {
+    if (node) {
+      itemRefs.current.set(key, node);
+    } else {
+      itemRefs.current.delete(key);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    function cancelScheduledAnimation() {
+      if (frameRef.current !== null) {
+        window.cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+    }
+
+    function measureKey(key: ItemKey | string | null) {
+      if (!key) {
+        return null;
+      }
+
+      return getNavItemMeasurement(containerRef.current, itemRefs.current.get(key as ItemKey) ?? null);
+    }
+
+    function updateIndicator() {
+      cancelScheduledAnimation();
+
+      const currentMeasurement = measureKey(activeKey);
+
+      if (!activeKey || !currentMeasurement) {
+        setIndicatorStyle(hiddenNavIndicatorStyle);
+        hasMeasuredRef.current = true;
+        navIndicatorLastActiveKeys.delete(scope);
+        return;
+      }
+
+      const previousKey = navIndicatorLastActiveKeys.get(scope);
+      const previousMeasurement =
+        !hasMeasuredRef.current && previousKey && previousKey !== activeKey ? measureKey(previousKey) : null;
+
+      if (previousMeasurement) {
+        setIndicatorStyle(getNavIndicatorStyle(previousMeasurement, { disableTransition: true }));
+        frameRef.current = window.requestAnimationFrame(() => {
+          frameRef.current = window.requestAnimationFrame(() => {
+            setIndicatorStyle(getNavIndicatorStyle(currentMeasurement));
+            frameRef.current = null;
+          });
+        });
+      } else {
+        setIndicatorStyle(getNavIndicatorStyle(currentMeasurement));
+      }
+
+      hasMeasuredRef.current = true;
+      navIndicatorLastActiveKeys.set(scope, activeKey);
+    }
+
+    updateIndicator();
+
+    const activeItem = activeKey ? itemRefs.current.get(activeKey) : null;
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateIndicator) : null;
+
+    if (resizeObserver) {
+      if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
+      }
+
+      if (activeItem) {
+        resizeObserver.observe(activeItem);
+      }
+    }
+
+    window.addEventListener("resize", updateIndicator);
+
+    return () => {
+      cancelScheduledAnimation();
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateIndicator);
+    };
+  }, [activeKey, scope]);
+
+  return { containerRef: setContainerRef, indicatorStyle, setItemRef };
 }
 
 function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
@@ -50,24 +192,9 @@ function useOptionalSearchParams() {
   }
 }
 
-export function PlottyPageShell({
-  children,
-  pageTitle,
-  pageDescription,
-  pageMeta,
-  pageActions,
-  desktopHeaderActions,
-  mobileHeaderActions,
-  mobileToolbar,
-  showMobileBack = false,
-  mobileBackHref,
-  contentClassName,
-  showBottomNav = true,
-  menuContent,
-  onMenuOpenChange,
-  suppressPageIntro = false,
-  className,
-}: {
+const PlottyChromeContext = createContext(false);
+
+type PlottyPageShellProps = {
   children: ReactNode;
   pageTitle?: ReactNode;
   pageDescription?: string;
@@ -84,10 +211,59 @@ export function PlottyPageShell({
   onMenuOpenChange?: (open: boolean) => void;
   suppressPageIntro?: boolean;
   className?: string;
-}) {
+};
+
+const chromeMinimalRoutes = new Set(["/auth", "/authors", "/fandoms", "/recommendations"]);
+
+function shouldUseMinimalPersistentChrome(pathname: string) {
+  return chromeMinimalRoutes.has(pathname);
+}
+
+function DefaultDesktopActions() {
+  return (
+    <Suspense fallback={<span className="plotty-meta">...</span>}>
+      <AuthStatus variant="compact" />
+    </Suspense>
+  );
+}
+
+export function PlottyPageShell(props: PlottyPageShellProps) {
+  const isInsidePersistentChrome = useContext(PlottyChromeContext);
+
+  if (isInsidePersistentChrome) {
+    return <PlottyPageContent {...props} />;
+  }
+
+  return <PlottyPageShellFallback {...props} />;
+}
+
+function PlottyPageShellFallback({
+  children,
+  pageTitle,
+  pageDescription,
+  pageMeta,
+  pageActions,
+  desktopHeaderActions,
+  mobileHeaderActions,
+  mobileToolbar,
+  showMobileBack = false,
+  mobileBackHref,
+  contentClassName,
+  showBottomNav = true,
+  menuContent,
+  onMenuOpenChange,
+  suppressPageIntro = false,
+  className,
+}: PlottyPageShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const activePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const {
+    containerRef: primaryNavRef,
+    indicatorStyle: primaryNavIndicatorStyle,
+    setItemRef: setPrimaryNavItemRef,
+  } = useSlidingNavIndicator("desktop-primary", activePrimaryNavHref);
 
   useEffect(() => {
     onMenuOpenChange?.(isMobileMenuOpen);
@@ -148,32 +324,30 @@ export function PlottyPageShell({
                 <Feather className="mb-1 size-6 text-[var(--plotty-accent)] lg:size-7" aria-hidden="true" />
               </Link>
 
-              <nav className="hidden items-stretch gap-1 lg:flex" aria-label="Основная навигация">
+              <nav ref={primaryNavRef} className="relative hidden items-stretch gap-1 lg:flex" aria-label="Основная навигация">
                 {plottyPrimaryNavItems.map((item) => {
                   const isActive = isPrimaryNavItemActive(pathname, item.href);
 
                   return (
                     <Link
                       key={item.href}
+                      ref={(node) => setPrimaryNavItemRef(item.href, node)}
                       href={item.href}
+                      aria-current={isActive ? "page" : undefined}
                       className={cn(
-                        "plotty-button-label relative flex min-h-[92px] items-center px-5 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                        "plotty-button-label relative z-10 flex min-h-[92px] items-center px-5 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                        "whitespace-nowrap",
                         isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
                       )}
                     >
                       {item.label}
-                      {isActive ? (
-                        <span
-                          className="absolute inset-x-5 bottom-0 h-0.5 bg-[var(--plotty-accent)]"
-                          aria-hidden="true"
-                        />
-                      ) : null}
                     </Link>
                   );
                 })}
+                <span className="plotty-nav-indicator" style={primaryNavIndicatorStyle} aria-hidden="true" />
               </nav>
 
-              <GlobalSearch className="ml-auto hidden w-full max-w-[34rem] lg:flex" />
+              <GlobalSearch className="ml-auto hidden w-full max-w-[30rem] lg:flex" />
 
               <div className="ml-auto hidden items-center gap-3 lg:flex">
                 {desktopActions}
@@ -220,6 +394,170 @@ export function PlottyPageShell({
 
       {showBottomNav ? <PlottyBottomNav /> : null}
     </div>
+  );
+}
+
+export function PlottyAppChrome({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const useMinimalChrome = shouldUseMinimalPersistentChrome(pathname);
+  const showBottomNav = !useMinimalChrome;
+
+  return (
+    <div className={cn("plotty-page-shell", showBottomNav ? "!pb-[calc(6.25rem+env(safe-area-inset-bottom))] lg:!pb-10" : "!pb-10")}>
+      <section className="plotty-frame">
+        <PersistentPlottyHeader showDesktopActions={!useMinimalChrome} onMobileMenuOpen={() => setIsMobileMenuOpen(true)} />
+
+        <PlottyChromeContext.Provider value={true}>{children}</PlottyChromeContext.Provider>
+
+        <PlottyMobileSheet open={isMobileMenuOpen} title="Меню" onClose={() => setIsMobileMenuOpen(false)}>
+          <PlottyAppMenu onNavigate={() => setIsMobileMenuOpen(false)} />
+        </PlottyMobileSheet>
+      </section>
+
+      {showBottomNav ? <PlottyBottomNav /> : null}
+    </div>
+  );
+}
+
+function PersistentPlottyHeader({
+  showDesktopActions,
+  onMobileMenuOpen,
+}: {
+  showDesktopActions: boolean;
+  onMobileMenuOpen: () => void;
+}) {
+  const pathname = usePathname();
+  const activePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const {
+    containerRef: primaryNavRef,
+    indicatorStyle: primaryNavIndicatorStyle,
+    setItemRef: setPrimaryNavItemRef,
+  } = useSlidingNavIndicator("desktop-primary", activePrimaryNavHref);
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-[var(--plotty-line)] bg-[rgba(251,247,242,0.88)] backdrop-blur-xl">
+      <div className="plotty-frame-inner">
+        <div className="flex min-h-[76px] items-center gap-3 lg:min-h-[92px] lg:gap-6">
+          <Link
+            href={routes.home}
+            className="plotty-logo inline-flex shrink-0 items-end gap-1 transition-opacity hover:opacity-80"
+            aria-label="Plotty"
+          >
+            Plotty
+            <Feather className="mb-1 size-6 text-[var(--plotty-accent)] lg:size-7" aria-hidden="true" />
+          </Link>
+
+          <nav ref={primaryNavRef} className="relative hidden items-stretch gap-1 lg:flex" aria-label="Primary navigation">
+            {plottyPrimaryNavItems.map((item) => {
+              const isActive = isPrimaryNavItemActive(pathname, item.href);
+
+              return (
+                <Link
+                  key={item.href}
+                  ref={(node) => setPrimaryNavItemRef(item.href, node)}
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "plotty-button-label relative z-10 flex min-h-[92px] items-center px-5 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                    "whitespace-nowrap",
+                    isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+            <span className="plotty-nav-indicator" style={primaryNavIndicatorStyle} aria-hidden="true" />
+          </nav>
+
+          <GlobalSearch className="ml-auto hidden w-full max-w-[30rem] lg:flex" />
+
+          {showDesktopActions ? (
+            <div className="ml-auto hidden items-center gap-3 lg:flex">
+              <DefaultDesktopActions />
+            </div>
+          ) : null}
+
+          <div className="ml-auto flex items-center gap-2 lg:hidden">
+            <IconButton aria-label="Меню" onClick={onMobileMenuOpen} size="sm" variant="secondary">
+              <Menu className="size-5" aria-hidden="true" />
+            </IconButton>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function PlottyPageContent({
+  children,
+  pageTitle,
+  pageDescription,
+  pageMeta,
+  pageActions,
+  mobileToolbar,
+  showMobileBack = false,
+  mobileBackHref,
+  contentClassName,
+  suppressPageIntro = false,
+}: PlottyPageShellProps) {
+  return (
+    <>
+      {showMobileBack ? <PlottyMobileBackButton mobileBackHref={mobileBackHref} /> : null}
+
+      <div className={cn("plotty-frame-inner pb-6 pt-4 lg:pb-8 lg:pt-7", contentClassName)}>
+        {mobileToolbar ? <div className="mb-5 border-b border-[var(--plotty-line)] pb-4 lg:hidden">{mobileToolbar}</div> : null}
+
+        {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
+          <div className="mb-5 space-y-4 lg:mb-7">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 space-y-1.5">
+                {pageMeta ? <div className="flex flex-wrap items-center gap-2">{pageMeta}</div> : null}
+                {pageTitle ? <h1 className="plotty-page-title">{pageTitle}</h1> : null}
+                {pageDescription ? (
+                  <p className="plotty-body max-w-3xl text-[var(--plotty-muted)]">{pageDescription}</p>
+                ) : null}
+              </div>
+              {pageActions ? <div className="flex flex-wrap items-center gap-3">{pageActions}</div> : null}
+            </div>
+          </div>
+        ) : null}
+
+        {children}
+      </div>
+    </>
+  );
+}
+
+function PlottyMobileBackButton({ mobileBackHref }: { mobileBackHref?: string }) {
+  const router = useRouter();
+
+  if (mobileBackHref) {
+    return (
+      <Link
+        href={mobileBackHref}
+        aria-label="Назад"
+        className={iconButtonClassName({
+          size: "md",
+          variant: "secondary",
+          className:
+            "fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(251,247,242,0.96)] backdrop-blur-xl lg:hidden",
+        })}
+      >
+        <span aria-hidden="true">←</span>
+      </Link>
+    );
+  }
+
+  return (
+    <IconButton
+      aria-label="Назад"
+      onClick={() => router.back()}
+      className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(251,247,242,0.96)] backdrop-blur-xl lg:hidden"
+    >
+      <span aria-hidden="true">←</span>
+    </IconButton>
   );
 }
 
@@ -382,13 +720,19 @@ function PlottyBottomNav() {
   const writeHref = isAuthenticated ? routes.write : routes.auth({ next: routes.write });
   const items = useMemo(
     () => [
-      { href: routes.home, label: "Каталог", icon: BookOpen, active: pathname === routes.home },
-      { href: libraryHref, label: "Моя полка", icon: Library, active: pathname.startsWith(routes.library) },
-      { href: writeHref, label: "Мастерская", icon: PenLine, active: pathname.startsWith(routes.write) },
-      { href: profileHref, label: "Профиль", icon: UserRound, active: pathname.startsWith("/users/") },
+      { key: "catalog", href: routes.home, label: "Каталог", icon: BookOpen, active: pathname === routes.home },
+      { key: "library", href: libraryHref, label: "Моя полка", icon: Library, active: pathname.startsWith(routes.library) },
+      { key: "write", href: writeHref, label: "Мастерская", icon: PenLine, active: pathname.startsWith(routes.write) },
+      { key: "profile", href: profileHref, label: "Профиль", icon: UserRound, active: pathname.startsWith("/users/") },
     ],
     [libraryHref, pathname, profileHref, writeHref],
   );
+  const activeBottomNavKey = items.find((item) => item.active)?.key ?? null;
+  const {
+    containerRef: bottomNavRef,
+    indicatorStyle: bottomNavIndicatorStyle,
+    setItemRef: setBottomNavItemRef,
+  } = useSlidingNavIndicator("mobile-bottom", activeBottomNavKey);
 
   return (
     <nav
@@ -396,16 +740,18 @@ function PlottyBottomNav() {
       aria-label="Нижняя навигация"
       style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
     >
-      <div className="grid grid-cols-4 gap-1">
+      <div ref={bottomNavRef} className="relative grid grid-cols-4 gap-1">
         {items.map((item) => {
           const Icon = item.icon;
 
           return (
             <Link
-              key={item.label}
+              key={item.key}
+              ref={(node) => setBottomNavItemRef(item.key, node)}
               href={item.href}
+              aria-current={item.active ? "page" : undefined}
               className={cn(
-                "flex min-h-[3.6rem] flex-col items-center justify-center gap-1 rounded-[16px] px-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                "relative z-10 flex min-h-[3.6rem] flex-col items-center justify-center gap-1 rounded-[16px] px-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
                 item.active
                   ? "text-[var(--plotty-accent)] [&_span]:text-[var(--plotty-accent)] [&_svg]:text-[var(--plotty-accent)]"
                   : "text-[var(--plotty-muted)]",
@@ -416,6 +762,7 @@ function PlottyBottomNav() {
             </Link>
           );
         })}
+        <span className="plotty-nav-indicator" style={bottomNavIndicatorStyle} aria-hidden="true" />
       </div>
     </nav>
   );

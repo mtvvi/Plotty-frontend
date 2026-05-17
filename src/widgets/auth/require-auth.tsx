@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
-import { AppShellSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
+import { PageContentSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
 
 function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
   const query = searchParams.toString();
@@ -28,7 +28,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, isLoading, pathname, router, searchParams]);
 
   if (isLoading || !isAuthenticated) {
-    return <AppShellSkeleton />;
+    return <PageContentSkeleton />;
   }
 
   return <>{children}</>;

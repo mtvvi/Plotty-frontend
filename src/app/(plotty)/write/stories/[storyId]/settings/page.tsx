@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import { RequireAuth } from "@/widgets/auth/require-auth";
-import { AppShellSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
+import { PageContentSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
 import { StorySettingsScreen } from "@/widgets/stories/story-settings-screen";
 
 export default async function StorySettingsPage({
@@ -12,7 +12,7 @@ export default async function StorySettingsPage({
   const { storyId } = await params;
 
   return (
-    <Suspense fallback={<AppShellSkeleton />}>
+    <Suspense fallback={<PageContentSkeleton />}>
       <RequireAuth>
         <StorySettingsScreen storyId={storyId} />
       </RequireAuth>

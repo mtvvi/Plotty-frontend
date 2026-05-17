@@ -115,6 +115,22 @@ select {
   padding-inline: clamp(1rem, 2.2vw, 2.1rem);
 }
 
+.plotty-nav-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--plotty-accent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 260ms ease,
+    width 260ms ease;
+  will-change: transform, width;
+}
+
 .plotty-shell-grid {
   display: grid;
   grid-template-columns: minmax(14rem, 21rem) minmax(0, 1fr) minmax(14rem, 18rem);
