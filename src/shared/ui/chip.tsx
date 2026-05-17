@@ -14,7 +14,7 @@ const toneClasses: Record<ChipTone, string> = {
 
 export function chipClassName(selected = false, className?: string, tone: ChipTone = "default") {
   return cn(
-    "inline-flex min-h-[32px] items-center justify-center rounded-[var(--plotty-radius-sm)] border px-3 py-1.5 text-xs font-semibold leading-none",
+    "plotty-chip-motion inline-flex min-h-[32px] items-center justify-center rounded-[var(--plotty-radius-sm)] border px-3 py-1.5 text-xs font-semibold leading-none",
     selected
       ? "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_8px_18px_rgba(195,79,50,0.14)] visited:!text-white"
       : toneClasses[tone],

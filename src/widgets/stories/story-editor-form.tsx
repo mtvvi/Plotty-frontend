@@ -271,8 +271,8 @@ export function StoryEditorForm({
   }, [closeSpellcheckPopover, spellcheckPopover]);
 
   return (
-    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="min-w-0 space-y-5">
+    <div className="plotty-stagger grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="plotty-stagger-item min-w-0 space-y-5">
         <ShellCard
           title={`Глава ${chapterNumber ?? "—"}`}
           description="Редактируйте только текущую главу: текст, название, иллюстрацию и AI-инструменты."
@@ -300,7 +300,7 @@ export function StoryEditorForm({
 
             <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.58)] p-4">
               {hasUnpublishedChanges ? (
-                <div className="rounded-[18px] border border-[rgba(195,79,50,0.18)] bg-[var(--plotty-accent-wash)] px-4 py-3 text-sm leading-6 text-[var(--plotty-ink)]">
+                <div className="plotty-panel-enter rounded-[18px] border border-[rgba(195,79,50,0.18)] bg-[var(--plotty-accent-wash)] px-4 py-3 text-sm leading-6 text-[var(--plotty-ink)]">
                   <span className="font-semibold">Есть неопубликованные изменения.</span>{" "}
                   Сохраненный черновик отличается от опубликованной версии главы.
                 </div>
@@ -415,7 +415,7 @@ export function StoryEditorForm({
         ) : null}
       </div>
 
-      <div className="min-w-0 space-y-5">
+      <div className="plotty-stagger-item min-w-0 space-y-5">
         {imagePanel}
 
         <div className="space-y-5">
@@ -434,7 +434,7 @@ export function StoryEditorForm({
                         <Surface
                           key={issueId}
                           variant="listItem"
-                          className={`min-w-0 p-3 transition-[border-color,background-color] duration-150 ${
+                            className={`plotty-lift-panel min-w-0 p-3 transition-[border-color,background-color] duration-150 ${
                             isActive
                               ? "border-[rgba(195,79,50,0.28)] bg-[var(--plotty-accent-wash)]"
                               : ""
@@ -542,7 +542,7 @@ export function StoryEditorForm({
                   <Link
                     key={chapter.id}
                     href={routes.chapterEditor(storyId ?? "", chapter.id)}
-                    className={`block rounded-[18px] border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,color] duration-150 ${
+                    className={`block rounded-[18px] border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,color,transform] duration-150 hover:translate-x-0.5 ${
                       chapter.id === chapterId
                         ? "border-[rgba(188,95,61,0.16)] bg-[rgba(188,95,61,0.08)] text-[var(--plotty-ink)]"
                         : "border-[var(--plotty-line)] bg-white/70 text-[var(--plotty-muted)] hover:bg-white hover:text-[var(--plotty-ink)]"

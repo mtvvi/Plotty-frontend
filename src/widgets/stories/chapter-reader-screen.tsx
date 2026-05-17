@@ -220,10 +220,18 @@ export function ChapterReaderScreen({
         ) : undefined
       }
     >
-      <div className="mx-auto max-w-4xl space-y-5">
-        {chapter.imageUrl ? <ChapterImageFrame title={readerChapterTitle} imageUrl={chapter.imageUrl} /> : null}
+      <div className="plotty-stagger mx-auto max-w-4xl space-y-5">
+        {chapter.imageUrl ? (
+          <div className="plotty-stagger-item">
+            <ChapterImageFrame title={readerChapterTitle} imageUrl={chapter.imageUrl} />
+          </div>
+        ) : null}
 
-        <ShellCard title={readerChapterTitle} description={`${readerWordCount} слов`} className="bg-[rgba(255,255,255,0.72)]">
+        <ShellCard
+          title={<span className="plotty-chapter-title-motion">{readerChapterTitle}</span>}
+          description={`${readerWordCount} слов`}
+          className="plotty-stagger-item plotty-lift-panel bg-[rgba(255,255,255,0.72)]"
+        >
           <div className="space-y-5">
             <div className="whitespace-pre-wrap text-[15px] leading-8 text-[var(--plotty-ink)] md:text-[16px] md:leading-9">
               {readerChapterContent}
@@ -253,7 +261,7 @@ export function ChapterReaderScreen({
         </ShellCard>
 
         {chapterPublished ? (
-          <section id="chapter-comments" className="scroll-mt-24 space-y-5 rounded-[24px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.78)] p-4 sm:p-6">
+          <section id="chapter-comments" className="plotty-stagger-item scroll-mt-24 space-y-5 rounded-[24px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.78)] p-4 sm:p-6">
             <h2 className="plotty-section-title">Комментарии к главе</h2>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -363,10 +371,10 @@ function ChapterWikiDrawer({
       <button
         type="button"
         aria-label="Закрыть справочник"
-        className="absolute inset-0 bg-[rgba(35,33,30,0.38)] backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgba(35,33,30,0.38)] backdrop-blur-sm animate-[plotty-reveal-overlay_var(--motion-base)_var(--ease-out-soft)_both]"
         onClick={onClose}
       />
-      <aside className="absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col border-l border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-5 shadow-[var(--plotty-shadow)] sm:p-6">
+      <aside className="absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col border-l border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-5 shadow-[var(--plotty-shadow)] animate-[plotty-stagger-enter_var(--motion-slow)_var(--ease-out-soft)_both] sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="plotty-kicker">Бесспойлерно</div>

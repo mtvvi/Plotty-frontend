@@ -5,13 +5,13 @@ import { cn } from "@/shared/lib/utils";
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_12px_24px_rgba(195,79,50,0.2)] hover:-translate-y-[1px] hover:bg-[var(--plotty-accent-strong)]",
+    "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_12px_24px_rgba(195,79,50,0.2)] hover:-translate-y-0.5 hover:bg-[var(--plotty-accent-strong)] hover:shadow-[0_16px_30px_rgba(195,79,50,0.23)] active:translate-y-0 active:scale-[0.94]",
   secondary:
-    "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.78)] text-[var(--plotty-ink)] shadow-[0_4px_14px_rgba(58,43,27,0.04)] hover:-translate-y-[1px] hover:border-[var(--plotty-line-strong)] hover:bg-[var(--plotty-paper-strong)]",
+    "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.78)] text-[var(--plotty-ink)] shadow-[0_4px_14px_rgba(58,43,27,0.04)] hover:-translate-y-px hover:border-[rgba(195,79,50,0.2)] hover:bg-[var(--plotty-paper-strong)] hover:shadow-[0_12px_24px_rgba(58,43,27,0.08)] active:translate-y-0 active:scale-[0.95]",
   ghost:
-    "border-transparent bg-transparent text-[var(--plotty-muted)] hover:bg-black/5 hover:text-[var(--plotty-ink)]",
+    "border-transparent bg-transparent text-[var(--plotty-muted)] hover:-translate-y-px hover:bg-black/5 hover:text-[var(--plotty-ink)] active:translate-y-0 active:scale-[0.95]",
   destructive:
-    "border-[rgba(189,63,50,0.16)] bg-[var(--plotty-danger-soft)] text-[var(--plotty-danger)] shadow-[0_3px_12px_rgba(189,63,50,0.06)] hover:border-[rgba(189,63,50,0.26)] hover:bg-[#fbd7cd]",
+    "plotty-danger-motion border-[rgba(189,63,50,0.16)] bg-[var(--plotty-danger-soft)] text-[var(--plotty-danger)] shadow-[0_3px_12px_rgba(189,63,50,0.06)] hover:-translate-y-px hover:border-[rgba(189,63,50,0.26)] hover:bg-[#fbd7cd] active:translate-y-0 active:scale-[0.95]",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -36,7 +36,7 @@ export function iconButtonClassName({
   variant?: ButtonVariant;
 } = {}) {
   return cn(
-    "inline-flex shrink-0 items-center justify-center border transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:shadow-none disabled:opacity-60",
+    "plotty-icon-motion inline-flex shrink-0 items-center justify-center border transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:scale-100 disabled:shadow-none disabled:opacity-60",
     variantClasses[variant],
     sizeClasses[size],
     className,

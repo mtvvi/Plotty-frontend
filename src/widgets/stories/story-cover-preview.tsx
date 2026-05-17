@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 
 import { cn } from "@/shared/lib/utils";
+import { ImageLightbox, lightboxTriggerClassName } from "@/shared/ui/image-lightbox";
 
 export function StoryCoverPreview({
   title,
@@ -13,6 +14,7 @@ export function StoryCoverPreview({
   compact = false,
   extendSurface = false,
   fullHeight = false,
+  enableLightbox = false,
 }: {
   title: string;
   imageUrl?: string;
@@ -21,8 +23,10 @@ export function StoryCoverPreview({
   compact?: boolean;
   extendSurface?: boolean;
   fullHeight?: boolean;
+  enableLightbox?: boolean;
 }) {
   const [hasImageError, setHasImageError] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const fallbackAspectRatio = "1 / 1";
 
   useEffect(() => {
@@ -53,26 +57,48 @@ export function StoryCoverPreview({
     <div
       className={cn(
         "relative overflow-hidden rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[linear-gradient(135deg,var(--plotty-panel),var(--plotty-paper))]",
+        "plotty-cover-preview",
         extendSurface ? "flex h-full flex-col" : "",
         className,
       )}
     >
       {hasCover ? (
-        <div
-          data-cover-frame="true"
-          className={cn("relative w-full overflow-hidden", fullHeight ? "h-full min-h-[18rem]" : "", imageClassName)}
-          style={coverStyle}
-        >
-          <Image
-            src={imageUrl ?? ""}
-            alt={`Обложка истории «${title}»`}
-            fill
-            sizes="100vw"
-            unoptimized
-            className="object-cover"
-            onError={() => setHasImageError(true)}
-          />
-        </div>
+        enableLightbox ? (
+          <button
+            type="button"
+            data-cover-frame="true"
+            className={lightboxTriggerClassName(cn("relative block w-full overflow-hidden text-left", fullHeight ? "h-full min-h-[18rem]" : "", imageClassName))}
+            style={coverStyle}
+            aria-label={`Открыть обложку истории «${title}» на весь экран`}
+            onClick={() => setIsLightboxOpen(true)}
+          >
+            <Image
+              src={imageUrl ?? ""}
+              alt={`Обложка истории «${title}»`}
+              fill
+              sizes="100vw"
+              unoptimized
+              className="object-cover"
+              onError={() => setHasImageError(true)}
+            />
+          </button>
+        ) : (
+          <div
+            data-cover-frame="true"
+            className={cn("relative w-full overflow-hidden", fullHeight ? "h-full min-h-[18rem]" : "", imageClassName)}
+            style={coverStyle}
+          >
+            <Image
+              src={imageUrl ?? ""}
+              alt={`Обложка истории «${title}»`}
+              fill
+              sizes="100vw"
+              unoptimized
+              className="object-cover"
+              onError={() => setHasImageError(true)}
+            />
+          </div>
+        )
       ) : (
         <div
           data-cover-frame="true"
@@ -108,6 +134,16 @@ export function StoryCoverPreview({
         >
           <div className="pointer-events-none absolute inset-x-0 top-0 h-20 -translate-y-full bg-[linear-gradient(180deg,rgba(9,9,8,0),rgba(9,9,8,0.25)_25%,rgba(9,9,8,0.96))]" />
         </div>
+      ) : null}
+
+      {hasCover && enableLightbox && imageUrl ? (
+        <ImageLightbox
+          src={imageUrl}
+          alt={`Обложка истории «${title}»`}
+          title={title}
+          open={isLightboxOpen}
+          onClose={() => setIsLightboxOpen(false)}
+        />
       ) : null}
     </div>
   );

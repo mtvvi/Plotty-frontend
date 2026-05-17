@@ -3,13 +3,17 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
+import { ImageLightbox, lightboxTriggerClassName } from "@/shared/ui/image-lightbox";
+
 interface ChapterImageFrameProps {
   title: string;
   imageUrl?: string;
+  enableLightbox?: boolean;
 }
 
-export function ChapterImageFrame({ title, imageUrl }: ChapterImageFrameProps) {
+export function ChapterImageFrame({ title, imageUrl, enableLightbox = true }: ChapterImageFrameProps) {
   const [hasFailed, setHasFailed] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   useEffect(() => {
     setHasFailed(false);
@@ -19,7 +23,7 @@ export function ChapterImageFrame({ title, imageUrl }: ChapterImageFrameProps) {
     return (
       <div
         data-chapter-image-frame="true"
-        className="flex aspect-square w-full items-end rounded-[28px] border border-[var(--plotty-line)] bg-[linear-gradient(135deg,var(--plotty-panel),var(--plotty-paper))] p-6"
+        className="plotty-cover-preview relative flex aspect-square w-full items-end rounded-[28px] border border-[var(--plotty-line)] bg-[linear-gradient(135deg,var(--plotty-panel),var(--plotty-paper))] p-6"
       >
         <div className="max-w-xl space-y-2">
           <div className="text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--plotty-muted)]">
@@ -37,19 +41,48 @@ export function ChapterImageFrame({ title, imageUrl }: ChapterImageFrameProps) {
   return (
     <div
       data-chapter-image-frame="true"
-      className="overflow-hidden rounded-[28px] border border-[var(--plotty-line)] bg-[var(--plotty-paper)]"
+      className="plotty-cover-preview relative overflow-hidden rounded-[28px] border border-[var(--plotty-line)] bg-[var(--plotty-paper)]"
     >
-      <div data-chapter-image-surface="true" className="relative aspect-square w-full">
-        <Image
+      {enableLightbox ? (
+        <button
+          type="button"
+          data-chapter-image-surface="true"
+          className={lightboxTriggerClassName("relative block aspect-square w-full overflow-hidden text-left")}
+          aria-label={`Открыть иллюстрацию главы «${title}» на весь экран`}
+          onClick={() => setIsLightboxOpen(true)}
+        >
+          <Image
+            src={imageUrl}
+            alt={title}
+            fill
+            sizes="100vw"
+            unoptimized
+            onError={() => setHasFailed(true)}
+            className="object-cover"
+          />
+        </button>
+      ) : (
+        <div data-chapter-image-surface="true" className="relative aspect-square w-full">
+          <Image
+            src={imageUrl}
+            alt={title}
+            fill
+            sizes="100vw"
+            unoptimized
+            onError={() => setHasFailed(true)}
+            className="object-cover"
+          />
+        </div>
+      )}
+      {enableLightbox ? (
+        <ImageLightbox
           src={imageUrl}
           alt={title}
-          fill
-          sizes="100vw"
-          unoptimized
-          onError={() => setHasFailed(true)}
-          className="object-cover"
+          title={title}
+          open={isLightboxOpen}
+          onClose={() => setIsLightboxOpen(false)}
         />
-      </div>
+      ) : null}
     </div>
   );
 }

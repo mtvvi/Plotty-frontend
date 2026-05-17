@@ -4,7 +4,7 @@ import { cn } from "@/shared/lib/utils";
 
 export function fieldClassName(className?: string) {
   return cn(
-    "w-full rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] px-4 text-[15px] leading-6 text-[var(--plotty-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] outline-none transition-[background-color,border-color,color,box-shadow] duration-150 ease-out placeholder:text-[var(--plotty-muted-soft)] focus:border-[var(--plotty-accent)] focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+    "w-full rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] px-4 text-[15px] leading-6 text-[var(--plotty-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] outline-none transition-[background-color,border-color,color,box-shadow] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] placeholder:text-[var(--plotty-muted-soft)] focus:border-[var(--plotty-accent)] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_0_0_2px_var(--plotty-accent-soft),0_12px_28px_rgba(195,79,50,0.08)] focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
     className,
   );
 }

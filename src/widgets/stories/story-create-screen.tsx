@@ -23,6 +23,7 @@ import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Surface } from "@/shared/ui/card";
+import { StoryRevealButtonLink } from "@/shared/ui/story-reveal-transition";
 import { CreditBalancePill } from "@/widgets/credits/credit-balance-pill";
 
 import { PlottyShell, ShellCard } from "./plotty-shell";
@@ -134,8 +135,8 @@ export function StoryCreateScreen() {
       description="Создавайте, редактируйте и развивайте свои истории."
       showMobileBack={false}
     >
-      <div className="grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)_18rem]">
-        <ShellCard title="Мои истории" variant="sidebar">
+      <div className="plotty-stagger grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)_18rem]">
+        <ShellCard title="Мои истории" variant="sidebar" className="plotty-stagger-item plotty-lift-panel">
           {storiesQuery.isLoading ? (
             <div className="space-y-3">
               <div className="h-24 rounded-[var(--plotty-radius-md)] bg-white/40" />
@@ -175,7 +176,7 @@ export function StoryCreateScreen() {
           )}
         </ShellCard>
 
-        <ShellCard id="active-story" className="scroll-mt-28" title={selectedStoryQuery.data?.title ?? "Выберите историю"}>
+        <ShellCard id="active-story" className="plotty-stagger-item plotty-lift-panel scroll-mt-28" title={selectedStoryQuery.data?.title ?? "Выберите историю"}>
           {selectedStoryQuery.isLoading ? (
             <div className="space-y-3">
               <div className="h-24 rounded-[var(--plotty-radius-md)] bg-white/40" />
@@ -188,6 +189,7 @@ export function StoryCreateScreen() {
                   title={selectedStoryQuery.data.title}
                   imageUrl={selectedStoryDisplayCover}
                   compact
+                  enableLightbox
                   className="lg:aspect-square"
                 />
                 <div className="space-y-4">
@@ -224,11 +226,11 @@ export function StoryCreateScreen() {
                 </div>
 
                 {selectedStoryQuery.data.chapters.length ? (
-                  <div className="plotty-scroll-panel plotty-workshop-chapter-list divide-y divide-[var(--plotty-line)] rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.7)]">
+                  <div className="plotty-scroll-panel plotty-workshop-chapter-list plotty-stagger divide-y divide-[var(--plotty-line)] rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.7)]">
                     {selectedStoryQuery.data.chapters.map((chapter) => (
                       <div
                         key={chapter.id}
-                        className="grid gap-3 px-4 py-3"
+                        className="plotty-stagger-item plotty-lift-panel grid gap-3 px-4 py-3"
                       >
                         <div className="min-w-0">
                           <div className="font-semibold text-[var(--plotty-ink)]">
@@ -242,7 +244,7 @@ export function StoryCreateScreen() {
                           {chapter.status === "draft" ? "Черновик" : "Опубликована"}
                         </span>
                         <div className="flex flex-wrap gap-2">
-                          <ButtonLink
+                          <StoryRevealButtonLink
                             href={
                               (chapter.status ?? "published") === "draft"
                                 ? routes.chapterPreview(selectedStoryQuery.data.slug, chapter.id)
@@ -255,9 +257,11 @@ export function StoryCreateScreen() {
                             }
                             variant="secondary"
                             size="sm"
+                            revealTitle={chapter.title}
+                            revealCoverUrl={selectedStoryDisplayCover}
                           >
                             Читать
-                          </ButtonLink>
+                          </StoryRevealButtonLink>
                           <ButtonLink href={routes.chapterEditor(selectedStoryQuery.data.id, chapter.id)} variant="primary" size="sm">
                             Редактировать
                           </ButtonLink>
@@ -280,7 +284,7 @@ export function StoryCreateScreen() {
           )}
         </ShellCard>
 
-        <ShellCard title="Действия автора" variant="sidebar">
+        <ShellCard title="Действия автора" variant="sidebar" className="plotty-stagger-item plotty-lift-panel">
           <div className="space-y-3">
             <CreditBalancePill variant="menu" />
             <ButtonLink href={routes.writeNew} variant="primary" className="w-full justify-start">
@@ -355,7 +359,7 @@ function StorySidebarItem({
 
   return (
     <article
-      className={`grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-[var(--plotty-radius-md)] border p-2.5 transition-[background-color,border-color,box-shadow,transform] duration-150 ${
+      className={`plotty-lift-panel grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-[var(--plotty-radius-md)] border p-2.5 transition-[background-color,border-color,box-shadow,transform] duration-150 ${
         isSelected
           ? "border-[rgba(195,79,50,0.22)] bg-[var(--plotty-accent-wash)] shadow-[0_12px_28px_rgba(195,79,50,0.08)]"
           : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.68)] hover:-translate-y-[1px] hover:bg-[var(--plotty-paper-strong)]"

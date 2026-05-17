@@ -17,9 +17,11 @@ import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
+import { cn } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { StoryRevealButtonLink } from "@/shared/ui/story-reveal-transition";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
@@ -120,11 +122,12 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
     <PlottyPageShell suppressPageIntro showMobileBack mobileBackHref={routes.home} menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
         <main className="min-w-0 space-y-5">
-          <PlottySectionCard className="overflow-hidden p-0">
+          <PlottySectionCard className="plotty-panel-enter overflow-hidden p-0">
             <div className="grid lg:grid-cols-[minmax(18rem,28rem)_minmax(0,1fr)]">
               <StoryCoverPreview
                 title={story.title}
                 imageUrl={displayCoverImage}
+                enableLightbox
                 className="self-start rounded-[var(--plotty-radius-lg)] border-0 border-b border-[var(--plotty-line)] lg:border-b-0 lg:border-r"
               />
 
@@ -157,17 +160,19 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                   </div>
                 ) : null}
 
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {firstChapter ? (
-                    <ButtonLink
+                    <StoryRevealButtonLink
                       href={routes.chapter(story.slug, firstChapter.number ?? 1)}
                       variant="primary"
                       size="lg"
                       className="max-sm:min-h-12 max-sm:px-3 max-sm:text-sm"
+                      revealTitle={story.title}
+                      revealCoverUrl={displayCoverImage}
                     >
                       <BookOpen className="size-5" aria-hidden="true" />
                       Читать
-                    </ButtonLink>
+                    </StoryRevealButtonLink>
                   ) : null}
                   {firstChapter ? (
                     <ButtonLink
@@ -186,7 +191,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     variant={viewerHasLiked ? "primary" : "secondary"}
                     aria-pressed={viewerHasLiked}
                     aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
-                    className="max-sm:col-span-2 max-sm:min-h-12 max-sm:px-3 max-sm:text-sm"
+                    className="plotty-like-pop col-span-2 max-sm:min-h-12 max-sm:px-3 max-sm:text-sm"
                   >
                     <Heart className="size-4" fill={viewerHasLiked ? "currentColor" : "none"} aria-hidden="true" />
                     Мне нравится
@@ -203,10 +208,11 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                   </div>
                 ) : null}
 
-                <div className="hidden space-y-2 border-t border-[var(--plotty-line)] pt-4 lg:block">
-                  <h2 className="plotty-label">Аннотация</h2>
-                  <p className="plotty-body max-w-4xl text-[var(--plotty-ink-soft)]">{storyDescription}</p>
-                </div>
+              </div>
+
+              <div className="hidden space-y-2 border-t border-[var(--plotty-line)] p-5 sm:p-6 lg:col-span-2 lg:block lg:px-8 lg:pb-8 lg:pt-6">
+                <h2 className="plotty-label">Аннотация</h2>
+                <p className="plotty-body max-w-5xl text-[var(--plotty-ink-soft)]">{storyDescription}</p>
               </div>
             </div>
           </PlottySectionCard>
@@ -234,19 +240,19 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
             className={activeMobileSection === "chapters" ? undefined : "max-lg:hidden"}
           >
             {readerChapters.length ? (
-              <div className="divide-y divide-[var(--plotty-line)] overflow-hidden rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.62)]">
+              <div className="plotty-stagger divide-y divide-[var(--plotty-line)] overflow-hidden rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.62)]">
                 {readerChapters.map((chapter) => {
                   const viewed = viewedByChapterId.get(chapter.id);
 
                   return (
-                    <div key={chapter.id} className="grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                    <div key={chapter.id} className="plotty-stagger-item plotty-lift-panel grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
                       <span className="plotty-card-title text-[1.35rem]">{chapter.number ?? "—"}.</span>
                       <div className="min-w-0">
                         <Link
                           href={routes.chapter(story.slug, chapter.number ?? 1)}
-                          className="plotty-card-title text-[1.18rem] hover:text-[var(--plotty-accent)]"
+                          className="plotty-story-title-anchor plotty-card-title text-[1.18rem] hover:text-[var(--plotty-accent)]"
                         >
-                          {chapter.title}
+                          <span className="plotty-story-title-text">{chapter.title}</span>
                         </Link>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-[var(--plotty-muted)]">
                           <span>{new Date(chapter.updatedAt).toLocaleDateString("ru-RU")}</span>
@@ -257,9 +263,15 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                           ) : null}
                         </div>
                       </div>
-                      <ButtonLink href={routes.chapter(story.slug, chapter.number ?? 1)} variant="secondary" size="sm">
+                      <StoryRevealButtonLink
+                        href={routes.chapter(story.slug, chapter.number ?? 1)}
+                        variant="secondary"
+                        size="sm"
+                        revealTitle={chapter.title}
+                        revealCoverUrl={displayCoverImage}
+                      >
                         Читать
-                      </ButtonLink>
+                      </StoryRevealButtonLink>
                     </div>
                   );
                 })}
@@ -270,8 +282,8 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
           </PlottySectionCard>
         </main>
 
-        <aside className="space-y-4">
-          <PlottySectionCard id="story-info" title="О истории" variant="sidebar" className={activeMobileSection === "info" ? undefined : "max-lg:hidden"}>
+        <aside className="plotty-stagger space-y-4">
+          <PlottySectionCard id="story-info" title="О истории" variant="sidebar" className={cn("plotty-stagger-item plotty-lift-panel", activeMobileSection === "info" ? undefined : "max-lg:hidden")}>
             <div className="grid gap-3 text-sm">
               <InfoRow icon={<Tag className="size-4" />} label="Фандом" value={story.fandom ?? "Не указан"} />
               <InfoRow icon={<BookOpen className="size-4" />} label="Рейтинг" value={story.ratingLabel ?? "Не указан"} />
@@ -281,7 +293,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
           </PlottySectionCard>
 
           {isAuthenticated ? (
-            <PlottySectionCard title="Моя полка" variant="sidebar" className="max-lg:hidden">
+            <PlottySectionCard title="Моя полка" variant="sidebar" className="plotty-stagger-item plotty-lift-panel max-lg:hidden">
               <div className="space-y-3">
                 <StoryShelfControl storyId={story.id} className="max-w-none" />
                 <StoryCollectionControl storyId={story.id} className="max-w-none" />
@@ -363,7 +375,7 @@ function AdaptiveStoryTitle({ title }: { title: string }) {
 
 function InfoRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[1.25rem_1fr] gap-x-3 gap-y-0.5">
+    <div className="plotty-info-row grid grid-cols-[1.25rem_1fr] gap-x-3 gap-y-0.5">
       <span className="mt-0.5 text-[var(--plotty-muted)]" aria-hidden="true">
         {icon}
       </span>

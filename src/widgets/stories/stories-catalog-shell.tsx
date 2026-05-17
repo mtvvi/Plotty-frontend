@@ -213,7 +213,7 @@ export function StoriesCatalogShell() {
     >
       <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-7 xl:grid-cols-[18rem_minmax(0,1fr)] xl:gap-8">
         <aside className="hidden lg:block">
-          <PlottySectionCard variant="sidebar" className="sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
+          <PlottySectionCard variant="sidebar" className="plotty-lift-panel sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
             {filters}
           </PlottySectionCard>
         </aside>
@@ -263,9 +263,11 @@ export function StoriesCatalogShell() {
               onAction={clearAppliedFilters}
             />
           ) : catalogStories.length ? (
-            <div className="space-y-4" aria-live="polite">
+            <div className="plotty-stagger space-y-4" aria-live="polite">
               {catalogStories.map((story) => (
-                <StoryCard key={story.id} story={story} showChapterActions={false} />
+                <div key={story.id} className="plotty-stagger-item">
+                  <StoryCard story={story} showChapterActions={false} />
+                </div>
               ))}
             </div>
           ) : (
@@ -393,7 +395,7 @@ function CatalogSearchField({
   return (
     <Surface
       variant="inset"
-      className="grid grid-cols-[auto_1fr] items-center gap-3 bg-[rgba(255,253,249,0.9)] px-4 py-1.5 shadow-[0_10px_24px_rgba(58,43,27,0.04)] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]"
+      className="plotty-search-shell grid grid-cols-[auto_1fr] items-center gap-3 bg-[rgba(255,253,249,0.9)] px-4 py-1.5 shadow-[0_10px_24px_rgba(58,43,27,0.04)]"
     >
       <Search className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
       <Input
@@ -401,7 +403,7 @@ function CatalogSearchField({
         onChange={(event) => onChange(event.target.value)}
         aria-label="Поиск по названию истории"
         placeholder="Поиск по названию истории"
-        className="min-h-[42px] rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="min-h-[42px] rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus:shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </Surface>
   );
@@ -428,13 +430,13 @@ function CatalogSortSelect({
         aria-expanded={popover.open}
         onClick={popover.toggle}
         className={cn(
-          "inline-grid min-h-11 w-full grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] px-3 text-left text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_10px_24px_rgba(58,43,27,0.05)] transition-[border-color,box-shadow] hover:border-[var(--plotty-line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+          "inline-grid min-h-11 w-full grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] px-3 text-left text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_10px_24px_rgba(58,43,27,0.05)] transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-[var(--plotty-line-strong)] hover:shadow-[0_14px_28px_rgba(58,43,27,0.09)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
           compact ? "w-full" : "",
         )}
       >
         <ListFilter className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
         <span className="truncate">{selectedOption.label}</span>
-        <span className="text-[var(--plotty-muted)]" aria-hidden="true">
+        <span className={cn("text-[var(--plotty-muted)] transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")} aria-hidden="true">
           ▾
         </span>
       </button>
@@ -458,7 +460,7 @@ function CatalogSortSelect({
               popover.close();
             }}
             className={cn(
-              "flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
+              "plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
               option.value === value ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
             )}
           >
@@ -494,7 +496,7 @@ function ActiveFilter({ label, onClear }: { label: string; onClear: () => void }
       type="button"
       title={label}
       onClick={onClear}
-      className="inline-flex min-h-9 max-w-full min-w-0 items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[rgba(195,79,50,0.13)] bg-[var(--plotty-accent-wash)] px-3 text-sm font-semibold text-[var(--plotty-accent)] transition-colors hover:bg-[var(--plotty-accent-soft)]"
+      className="plotty-chip-motion inline-flex min-h-9 max-w-full min-w-0 items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[rgba(195,79,50,0.13)] bg-[var(--plotty-accent-wash)] px-3 text-sm font-semibold text-[var(--plotty-accent)] transition-colors hover:bg-[var(--plotty-accent-soft)] [&_svg]:transition-transform hover:[&_svg]:rotate-90"
     >
       <span className="min-w-0 max-w-xs truncate sm:max-w-md lg:max-w-2xl">{label}</span>
       <X className="size-3.5 shrink-0" aria-hidden="true" />
@@ -641,10 +643,10 @@ function CatalogFandomDropdown({
           aria-haspopup="listbox"
           aria-expanded={popover.open}
           onClick={popover.toggle}
-          className="flex min-h-[3rem] w-full items-center justify-between rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.84)] px-4 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-[border-color,box-shadow] duration-150 hover:border-[var(--plotty-line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+          className="flex min-h-[3rem] w-full items-center justify-between rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.84)] px-4 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] hover:-translate-y-px hover:border-[var(--plotty-line-strong)] hover:shadow-[0_10px_22px_rgba(58,43,27,0.08)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
         >
           <span>{selectedOption?.name ?? "Любой фандом"}</span>
-          <span className="text-[var(--plotty-muted)]" aria-hidden="true">
+          <span className={cn("text-[var(--plotty-muted)] transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")} aria-hidden="true">
             ▾
           </span>
         </button>
@@ -666,7 +668,7 @@ function CatalogFandomDropdown({
               popover.close();
             }}
             className={cn(
-              "flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
+              "plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
               !selectedSlug ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
             )}
           >
@@ -683,7 +685,7 @@ function CatalogFandomDropdown({
                 popover.close();
               }}
               className={cn(
-                "flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
+                "plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
                 selectedSlug === option.slug ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
               )}
             >
@@ -708,14 +710,14 @@ function CatalogToggleGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3 border-t border-[var(--plotty-line)] pt-4 first:border-t-0 first:pt-0">
+    <section className="space-y-3 border-t border-[var(--plotty-line)] pt-4 transition-colors duration-[var(--motion-base)] hover:border-[rgba(195,79,50,0.18)] first:border-t-0 first:pt-0">
       <div className="flex items-center justify-between gap-3">
         <h3 className="plotty-label">{title}</h3>
         {canClear && onClear ? (
           <button
             type="button"
             onClick={onClear}
-            className="plotty-meta text-xs font-semibold transition-colors hover:text-[var(--plotty-ink)]"
+            className="plotty-meta text-xs font-semibold transition-[color,transform] duration-[var(--motion-base)] hover:translate-x-0.5 hover:text-[var(--plotty-ink)] active:scale-[0.98]"
           >
             Очистить
           </button>

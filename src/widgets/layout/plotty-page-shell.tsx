@@ -292,7 +292,6 @@ function PlottyPageShellFallback({
   className,
 }: PlottyPageShellProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const activePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
@@ -324,30 +323,7 @@ function PlottyPageShellFallback({
         className,
       )}
     >
-      {showMobileBack ? (
-        mobileBackHref ? (
-          <Link
-            href={mobileBackHref}
-            aria-label="Назад"
-            className={iconButtonClassName({
-              size: "md",
-              variant: "secondary",
-              className:
-                "fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(251,247,242,0.96)] backdrop-blur-xl lg:hidden",
-            })}
-          >
-            <span aria-hidden="true">←</span>
-          </Link>
-        ) : (
-          <IconButton
-            aria-label="Назад"
-            onClick={() => router.back()}
-            className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(251,247,242,0.96)] backdrop-blur-xl lg:hidden"
-          >
-            <span aria-hidden="true">←</span>
-          </IconButton>
-        )
-      ) : null}
+      {showMobileBack ? <PlottyMobileBackButton mobileBackHref={mobileBackHref} /> : null}
 
       <section className="plotty-frame">
         <header className="plotty-header sticky top-0 z-40">
@@ -373,7 +349,7 @@ function PlottyPageShellFallback({
                       href={item.href}
                       aria-current={isActive ? "page" : undefined}
                       className={cn(
-                        "plotty-button-label relative z-10 flex min-h-[86px] items-center px-4 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                        "plotty-nav-link plotty-button-label relative z-10 flex min-h-[86px] items-center px-4 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
                         "whitespace-nowrap",
                         isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
                       )}
@@ -404,7 +380,7 @@ function PlottyPageShellFallback({
           </div>
         </header>
 
-        <div className={cn("plotty-frame-inner pb-6 pt-4 lg:pb-10 lg:pt-8", contentClassName)}>
+        <div key={pathname} className={cn("plotty-frame-inner plotty-page-enter pb-6 pt-4 lg:pb-10 lg:pt-8", contentClassName)}>
           {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
             <div className="mb-5 space-y-4 lg:mb-7">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -494,7 +470,7 @@ function PersistentPlottyHeader({
                   href={item.href}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "plotty-button-label relative z-10 flex min-h-[86px] items-center px-4 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                  "plotty-nav-link plotty-button-label relative z-10 flex min-h-[86px] items-center px-4 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
                     "whitespace-nowrap",
                     isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
                   )}
@@ -531,11 +507,13 @@ function PlottyPageContent({
   contentClassName,
   suppressPageIntro = false,
 }: PlottyPageShellProps) {
+  const pathname = usePathname();
+
   return (
     <>
       {showMobileBack ? <PlottyMobileBackButton mobileBackHref={mobileBackHref} /> : null}
 
-      <div className={cn("plotty-frame-inner pb-6 pt-4 lg:pb-10 lg:pt-8", contentClassName)}>
+      <div key={pathname} className={cn("plotty-frame-inner plotty-page-enter pb-6 pt-4 lg:pb-10 lg:pt-8", contentClassName)}>
         {mobileToolbar ? <div className="mb-5 border-b border-[var(--plotty-line)] pb-4 lg:hidden">{mobileToolbar}</div> : null}
 
         {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
@@ -561,6 +539,7 @@ function PlottyPageContent({
 
 function PlottyMobileBackButton({ mobileBackHref }: { mobileBackHref?: string }) {
   const router = useRouter();
+  const className = "hidden";
 
   if (mobileBackHref) {
     return (
@@ -570,8 +549,7 @@ function PlottyMobileBackButton({ mobileBackHref }: { mobileBackHref?: string })
         className={iconButtonClassName({
           size: "md",
           variant: "secondary",
-          className:
-            "fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(251,247,242,0.96)] backdrop-blur-xl lg:hidden",
+          className,
         })}
       >
         <span aria-hidden="true">←</span>
@@ -580,11 +558,7 @@ function PlottyMobileBackButton({ mobileBackHref }: { mobileBackHref?: string })
   }
 
   return (
-    <IconButton
-      aria-label="Назад"
-      onClick={() => router.back()}
-      className="fixed left-4 top-[calc(0.8rem+env(safe-area-inset-top))] z-[55] rounded-full bg-[rgba(251,247,242,0.96)] backdrop-blur-xl lg:hidden"
-    >
+    <IconButton aria-label="Назад" onClick={() => router.back()} className={className}>
       <span aria-hidden="true">←</span>
     </IconButton>
   );
@@ -646,7 +620,7 @@ function GlobalSearch({ className }: { className?: string }) {
   return (
     <form
       className={cn(
-        "items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] px-4 py-2.5 shadow-[0_10px_28px_rgba(58,43,27,0.05)]",
+        "plotty-search-shell items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] px-4 py-2.5 shadow-[0_10px_28px_rgba(58,43,27,0.05)]",
         className,
       )}
       role="search"
@@ -658,7 +632,7 @@ function GlobalSearch({ className }: { className?: string }) {
         onChange={(event) => setDraft(event.target.value)}
         aria-label="Глобальный поиск по названию истории"
         placeholder="Поиск по названию истории"
-        className="min-h-8 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="min-h-8 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus:border-transparent focus:shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </form>
   );

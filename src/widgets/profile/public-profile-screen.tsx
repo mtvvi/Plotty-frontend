@@ -194,11 +194,11 @@ export function PublicProfileScreen({ username }: { username: string }) {
   return (
     <PlottyPageShell suppressPageIntro menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
       <div className="space-y-5">
-        <PlottySectionCard className="overflow-hidden p-0">
+        <PlottySectionCard className="plotty-panel-enter overflow-hidden p-0">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
             <div className="space-y-5 p-5 sm:p-6 lg:p-7">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
+              <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="plotty-kicker">{isOwnProfile ? "Мой профиль" : "Профиль"}</div>
                   <h1 className="plotty-page-title">{profile.username}</h1>
@@ -308,6 +308,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
           <PlottySectionCard
             title={<ProfileTitle icon={<CreativityIcon className="size-5" />}>Творчество</ProfileTitle>}
             description={isOwnProfile ? "Ваши работы" : "Публичный список опубликованных работ автора."}
+            className="plotty-tab-panel-enter"
           >
             {(isOwnProfile ? ownStories.isLoading : publicStoriesQuery.isLoading) ? (
               <div className="space-y-3">
@@ -315,14 +316,15 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 <div className="h-44 rounded-[22px] bg-white/50" />
               </div>
             ) : stories.length ? (
-              <div className="space-y-4">
+              <div className="plotty-stagger space-y-4">
                 {stories.map((story) => (
-                  <StoryCard
-                    key={story.id}
-                    story={story}
-                    showShelfControl
-                    showChapterActions={false}
-                  />
+                  <div key={story.id} className="plotty-stagger-item">
+                    <StoryCard
+                      story={story}
+                      showShelfControl
+                      showChapterActions={false}
+                    />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -340,6 +342,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
             <PlottySectionCard
               title={<ProfileTitle icon={<PublicCollectionsIcon className="size-5" />}>Публичные подборки</ProfileTitle>}
               description="Подборки, которыми пользователь хочет поделиться"
+              className="plotty-tab-panel-enter"
             >
               {collectionsQuery.isLoading ? (
                 <div className="grid gap-3 md:grid-cols-2">
@@ -352,7 +355,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                     <Link
                       key={collection.id}
                       href={routes.userCollection(profile.username, collection.id)}
-                      className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4 transition-[background-color,transform] hover:-translate-y-[1px] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                      className="plotty-lift-panel rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4 transition-[background-color,transform] hover:-translate-y-[1px] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
                     >
                       <div className="space-y-2">
                         <div className="plotty-card-title text-[1.2rem]">{collection.title}</div>
@@ -376,7 +379,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
         ) : null}
 
         {activeTab === "library" && isOwnProfile ? (
-          <PlottySectionCard title={<ProfileTitle icon={<OpenBookIcon className="size-5" />}>Моя полка</ProfileTitle>}>
+          <PlottySectionCard title={<ProfileTitle icon={<OpenBookIcon className="size-5" />}>Моя полка</ProfileTitle>} className="plotty-tab-panel-enter">
               <div className="mb-4 flex flex-wrap gap-2">
                 <TabButton type="button" isActive={libraryTab === "all"} onClick={() => setLibraryTab("all")}>
                   Все
@@ -393,9 +396,9 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   <div className="h-44 rounded-[22px] bg-white/50" />
                 </div>
               ) : visibleShelfEntries.length ? (
-                <div className="space-y-4">
+                <div className="plotty-stagger space-y-4">
                   {visibleShelfEntries.map((entry) => (
-                    <div key={`${entry.storyId}-${entry.shelf}`} className="space-y-2">
+                    <div key={`${entry.storyId}-${entry.shelf}`} className="plotty-stagger-item space-y-2">
                       <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]}`}</div>
                       <StoryCard story={entry.story} showChapterActions={false} />
                     </div>
@@ -428,13 +431,13 @@ export function ProfileAvatar({
       <img
         src={avatarUrl}
         alt={`Аватар ${username}`}
-        className={`${className} shrink-0 rounded-[var(--plotty-radius-md)] border border-[rgba(41,38,34,0.08)] object-cover`}
+        className={`${className} shrink-0 rounded-[var(--plotty-radius-md)] border border-[rgba(41,38,34,0.08)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(58,43,27,0.12)]`}
       />
     );
   }
 
   return (
-    <div className={`${className} flex shrink-0 items-center justify-center rounded-[var(--plotty-radius-md)] bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)]`}>
+    <div className={`${className} flex shrink-0 items-center justify-center rounded-[var(--plotty-radius-md)] bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)] transition-[box-shadow,transform] duration-[var(--motion-base)] hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(58,43,27,0.12)]`}>
       {username.slice(0, 1).toUpperCase()}
     </div>
   );
@@ -451,7 +454,7 @@ function ProfileTitle({ icon, children }: { icon: ReactNode; children: ReactNode
 
 function ProfileStat({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
-    <div className="rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/70 p-4">
+    <div className="plotty-lift-panel rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/70 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-2xl font-bold text-[var(--plotty-ink)]">{value.toLocaleString("ru-RU")}</div>

@@ -14,6 +14,7 @@ import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
+import { StoryRevealButtonLink } from "@/shared/ui/story-reveal-transition";
 
 import { StoryCoverPreview } from "./story-cover-preview";
 import { StoryCollectionControl } from "./story-collection-control";
@@ -140,10 +141,18 @@ export function StoryCard({
           />
           <div className="grid gap-2 pt-1 md:hidden">
             <div className={showChapterActions ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
-              <ButtonLink href={readHref} variant="primary" size="sm" className="w-full" aria-label="Читать историю">
+              <StoryRevealButtonLink
+                href={readHref}
+                variant="primary"
+                size="sm"
+                className="w-full"
+                aria-label="Читать историю"
+                revealTitle={story.title}
+                revealCoverUrl={displayCoverImage}
+              >
                 <BookOpen className="size-4" aria-hidden="true" />
                 Читать
-              </ButtonLink>
+              </StoryRevealButtonLink>
               {showChapterActions ? (
                 <ButtonLink href={chaptersHref} variant="secondary" size="sm" className="w-full" aria-label="Открыть главы">
                   <List className="size-4" aria-hidden="true" />
@@ -158,7 +167,7 @@ export function StoryCard({
                 disabled={likeMutation.isPending}
                 variant={viewerHasLiked ? "primary" : "secondary"}
                 size="sm"
-                className="w-full"
+                className="plotty-like-pop w-full"
                 aria-pressed={viewerHasLiked}
                 aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
               >
@@ -183,12 +192,18 @@ export function StoryCard({
 
         <aside
           aria-label="Действия карточки"
-          className="hidden min-w-0 content-start gap-3 overflow-hidden border-t border-[var(--plotty-line)] bg-[rgba(245,238,229,0.48)] p-4 md:grid md:border-l md:border-t-0 lg:p-5"
+          className="plotty-action-zone hidden min-w-0 content-start gap-3 overflow-hidden border-t border-[var(--plotty-line)] bg-[rgba(245,238,229,0.48)] p-4 md:grid md:border-l md:border-t-0 lg:p-5"
         >
-          <ButtonLink href={readHref} variant="primary" className="min-w-0 w-full">
+          <StoryRevealButtonLink
+            href={readHref}
+            variant="primary"
+            className="min-w-0 w-full"
+            revealTitle={story.title}
+            revealCoverUrl={displayCoverImage}
+          >
             <BookOpen className="size-4" aria-hidden="true" />
             Читать
-          </ButtonLink>
+          </StoryRevealButtonLink>
           {showChapterActions ? (
             <ButtonLink href={chaptersHref} variant="secondary" className="min-w-0 w-full">
               <List className="size-4" aria-hidden="true" />
@@ -202,7 +217,7 @@ export function StoryCard({
               disabled={likeMutation.isPending}
               variant={viewerHasLiked ? "primary" : "secondary"}
               size="sm"
-              className="w-full"
+              className="plotty-like-pop w-full"
               aria-pressed={viewerHasLiked}
               aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
             >

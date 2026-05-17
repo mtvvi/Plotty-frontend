@@ -65,6 +65,7 @@ function ReaderLibraryContent() {
         <PlottySectionCard
           title={activeTab === "all" ? "Вся полка" : readerShelfLabels[activeTab]}
           description={`${visibleEntries.length} ${getStoryLabel(visibleEntries.length)}`}
+          className="plotty-tab-panel-enter"
         >
           {shelfQuery.isLoading ? (
             <div className="space-y-3">
@@ -72,9 +73,9 @@ function ReaderLibraryContent() {
               <div className="h-44 rounded-[22px] bg-white/50" />
             </div>
           ) : visibleEntries.length ? (
-            <div className="space-y-4">
+            <div className="plotty-stagger space-y-4">
               {visibleEntries.map((entry) => (
-                <div key={`${entry.storyId}-${entry.shelf}`} className="space-y-2">
+                <div key={`${entry.storyId}-${entry.shelf}`} className="plotty-stagger-item space-y-2">
                   <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]} · обновлен ${new Date(entry.updatedAt).toLocaleDateString("ru-RU")}`}</div>
                   <StoryCard story={entry.story} showChapterActions={false} />
                 </div>
