@@ -20,6 +20,11 @@ import { resetViewerSessionCache } from "./viewer-session-cache";
 
 type AuthMode = "login" | "register";
 
+const authFallbackMessages: Record<AuthMode, string> = {
+  login: "Не удалось войти. Проверьте email и пароль и попробуйте ещё раз.",
+  register: "Не удалось создать аккаунт. Проверьте данные и попробуйте ещё раз.",
+};
+
 function getMode(searchParams: URLSearchParams): AuthMode {
   return searchParams.get("mode") === "register" ? "register" : "login";
 }
@@ -63,12 +68,17 @@ export function AuthScreen() {
 
       const payload = typeof error.data === "object" && error.data ? error.data : undefined;
       const validationMap = (payload?.errors ?? []).reduce<Record<string, string>>((acc, item: ApiFieldError) => {
-        acc[item.field] = item.message;
+        const fieldKey = normalizeAuthFieldKey(item.field);
+
+        if (fieldKey) {
+          acc[fieldKey] = item.message;
+        }
+
         return acc;
       }, {});
 
       setFieldErrors(validationMap);
-      setGeneralError(payload?.error ?? error.message);
+      setGeneralError(getAuthErrorMessage(error, mode));
     },
   });
 
@@ -165,6 +175,7 @@ export function AuthScreen() {
                 onChange={(event) => setValues((current) => ({ ...current, confirm_password: event.target.value }))}
                 placeholder="Повторите пароль"
               />
+              {fieldErrors.ConfirmPassword ? <FieldError>{fieldErrors.ConfirmPassword}</FieldError> : null}
             </Field>
           ) : null}
 
@@ -190,4 +201,45 @@ export function AuthScreen() {
       </PlottySectionCard>
     </PlottyPageShell>
   );
+}
+
+function normalizeAuthFieldKey(field: string) {
+  const normalized = field.replace(/[\s_-]/g, "").toLowerCase();
+
+  if (normalized === "email") {
+    return "Email";
+  }
+
+  if (normalized === "password") {
+    return "Password";
+  }
+
+  if (normalized === "confirmpassword" || normalized === "passwordconfirmation") {
+    return "ConfirmPassword";
+  }
+
+  return field;
+}
+
+function getAuthErrorMessage(error: { message: string; status: number }, mode: AuthMode) {
+  const message = error.message.trim();
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("invalid email") || normalized.includes("invalid password")) {
+    return "Неверный email или пароль.";
+  }
+
+  if (normalized.includes("already") && normalized.includes("exist")) {
+    return "Пользователь с таким email уже зарегистрирован.";
+  }
+
+  if (normalized.includes("password") && normalized.includes("match")) {
+    return "Пароли не совпадают.";
+  }
+
+  if (/^request failed:/i.test(message) || [400, 409, 422].includes(error.status)) {
+    return authFallbackMessages[mode];
+  }
+
+  return message || authFallbackMessages[mode];
 }

@@ -40,7 +40,7 @@ function ReaderLibraryContent() {
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       <div className="space-y-5">
-        <SegmentedControl className="w-full flex-wrap overflow-visible sm:w-auto">
+        <SegmentedControl layout="mobileGrid">
           <TabButton
             type="button"
             className="min-w-0 text-center leading-tight"

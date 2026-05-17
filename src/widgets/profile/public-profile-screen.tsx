@@ -339,7 +339,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
           ) : (
             <PlottySectionCard
               title={<ProfileTitle icon={<PublicCollectionsIcon className="size-5" />}>Публичные подборки</ProfileTitle>}
-              description="Подборки, которыми пользователь поделился с читателями."
+              description="Подборки, которыми пользователь хочет поделиться"
             >
               {collectionsQuery.isLoading ? (
                 <div className="grid gap-3 md:grid-cols-2">
@@ -369,7 +369,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   ))}
                 </div>
               ) : (
-                <EmptyState title="Публичных подборок пока нет" description="Приватные статусы чтения в чужом профиле не показываются." />
+                <EmptyState title="Публичных подборок пока нет" />
               )}
             </PlottySectionCard>
           )

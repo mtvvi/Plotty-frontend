@@ -6,8 +6,17 @@ interface TabButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isActive?: boolean;
 }
 
-export function SegmentedControl({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("plotty-segmented", className)} {...props} />;
+interface SegmentedControlProps extends HTMLAttributes<HTMLDivElement> {
+  layout?: "inline" | "mobileGrid";
+}
+
+export function SegmentedControl({ className, layout = "inline", ...props }: SegmentedControlProps) {
+  return (
+    <div
+      className={cn("plotty-segmented", layout === "mobileGrid" && "plotty-segmented-mobile-grid", className)}
+      {...props}
+    />
+  );
 }
 
 export function TabButton({ className, isActive, ...props }: TabButtonProps) {

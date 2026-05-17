@@ -25,6 +25,8 @@ export interface ApiFieldError {
 
 export interface ApiErrorPayload {
   error?: string;
+  message?: string;
+  detail?: unknown;
   code?: string;
   errors?: ApiFieldError[];
 }
@@ -82,15 +84,53 @@ async function readErrorPayload(response: Response) {
 }
 
 function getErrorMessage(status: number, payload?: ApiErrorPayload | string) {
-  if (typeof payload === "string" && payload.trim()) {
-    return payload;
-  }
+  const payloadMessage = getPayloadMessage(payload);
 
-  if (payload && typeof payload === "object" && "error" in payload && payload.error) {
-    return payload.error;
+  if (payloadMessage) {
+    return payloadMessage;
   }
 
   return `Request failed: ${status}`;
+}
+
+function getPayloadMessage(value: unknown, depth = 0): string | undefined {
+  if (depth > 3) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    return trimmed || undefined;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const message = getPayloadMessage(item, depth + 1);
+
+      if (message) {
+        return message;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const payload = value as Record<string, unknown>;
+
+  for (const key of ["error", "message", "detail", "msg"]) {
+    const message = getPayloadMessage(payload[key], depth + 1);
+
+    if (message) {
+      return message;
+    }
+  }
+
+  return undefined;
 }
 
 export async function fetchJson<T>(input: string, init?: RequestInit) {

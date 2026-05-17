@@ -48,13 +48,14 @@ type AppliedSpellcheckFix = {
 type StoredSpellcheckState = {
   appliedFixes: AppliedSpellcheckFix[];
   contentHash: string;
+  dismissedIssueKeys: string[];
   result: SpellcheckResult;
   savedAt: number;
-  version: 1;
+  version: 1 | 2;
 };
 
 const SPELLCHECK_STORAGE_PREFIX = "plotty:chapter-spellcheck:";
-const SPELLCHECK_STORAGE_VERSION = 1;
+const SPELLCHECK_STORAGE_VERSION = 2;
 
 function getSpellcheckIssueKey(issue: SpellcheckIssue) {
   return `${issue.startOffset}-${issue.endOffset}-${issue.fragmentText}-${issue.suggestion}`;
@@ -79,6 +80,7 @@ export function StoryEditorScreen({
   const [aiCreditError, setAiCreditError] = useState("");
   const [isPreparingCanonCheck, setIsPreparingCanonCheck] = useState(false);
   const [appliedSpellcheckFixes, setAppliedSpellcheckFixes] = useState<AppliedSpellcheckFix[]>([]);
+  const [dismissedSpellcheckIssueKeys, setDismissedSpellcheckIssueKeys] = useState<string[]>([]);
   const [storedSpellcheckState, setStoredSpellcheckState] = useState<StoredSpellcheckState | null>(null);
   const [spellcheckContentSnapshot, setSpellcheckContentSnapshot] = useState("");
 
@@ -101,6 +103,7 @@ export function StoryEditorScreen({
     setAiCreditError("");
     setIsPreparingCanonCheck(false);
     setAppliedSpellcheckFixes([]);
+    setDismissedSpellcheckIssueKeys([]);
     setStoredSpellcheckState(null);
     setSpellcheckContentSnapshot("");
   }, [chapterId]);
@@ -111,6 +114,7 @@ export function StoryEditorScreen({
 
     setStoredSpellcheckState(stored);
     setAppliedSpellcheckFixes(getStoredAppliedFixesForContent(stored, content));
+    setDismissedSpellcheckIssueKeys(getStoredDismissedIssueKeysForContent(stored, content));
   }, [chapterId, chapterQuery.data]);
 
   useEffect(() => {
@@ -119,6 +123,7 @@ export function StoryEditorScreen({
 
       setStoredSpellcheckState(stored);
       setAppliedSpellcheckFixes(getStoredAppliedFixesForContent(stored, values.chapterContent));
+      setDismissedSpellcheckIssueKeys(getStoredDismissedIssueKeysForContent(stored, values.chapterContent));
     }
 
     function handleStorage(event: StorageEvent) {
@@ -212,11 +217,13 @@ export function StoryEditorScreen({
       appliedFixes: [],
       chapterId,
       content: spellcheckContentSnapshot || values.chapterContent,
+      dismissedIssueKeys: [],
       result: latestSpellcheckResult,
     });
 
     setStoredSpellcheckState(stored);
     setAppliedSpellcheckFixes([]);
+    setDismissedSpellcheckIssueKeys([]);
   }, [chapterId, latestSpellcheckResult, spellcheckContentSnapshot, values.chapterContent]);
 
   const spellcheckHighlights = useMemo(
@@ -225,12 +232,13 @@ export function StoryEditorScreen({
         values.chapterContent,
         activeSpellcheckResult?.items ?? [],
         appliedSpellcheckFixes,
+        dismissedSpellcheckIssueKeys,
       ),
-    [activeSpellcheckResult?.items, appliedSpellcheckFixes, values.chapterContent],
+    [activeSpellcheckResult?.items, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys, values.chapterContent],
   );
   const visibleSpellcheckResult = useMemo(
-    () => getVisibleSpellcheckResult(activeSpellcheckResult, appliedSpellcheckFixes),
-    [activeSpellcheckResult, appliedSpellcheckFixes],
+    () => getVisibleSpellcheckResult(activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys),
+    [activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys],
   );
   const publishedTitle =
     chapterQuery.data?.publishedTitle ??
@@ -342,6 +350,7 @@ export function StoryEditorScreen({
       });
 
       setAppliedSpellcheckFixes([]);
+      setDismissedSpellcheckIssueKeys([]);
       setSpellcheckContentSnapshot(contentSnapshot);
       setSpellcheckJobId(accepted.jobId);
       await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
@@ -404,6 +413,7 @@ export function StoryEditorScreen({
           appliedFixes: nextFixes,
           chapterId,
           content: nextContent,
+          dismissedIssueKeys: dismissedSpellcheckIssueKeys,
           result: activeSpellcheckResult,
         });
 
@@ -414,6 +424,36 @@ export function StoryEditorScreen({
     });
 
     return true;
+  }
+
+  function handleDismissSpellcheckIssue(issue: SpellcheckIssue) {
+    const issueKey = getSpellcheckIssueKey(issue);
+
+    if (appliedSpellcheckFixes.some((fix) => fix.key === issueKey)) {
+      return;
+    }
+
+    setDismissedSpellcheckIssueKeys((current) => {
+      if (current.includes(issueKey)) {
+        return current;
+      }
+
+      const nextIssueKeys = [...current, issueKey];
+
+      if (activeSpellcheckResult) {
+        const stored = writeStoredSpellcheckState({
+          appliedFixes: appliedSpellcheckFixes,
+          chapterId,
+          content: values.chapterContent,
+          dismissedIssueKeys: nextIssueKeys,
+          result: activeSpellcheckResult,
+        });
+
+        setStoredSpellcheckState(stored);
+      }
+
+      return nextIssueKeys;
+    });
   }
 
   async function handleLogicCheck() {
@@ -601,6 +641,7 @@ export function StoryEditorScreen({
         onLogicCheck={handleLogicCheck}
         onCanonCheck={handleCanonCheck}
         onApplySpellcheckIssue={handleApplySpellcheckIssue}
+        onDismissSpellcheckIssue={handleDismissSpellcheckIssue}
       />
     </PlottyShell>
   );
@@ -618,13 +659,15 @@ function buildSpellcheckHighlights(
   content: string,
   issues: SpellcheckIssue[],
   appliedFixes: AppliedSpellcheckFix[],
+  dismissedIssueKeys: string[] = [],
 ): HighlightRange<SpellcheckIssue>[] {
   const appliedIssueKeys = new Set(appliedFixes.map((fix) => fix.key));
+  const dismissedIssueKeySet = new Set(dismissedIssueKeys);
 
   return issues.flatMap((issue) => {
     const issueKey = getSpellcheckIssueKey(issue);
 
-    if (appliedIssueKeys.has(issueKey)) {
+    if (appliedIssueKeys.has(issueKey) || dismissedIssueKeySet.has(issueKey)) {
       return [];
     }
 
@@ -697,13 +740,14 @@ function getAdjustedSpellcheckOffsets(
 function getVisibleSpellcheckResult(
   result: SpellcheckResult | undefined,
   appliedFixes: AppliedSpellcheckFix[],
+  dismissedIssueKeys: string[] = [],
 ): SpellcheckResult | undefined {
   if (!result) {
     return undefined;
   }
 
-  const appliedIssueKeys = new Set(appliedFixes.map((fix) => fix.key));
-  const items = result.items.filter((issue) => !appliedIssueKeys.has(getSpellcheckIssueKey(issue)));
+  const hiddenIssueKeys = new Set([...appliedFixes.map((fix) => fix.key), ...dismissedIssueKeys]);
+  const items = result.items.filter((issue) => !hiddenIssueKeys.has(getSpellcheckIssueKey(issue)));
 
   if (items.length === result.items.length) {
     return result;
@@ -712,7 +756,11 @@ function getVisibleSpellcheckResult(
   return {
     ...result,
     items,
-    summary: items.length ? result.summary : "Все найденные замечания исправлены.",
+    summary: items.length
+      ? result.summary
+      : dismissedIssueKeys.length
+        ? "Все найденные замечания обработаны."
+        : "Все найденные замечания исправлены.",
   };
 }
 
@@ -742,7 +790,12 @@ function readStoredSpellcheckState(chapterId: string): StoredSpellcheckState | n
       return null;
     }
 
-    return parsed;
+    return {
+      ...parsed,
+      dismissedIssueKeys: Array.isArray(parsed.dismissedIssueKeys)
+        ? parsed.dismissedIssueKeys.filter((item): item is string => typeof item === "string")
+        : [],
+    };
   } catch {
     return null;
   }
@@ -752,16 +805,19 @@ function writeStoredSpellcheckState({
   appliedFixes,
   chapterId,
   content,
+  dismissedIssueKeys,
   result,
 }: {
   appliedFixes: AppliedSpellcheckFix[];
   chapterId: string;
   content: string;
+  dismissedIssueKeys: string[];
   result: SpellcheckResult;
 }) {
   const stored: StoredSpellcheckState = {
     appliedFixes,
     contentHash: hashText(normalizeEditorText(content)),
+    dismissedIssueKeys,
     result,
     savedAt: Date.now(),
     version: SPELLCHECK_STORAGE_VERSION,
@@ -788,14 +844,23 @@ function getStoredAppliedFixesForContent(stored: StoredSpellcheckState | null, c
   return stored.appliedFixes;
 }
 
+function getStoredDismissedIssueKeysForContent(stored: StoredSpellcheckState | null, content: string) {
+  if (!stored || stored.contentHash !== hashText(normalizeEditorText(content))) {
+    return [];
+  }
+
+  return stored.dismissedIssueKeys;
+}
+
 function isStoredSpellcheckState(value: Partial<StoredSpellcheckState>): value is StoredSpellcheckState {
   return (
-    value.version === SPELLCHECK_STORAGE_VERSION &&
+    (value.version === 1 || value.version === SPELLCHECK_STORAGE_VERSION) &&
     typeof value.savedAt === "number" &&
     typeof value.contentHash === "string" &&
     Boolean(value.result) &&
     Array.isArray(value.result?.items) &&
-    Array.isArray(value.appliedFixes)
+    Array.isArray(value.appliedFixes) &&
+    (value.version === 1 || Array.isArray(value.dismissedIssueKeys))
   );
 }
 

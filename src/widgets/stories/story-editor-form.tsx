@@ -68,6 +68,7 @@ export interface StoryEditorFormProps {
   onLogicCheck: () => void;
   onCanonCheck: () => void;
   onApplySpellcheckIssue: (issue: SpellcheckIssue) => boolean;
+  onDismissSpellcheckIssue: (issue: SpellcheckIssue) => void;
 }
 
 export function StoryEditorForm({
@@ -104,15 +105,18 @@ export function StoryEditorForm({
   onLogicCheck,
   onCanonCheck,
   onApplySpellcheckIssue,
+  onDismissSpellcheckIssue,
 }: StoryEditorFormProps) {
   const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
   const previousChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : undefined;
   const nextChapter =
     currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1 ? chapters[currentChapterIndex + 1] : undefined;
   const popoverContentRef = useRef<HTMLDivElement | null>(null);
+  const suppressedSpellcheckIssueIdRef = useRef("");
   const [activeSpellcheckIssueId, setActiveSpellcheckIssueId] = useState("");
   const [highlightScrollKey, setHighlightScrollKey] = useState(0);
   const [unresolvedSpellcheckIssueId, setUnresolvedSpellcheckIssueId] = useState("");
+  const [suppressedSpellcheckIssueId, setSuppressedSpellcheckIssueId] = useState("");
   const [spellcheckPopover, setSpellcheckPopover] = useState<{
     issue: SpellcheckIssue;
     position: PopoverPosition;
@@ -131,7 +135,23 @@ export function StoryEditorForm({
     return map;
   }, [spellcheckHighlights]);
 
-  const handleActiveHighlightAnchorChange = useCallback(
+  const suppressSpellcheckIssue = useCallback((issueId: string) => {
+    suppressedSpellcheckIssueIdRef.current = issueId;
+    setSuppressedSpellcheckIssueId(issueId);
+  }, []);
+
+  const closeSpellcheckPopover = useCallback((issueId?: string) => {
+    const nextSuppressedIssueId = issueId ?? activeSpellcheckIssueId;
+
+    if (nextSuppressedIssueId) {
+      suppressSpellcheckIssue(nextSuppressedIssueId);
+    }
+
+    setSpellcheckPopover(null);
+    setActiveSpellcheckIssueId("");
+  }, [activeSpellcheckIssueId, suppressSpellcheckIssue]);
+
+  const showSpellcheckPopover = useCallback(
     (range: HighlightRange<SpellcheckIssue>, anchorRect: DOMRect) => {
       if (!range.id || !range.data) {
         return;
@@ -147,10 +167,27 @@ export function StoryEditorForm({
     [],
   );
 
-  const handleActiveHighlightHidden = useCallback(() => {
-    setSpellcheckPopover(null);
-    setActiveSpellcheckIssueId("");
-  }, []);
+  const handleActiveHighlightAnchorChange = useCallback(
+    (range: HighlightRange<SpellcheckIssue>, anchorRect: DOMRect) => {
+      if (range.id && (range.id === suppressedSpellcheckIssueId || range.id === suppressedSpellcheckIssueIdRef.current)) {
+        return;
+      }
+
+      showSpellcheckPopover(range, anchorRect);
+    },
+    [showSpellcheckPopover, suppressedSpellcheckIssueId],
+  );
+
+  const handleHighlightClick = useCallback(
+    (range: HighlightRange<SpellcheckIssue>, anchorRect: DOMRect) => {
+      suppressedSpellcheckIssueIdRef.current = "";
+      setSuppressedSpellcheckIssueId("");
+      showSpellcheckPopover(range, anchorRect);
+    },
+    [showSpellcheckPopover],
+  );
+
+  const handleActiveHighlightHidden = closeSpellcheckPopover;
 
   function update<K extends keyof StoryEditorValues>(key: K, value: StoryEditorValues[K]) {
     onChange({
@@ -170,6 +207,8 @@ export function StoryEditorForm({
       return;
     }
 
+    suppressedSpellcheckIssueIdRef.current = "";
+    setSuppressedSpellcheckIssueId("");
     setActiveSpellcheckIssueId(issueId);
     setUnresolvedSpellcheckIssueId("");
     setHighlightScrollKey((current) => current + 1);
@@ -184,8 +223,13 @@ export function StoryEditorForm({
       return;
     }
 
-    setSpellcheckPopover(null);
-    setActiveSpellcheckIssueId("");
+    closeSpellcheckPopover();
+    setUnresolvedSpellcheckIssueId("");
+  }
+
+  function dismissSpellcheckIssue(issue: SpellcheckIssue) {
+    onDismissSpellcheckIssue(issue);
+    closeSpellcheckPopover();
     setUnresolvedSpellcheckIssueId("");
   }
 
@@ -201,17 +245,19 @@ export function StoryEditorForm({
       return;
     }
 
+    const spellcheckIssueId = getSpellcheckIssueKey(spellcheckPopover.issue);
+
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
 
       if (!popoverContentRef.current?.contains(target)) {
-        setSpellcheckPopover(null);
+        closeSpellcheckPopover(spellcheckIssueId);
       }
     }
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setSpellcheckPopover(null);
+        closeSpellcheckPopover(spellcheckIssueId);
       }
     }
 
@@ -222,7 +268,7 @@ export function StoryEditorForm({
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [spellcheckPopover]);
+  }, [closeSpellcheckPopover, spellcheckPopover]);
 
   return (
     <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -283,7 +329,7 @@ export function StoryEditorForm({
                   highlightRanges={spellcheckHighlights}
                   onActiveHighlightAnchorChange={handleActiveHighlightAnchorChange}
                   onActiveHighlightHidden={handleActiveHighlightHidden}
-                  onHighlightClick={handleActiveHighlightAnchorChange}
+                  onHighlightClick={handleHighlightClick}
                 />
               </Field>
             </div>
@@ -411,14 +457,24 @@ export function StoryEditorForm({
                             </div>
                           </button>
                           <div className="pt-2">
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => applySpellcheckIssue(issue)}
-                            >
-                              Исправить
-                            </Button>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => applySpellcheckIssue(issue)}
+                              >
+                                Исправить
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => dismissSpellcheckIssue(issue)}
+                              >
+                                Оставить как есть
+                              </Button>
+                            </div>
                           </div>
                         </Surface>
                       );
@@ -433,7 +489,8 @@ export function StoryEditorForm({
                   contentRef={popoverContentRef}
                   isMobile={isMobileCorrectionOverlay}
                   onApply={applySpellcheckIssue}
-                  onClose={() => setSpellcheckPopover(null)}
+                  onDismiss={dismissSpellcheckIssue}
+                  onClose={closeSpellcheckPopover}
                   popover={spellcheckPopover}
                 />
               </div>
@@ -569,12 +626,14 @@ function SpellcheckIssueOverlay({
   contentRef,
   isMobile,
   onApply,
+  onDismiss,
   onClose,
   popover,
 }: {
   contentRef: RefObject<HTMLDivElement | null>;
   isMobile: boolean;
   onApply: (issue: SpellcheckIssue) => void;
+  onDismiss: (issue: SpellcheckIssue) => void;
   onClose: () => void;
   popover: { issue: SpellcheckIssue; position: PopoverPosition } | null;
 }) {
@@ -583,7 +642,15 @@ function SpellcheckIssueOverlay({
   }
 
   if (isMobile) {
-    return <SpellcheckIssueBottomSheet contentRef={contentRef} issue={popover.issue} onApply={onApply} onClose={onClose} />;
+    return (
+      <SpellcheckIssueBottomSheet
+        contentRef={contentRef}
+        issue={popover.issue}
+        onApply={onApply}
+        onDismiss={onDismiss}
+        onClose={onClose}
+      />
+    );
   }
 
   return (
@@ -593,7 +660,7 @@ function SpellcheckIssueOverlay({
       position={popover.position}
       className="rounded-[var(--plotty-radius-lg)] p-4"
     >
-      <SpellcheckIssueContent issue={popover.issue} onApply={onApply} />
+      <SpellcheckIssueContent issue={popover.issue} onApply={onApply} onDismiss={onDismiss} />
     </PopoverContent>
   );
 }
@@ -602,11 +669,13 @@ function SpellcheckIssueBottomSheet({
   contentRef,
   issue,
   onApply,
+  onDismiss,
   onClose,
 }: {
   contentRef: RefObject<HTMLDivElement | null>;
   issue: SpellcheckIssue;
   onApply: (issue: SpellcheckIssue) => void;
+  onDismiss: (issue: SpellcheckIssue) => void;
   onClose: () => void;
 }) {
   if (typeof document === "undefined") {
@@ -635,7 +704,7 @@ function SpellcheckIssueBottomSheet({
             Закрыть
           </Button>
         </div>
-        <SpellcheckIssueContent issue={issue} onApply={onApply} />
+        <SpellcheckIssueContent issue={issue} onApply={onApply} onDismiss={onDismiss} />
       </div>
     </div>,
     document.body,
@@ -645,9 +714,11 @@ function SpellcheckIssueBottomSheet({
 function SpellcheckIssueContent({
   issue,
   onApply,
+  onDismiss,
 }: {
   issue: SpellcheckIssue;
   onApply: (issue: SpellcheckIssue) => void;
+  onDismiss: (issue: SpellcheckIssue) => void;
 }) {
   return (
     <div className="min-w-0 space-y-3">
@@ -656,9 +727,14 @@ function SpellcheckIssueContent({
         <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
         <div className="break-words text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
       </div>
-      <Button type="button" variant="secondary" size="sm" onClick={() => onApply(issue)}>
-        Исправить
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" size="sm" onClick={() => onApply(issue)}>
+          Исправить
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => onDismiss(issue)}>
+          Оставить как есть
+        </Button>
+      </div>
     </div>
   );
 }

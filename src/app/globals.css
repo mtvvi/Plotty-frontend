@@ -283,6 +283,22 @@ select {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
+.plotty-segmented-mobile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  width: 100%;
+}
+
+.plotty-segmented-mobile-grid > * {
+  justify-content: center;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding-inline: 0.5rem;
+  text-align: center;
+  white-space: normal;
+}
+
 .plotty-label {
   font-size: 0.875rem;
   font-weight: 650;
@@ -338,6 +354,26 @@ select {
     margin-bottom: 0;
     border: 0;
     border-radius: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .plotty-segmented-mobile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 640px) {
+  .plotty-segmented-mobile-grid {
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+  }
+
+  .plotty-segmented-mobile-grid > * {
+    min-height: auto;
+    padding-inline: 1rem;
+    white-space: nowrap;
   }
 }
 

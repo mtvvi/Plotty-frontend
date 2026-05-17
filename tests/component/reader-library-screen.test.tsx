@@ -35,7 +35,7 @@ describe("ReaderLibraryScreen", () => {
     const allTab = await screen.findByRole("button", { name: "Все" });
     const statusTabs = allTab.parentElement;
 
-    expect(statusTabs).toHaveClass("flex-wrap");
+    expect(statusTabs).toHaveClass("plotty-segmented-mobile-grid");
     expect(statusTabs).not.toHaveClass("overflow-x-auto");
     expect(screen.getByRole("button", { name: "Прочитано" })).toBeInTheDocument();
   });
