@@ -402,7 +402,7 @@ function CatalogSearchField({
         onChange={(event) => onChange(event.target.value)}
         aria-label="Поиск по названию истории"
         placeholder="Поиск по названию истории"
-        className="min-h-[42px] border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="min-h-[42px] rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </Surface>
   );
@@ -493,11 +493,12 @@ function ActiveFilter({ label, onClear }: { label: string; onClear: () => void }
   return (
     <button
       type="button"
+      title={label}
       onClick={onClear}
-      className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[rgba(195,79,50,0.13)] bg-[var(--plotty-accent-wash)] px-3 text-sm font-semibold text-[var(--plotty-accent)] transition-colors hover:bg-[var(--plotty-accent-soft)]"
+      className="inline-flex min-h-9 max-w-full min-w-0 items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[rgba(195,79,50,0.13)] bg-[var(--plotty-accent-wash)] px-3 text-sm font-semibold text-[var(--plotty-accent)] transition-colors hover:bg-[var(--plotty-accent-soft)]"
     >
-      {label}
-      <X className="size-3.5" aria-hidden="true" />
+      <span className="min-w-0 max-w-xs truncate sm:max-w-md lg:max-w-2xl">{label}</span>
+      <X className="size-3.5 shrink-0" aria-hidden="true" />
     </button>
   );
 }

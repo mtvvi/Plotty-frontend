@@ -6,7 +6,6 @@ import {
   BookOpen,
   Feather,
   Library,
-  Menu,
   PenLine,
   Search,
   UserRound,
@@ -438,20 +437,15 @@ function PlottyPageShellFallback({
 
 export function PlottyAppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const useMinimalChrome = shouldUseMinimalPersistentChrome(pathname);
   const showBottomNav = !useMinimalChrome;
 
   return (
     <div className={cn("plotty-page-shell", showBottomNav ? "!pb-[calc(6.25rem+env(safe-area-inset-bottom))] lg:!pb-10" : "!pb-10")}>
       <section className="plotty-frame">
-        <PersistentPlottyHeader showDesktopActions={!useMinimalChrome} onMobileMenuOpen={() => setIsMobileMenuOpen(true)} />
+        <PersistentPlottyHeader showDesktopActions={!useMinimalChrome} />
 
         <PlottyChromeContext.Provider value={true}>{children}</PlottyChromeContext.Provider>
-
-        <PlottyMobileSheet open={isMobileMenuOpen} title="Меню" onClose={() => setIsMobileMenuOpen(false)}>
-          <PlottyAppMenu onNavigate={() => setIsMobileMenuOpen(false)} />
-        </PlottyMobileSheet>
       </section>
 
       {showBottomNav ? <PlottyBottomNav /> : null}
@@ -461,10 +455,8 @@ export function PlottyAppChrome({ children }: { children: ReactNode }) {
 
 function PersistentPlottyHeader({
   showDesktopActions,
-  onMobileMenuOpen,
 }: {
   showDesktopActions: boolean;
-  onMobileMenuOpen: () => void;
 }) {
   const pathname = usePathname();
   const activePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
@@ -520,12 +512,6 @@ function PersistentPlottyHeader({
               <DefaultDesktopActions profileIndicatorRef={(node) => setPrimaryNavItemRef("profile", node)} />
             </div>
           ) : null}
-
-          <div className="ml-auto flex items-center gap-2 lg:hidden">
-            <IconButton aria-label="Меню" onClick={onMobileMenuOpen} size="sm" variant="secondary">
-              <Menu className="size-5" aria-hidden="true" />
-            </IconButton>
-          </div>
           <span className="plotty-nav-indicator" style={primaryNavIndicatorStyle} aria-hidden="true" />
         </div>
       </div>
@@ -611,9 +597,13 @@ function GlobalSearch({ className }: { className?: string }) {
   const currentQuery = searchParams.get("q") ?? "";
   const [draft, setDraft] = useState(currentQuery);
   const isCatalog = pathname === routes.home;
+  const lastRequestedQueryRef = useRef(currentQuery);
 
   useEffect(() => {
-    setDraft(currentQuery);
+    if (currentQuery !== lastRequestedQueryRef.current) {
+      setDraft(currentQuery);
+      lastRequestedQueryRef.current = currentQuery;
+    }
   }, [currentQuery]);
 
   useEffect(() => {
@@ -624,6 +614,7 @@ function GlobalSearch({ className }: { className?: string }) {
     const timeoutId = window.setTimeout(() => {
       const nextParams = new URLSearchParams(searchParams);
       const normalized = draft.trim();
+      lastRequestedQueryRef.current = normalized;
 
       if (normalized) {
         nextParams.set("q", normalized);
@@ -643,6 +634,7 @@ function GlobalSearch({ className }: { className?: string }) {
 
     const normalized = draft.trim();
     const nextParams = new URLSearchParams();
+    lastRequestedQueryRef.current = normalized;
 
     if (normalized) {
       nextParams.set("q", normalized);
@@ -666,7 +658,7 @@ function GlobalSearch({ className }: { className?: string }) {
         onChange={(event) => setDraft(event.target.value)}
         aria-label="Глобальный поиск по названию истории"
         placeholder="Поиск по названию истории"
-        className="min-h-8 border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="min-h-8 rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </form>
   );
