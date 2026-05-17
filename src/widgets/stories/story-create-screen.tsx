@@ -90,6 +90,14 @@ export function StoryCreateScreen() {
     }
   }, [requestedStorySlug, selectedStorySlug, storiesQuery.data?.items]);
 
+  useEffect(() => {
+    if (!selectedStoryQuery.data || window.location.hash !== "#active-story") {
+      return;
+    }
+
+    document.getElementById("active-story")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedStoryQuery.data]);
+
   const selectedStoryDisplayCover = selectedStoryQuery.data?.coverImageUrl ?? selectedStoryFirstChapterQuery.data?.imageUrl;
   const selectedStoryDescription = selectedStoryQuery.data?.aiHint?.trim() ? selectedStoryQuery.data.aiHint : STORY_ANNOTATION_PLACEHOLDER;
   const selectedStoryLastChapter = selectedStoryQuery.data?.chapters.at(-1);
@@ -135,20 +143,22 @@ export function StoryCreateScreen() {
             </div>
           ) : storiesQuery.data?.items.length ? (
             <div className="space-y-3">
-              {storiesQuery.data.items.map((story) => {
-                const isSelected = selectedStorySlug === story.slug;
+              <div className="plotty-scroll-panel plotty-workshop-story-list space-y-3">
+                {storiesQuery.data.items.map((story) => {
+                  const isSelected = selectedStorySlug === story.slug;
 
-                return (
-                  <StorySidebarItem
-                    key={story.id}
-                    story={story}
-                    isSelected={isSelected}
-                    selectedStorySlug={selectedStorySlug}
-                    selectedStoryDisplayCover={selectedStoryDisplayCover}
-                    onSelect={setSelectedStorySlug}
-                  />
-                );
-              })}
+                  return (
+                    <StorySidebarItem
+                      key={story.id}
+                      story={story}
+                      isSelected={isSelected}
+                      selectedStorySlug={selectedStorySlug}
+                      selectedStoryDisplayCover={selectedStoryDisplayCover}
+                      onSelect={setSelectedStorySlug}
+                    />
+                  );
+                })}
+              </div>
 
               <ButtonLink href={routes.writeNew} variant="secondary" className="w-full border-dashed">
                 <Plus className="size-4" aria-hidden="true" />
@@ -165,7 +175,7 @@ export function StoryCreateScreen() {
           )}
         </ShellCard>
 
-        <ShellCard title={selectedStoryQuery.data?.title ?? "Выберите историю"}>
+        <ShellCard id="active-story" className="scroll-mt-28" title={selectedStoryQuery.data?.title ?? "Выберите историю"}>
           {selectedStoryQuery.isLoading ? (
             <div className="space-y-3">
               <div className="h-24 rounded-[var(--plotty-radius-md)] bg-white/40" />
@@ -173,14 +183,12 @@ export function StoryCreateScreen() {
             </div>
           ) : selectedStoryQuery.data ? (
             <div className="space-y-5">
-              <div className="grid gap-5 lg:grid-cols-[clamp(22rem,52%,38rem)_minmax(0,1fr)]">
+              <div className="grid gap-5">
                 <StoryCoverPreview
                   title={selectedStoryQuery.data.title}
                   imageUrl={selectedStoryDisplayCover}
                   compact
-                  className="h-full min-h-[18rem]"
-                  imageClassName="h-full"
-                  fullHeight
+                  className="lg:aspect-square"
                 />
                 <div className="space-y-4">
                   <div className="space-y-1.5">
@@ -216,11 +224,11 @@ export function StoryCreateScreen() {
                 </div>
 
                 {selectedStoryQuery.data.chapters.length ? (
-                  <div className="divide-y divide-[var(--plotty-line)] overflow-hidden rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.7)]">
+                  <div className="plotty-scroll-panel plotty-workshop-chapter-list divide-y divide-[var(--plotty-line)] rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.7)]">
                     {selectedStoryQuery.data.chapters.map((chapter) => (
                       <div
                         key={chapter.id}
-                        className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_8rem_13rem] lg:items-center"
+                        className="grid gap-3 px-4 py-3"
                       >
                         <div className="min-w-0">
                           <div className="font-semibold text-[var(--plotty-ink)]">
@@ -233,7 +241,7 @@ export function StoryCreateScreen() {
                         <span className={chapter.status === "draft" ? "plotty-meta" : "text-sm font-semibold text-[var(--plotty-olive)]"}>
                           {chapter.status === "draft" ? "Черновик" : "Опубликована"}
                         </span>
-                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                        <div className="flex flex-wrap gap-2">
                           <ButtonLink
                             href={
                               (chapter.status ?? "published") === "draft"

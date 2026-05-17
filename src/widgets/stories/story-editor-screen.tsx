@@ -1,6 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -586,7 +588,24 @@ export function StoryEditorScreen({
 
   return (
     <PlottyShell
-      title={values.chapterTitle || chapterQuery.data.title}
+      title={
+        chapterQuery.data.storySlug ? (
+          <>
+            <Link
+              href={`${routes.write}?story=${encodeURIComponent(chapterQuery.data.storySlug)}#active-story`}
+              className="plotty-story-title-anchor plotty-story-title-inline-anchor group text-[var(--plotty-ink)] transition-colors hover:text-[var(--plotty-accent)] focus-visible:text-[var(--plotty-accent)]"
+            >
+              <ArrowLeft className="size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
+              <span className="plotty-story-title-text text-[2rem]">
+                {chapterQuery.data.storyTitle ?? "История"}
+              </span>
+            </Link>
+            <span className="text-[2rem]">{` • Глава ${chapterQuery.data.number ?? "—"}`}</span>
+          </>
+        ) : (
+          values.chapterTitle || chapterQuery.data.title
+        )
+      }
       description={`Глава ${chapterQuery.data.number ?? "—"} истории ${chapterQuery.data.storyTitle ?? "без названия"}`}
     >
       <StoryEditorForm

@@ -140,7 +140,7 @@ export function AuthStatus({
       ref={profileIndicatorRef}
       href={profileHref}
       className={cn(
-        "plotty-button-label relative inline-flex min-h-[92px] items-center justify-start gap-3 rounded-[var(--plotty-radius-md)] px-2.5 py-1.5 pr-4 text-left text-[var(--plotty-ink)] transition-colors duration-150 ease-out hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+        "plotty-button-label relative inline-flex min-h-[86px] items-center justify-start gap-3 rounded-[var(--plotty-radius-md)] px-2.5 py-1.5 pr-4 text-left text-[var(--plotty-ink)] transition-colors duration-150 ease-out hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
         isProfileActive ? "text-[var(--plotty-accent)]" : null,
       )}
       aria-label={`Открыть профиль ${user.username}`}

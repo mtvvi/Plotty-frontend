@@ -62,8 +62,9 @@ export function ChapterReaderScreen({
     return readerChapters.find((chapter) => chapter.number === chapterNumberFromUrl)?.id ?? "";
   }, [chapterIdFromRoute, chapterNumberFromUrl, readerChapters]);
   const chapterMeta = storyQuery.data?.chapters.find((ch) => ch.id === chapterId);
+  const readerChapterMeta = readerChapters.find((ch) => ch.id === chapterId);
   const chapterPublished = (chapterMeta?.status ?? "published") === "published";
-  const displayChapterNumber = chapterMeta?.number ?? chapterNumberFromUrl;
+  const displayChapterNumber = readerChapterMeta?.number ?? chapterMeta?.number ?? chapterNumberFromUrl;
   const chapterQuery = useQuery(chapterDetailsQueryOptions(chapterId));
   const commentsQuery = useQuery({
     ...chapterCommentsQueryOptions(storyQuery.data?.id ?? "", chapterId),

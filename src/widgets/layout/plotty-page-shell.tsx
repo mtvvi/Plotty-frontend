@@ -350,9 +350,9 @@ function PlottyPageShellFallback({
       ) : null}
 
       <section className="plotty-frame">
-        <header className="sticky top-0 z-40 border-b border-[var(--plotty-line)] bg-[rgba(251,247,242,0.88)] backdrop-blur-xl">
+        <header className="plotty-header sticky top-0 z-40">
           <div className="plotty-frame-inner">
-            <div ref={primaryNavRef} className="relative flex min-h-[76px] items-center gap-3 lg:min-h-[92px] lg:gap-6">
+            <div ref={primaryNavRef} className="relative flex min-h-[76px] items-center gap-3 lg:min-h-[86px] lg:gap-5">
               <Link
                 href={routes.home}
                 className="plotty-logo inline-flex shrink-0 items-end gap-1 transition-opacity hover:opacity-80"
@@ -362,7 +362,7 @@ function PlottyPageShellFallback({
                 <Feather className="mb-1 size-6 text-[var(--plotty-accent)] lg:size-7" aria-hidden="true" />
               </Link>
 
-              <nav className="relative hidden items-stretch gap-1 lg:flex" aria-label="Основная навигация">
+              <nav className="relative hidden shrink-0 items-stretch gap-1 lg:flex" aria-label="Основная навигация">
                 {plottyPrimaryNavItems.map((item) => {
                   const isActive = isPrimaryNavItemActive(pathname, item.href);
 
@@ -373,7 +373,7 @@ function PlottyPageShellFallback({
                       href={item.href}
                       aria-current={isActive ? "page" : undefined}
                       className={cn(
-                        "plotty-button-label relative z-10 flex min-h-[92px] items-center px-5 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                        "plotty-button-label relative z-10 flex min-h-[86px] items-center px-4 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
                         "whitespace-nowrap",
                         isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
                       )}
@@ -384,9 +384,9 @@ function PlottyPageShellFallback({
                 })}
               </nav>
 
-              <GlobalSearch className="ml-auto hidden w-full max-w-[30rem] lg:flex" />
+              <GlobalSearch className="hidden min-w-0 flex-1 lg:flex" />
 
-              <div className="ml-auto hidden items-center gap-3 lg:flex">
+              <div className="hidden shrink-0 items-center gap-3 lg:flex">
                 {desktopActions}
               </div>
 
@@ -404,7 +404,7 @@ function PlottyPageShellFallback({
           </div>
         </header>
 
-        <div className={cn("plotty-frame-inner pb-6 pt-4 lg:pb-8 lg:pt-7", contentClassName)}>
+        <div className={cn("plotty-frame-inner pb-6 pt-4 lg:pb-10 lg:pt-8", contentClassName)}>
           {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
             <div className="mb-5 space-y-4 lg:mb-7">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -471,9 +471,9 @@ function PersistentPlottyHeader({
   } = useSlidingNavIndicator("desktop-primary", activeHeaderNavKey);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--plotty-line)] bg-[rgba(251,247,242,0.88)] backdrop-blur-xl">
+    <header className="plotty-header sticky top-0 z-40">
       <div className="plotty-frame-inner">
-        <div ref={primaryNavRef} className="relative flex min-h-[76px] items-center gap-3 lg:min-h-[92px] lg:gap-6">
+        <div ref={primaryNavRef} className="relative flex min-h-[76px] items-center gap-3 lg:min-h-[86px] lg:gap-5">
           <Link
             href={routes.home}
             className="plotty-logo inline-flex shrink-0 items-end gap-1 transition-opacity hover:opacity-80"
@@ -483,7 +483,7 @@ function PersistentPlottyHeader({
             <Feather className="mb-1 size-6 text-[var(--plotty-accent)] lg:size-7" aria-hidden="true" />
           </Link>
 
-          <nav className="relative hidden items-stretch gap-1 lg:flex" aria-label="Primary navigation">
+          <nav className="relative hidden shrink-0 items-stretch gap-1 lg:flex" aria-label="Primary navigation">
             {plottyPrimaryNavItems.map((item) => {
               const isActive = isPrimaryNavItemActive(pathname, item.href);
 
@@ -494,7 +494,7 @@ function PersistentPlottyHeader({
                   href={item.href}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "plotty-button-label relative z-10 flex min-h-[92px] items-center px-5 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                    "plotty-button-label relative z-10 flex min-h-[86px] items-center px-4 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
                     "whitespace-nowrap",
                     isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
                   )}
@@ -505,10 +505,10 @@ function PersistentPlottyHeader({
             })}
           </nav>
 
-          <GlobalSearch className="ml-auto hidden w-full max-w-[30rem] lg:flex" />
+          <GlobalSearch className="hidden min-w-0 flex-1 lg:flex" />
 
           {showDesktopActions ? (
-            <div className="ml-auto hidden items-center gap-3 lg:flex">
+            <div className="hidden shrink-0 items-center gap-3 lg:flex">
               <DefaultDesktopActions profileIndicatorRef={(node) => setPrimaryNavItemRef("profile", node)} />
             </div>
           ) : null}
@@ -535,7 +535,7 @@ function PlottyPageContent({
     <>
       {showMobileBack ? <PlottyMobileBackButton mobileBackHref={mobileBackHref} /> : null}
 
-      <div className={cn("plotty-frame-inner pb-6 pt-4 lg:pb-8 lg:pt-7", contentClassName)}>
+      <div className={cn("plotty-frame-inner pb-6 pt-4 lg:pb-10 lg:pt-8", contentClassName)}>
         {mobileToolbar ? <div className="mb-5 border-b border-[var(--plotty-line)] pb-4 lg:hidden">{mobileToolbar}</div> : null}
 
         {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
@@ -646,7 +646,7 @@ function GlobalSearch({ className }: { className?: string }) {
   return (
     <form
       className={cn(
-        "items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] px-4 py-2 shadow-[0_8px_24px_rgba(58,43,27,0.05)]",
+        "items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] px-4 py-2.5 shadow-[0_10px_28px_rgba(58,43,27,0.05)]",
         className,
       )}
       role="search"
@@ -658,7 +658,7 @@ function GlobalSearch({ className }: { className?: string }) {
         onChange={(event) => setDraft(event.target.value)}
         aria-label="Глобальный поиск по названию истории"
         placeholder="Поиск по названию истории"
-        className="min-h-8 rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="min-h-8 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </form>
   );

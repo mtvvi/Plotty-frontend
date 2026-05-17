@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, CalendarDays, Heart, List, MessageCircle, Tag, UserRound } from "lucide-react";
 import Link from "next/link";
@@ -28,6 +28,18 @@ import { StoryCollectionControl } from "./story-collection-control";
 import { StoryShelfControl } from "./story-shelf-control";
 
 type MobileStorySection = "description" | "chapters" | "info";
+
+const storyTitleMinFontRem = 2.65;
+const titleSoftHyphen = "\u00AD";
+
+let titleMeasureCanvas: HTMLCanvasElement | null = null;
+
+type AdaptiveStoryTitleState = {
+  sourceTitle: string;
+  renderedTitle: string;
+  fontSizePx?: number;
+  hyphenated: boolean;
+};
 
 export function StoryDetailsScreen({ slug }: { slug: string }) {
   const router = useRouter();
@@ -117,7 +129,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
               />
 
               <div className="space-y-5 p-5 sm:p-6 lg:p-8">
-                <div className="space-y-3">
+                <div className="w-full min-w-0 space-y-3">
                   <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--plotty-muted)]">
                     {story.author?.username ? (
                       <Link href={routes.user(story.author.username)} className="inline-flex items-center gap-1.5 font-semibold hover:text-[var(--plotty-accent)]">
@@ -132,7 +144,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                       {readerChapters.length} {getChapterLabel(readerChapters.length)}
                     </span>
                   </div>
-                  <h1 className="plotty-page-title">{story.title}</h1>
+                  <AdaptiveStoryTitle title={story.title} />
                 </div>
 
                 {genericTags.length ? (
@@ -282,6 +294,73 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   );
 }
 
+function AdaptiveStoryTitle({ title }: { title: string }) {
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const [titleState, setTitleState] = useState<AdaptiveStoryTitleState>(() => createDefaultTitleState(title));
+  const activeTitleState = titleState.sourceTitle === title ? titleState : createDefaultTitleState(title);
+
+  useLayoutEffect(() => {
+    const titleNode = titleRef.current;
+
+    if (!titleNode) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    function updateTitleFit() {
+      const currentTitleNode = titleRef.current;
+
+      if (isCancelled || !currentTitleNode?.isConnected) {
+        return;
+      }
+
+      const nextState = measureAdaptiveTitle(currentTitleNode, title);
+
+      if (!nextState) {
+        return;
+      }
+
+      setTitleState((currentState) => {
+        if (areTitleStatesEqual(currentState, nextState)) {
+          return currentState;
+        }
+
+        return nextState;
+      });
+    }
+
+    updateTitleFit();
+
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateTitleFit);
+    resizeObserver?.observe(titleNode);
+    window.addEventListener("resize", updateTitleFit);
+
+    const fontsReady = document.fonts?.ready;
+    void fontsReady?.then(() => {
+      updateTitleFit();
+    });
+
+    return () => {
+      isCancelled = true;
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateTitleFit);
+    };
+  }, [title]);
+
+  return (
+    <h1
+      ref={titleRef}
+      className="plotty-page-title plotty-adaptive-story-title"
+      data-hyphenated={activeTitleState.hyphenated ? "true" : undefined}
+      aria-label={activeTitleState.hyphenated ? title : undefined}
+      style={activeTitleState.fontSizePx ? { fontSize: `${activeTitleState.fontSizePx}px` } : undefined}
+    >
+      {activeTitleState.renderedTitle}
+    </h1>
+  );
+}
+
 function InfoRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
     <div className="grid grid-cols-[1.25rem_1fr] gap-x-3 gap-y-0.5">
@@ -313,4 +392,187 @@ function getChapterLabel(count: number) {
   }
 
   return "глав";
+}
+
+function createDefaultTitleState(title: string): AdaptiveStoryTitleState {
+  return {
+    sourceTitle: title,
+    renderedTitle: title,
+    hyphenated: false,
+  };
+}
+
+function measureAdaptiveTitle(titleNode: HTMLHeadingElement, title: string): AdaptiveStoryTitleState | null {
+  const measureContext = getTitleMeasureContext();
+
+  if (!measureContext) {
+    return createDefaultTitleState(title);
+  }
+
+  const availableWidth = Math.floor(titleNode.getBoundingClientRect().width);
+
+  if (availableWidth <= 0) {
+    return null;
+  }
+
+  const previousInlineFontSize = titleNode.style.fontSize;
+  titleNode.style.fontSize = "";
+
+  const computedStyle = window.getComputedStyle(titleNode);
+  const rootFontSizePx = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+  const minFontPx = storyTitleMinFontRem * rootFontSizePx;
+  const maxFontPx = Math.max(parseFloat(computedStyle.fontSize) || minFontPx, minFontPx);
+  const fontStyle = computedStyle.fontStyle;
+  const fontVariant = computedStyle.fontVariant;
+  const fontWeight = computedStyle.fontWeight;
+  const fontFamily = computedStyle.fontFamily;
+
+  titleNode.style.fontSize = previousInlineFontSize;
+
+  const titleWords = splitTitleWords(title);
+
+  if (!titleWords.length || titleWordsFit(titleWords, measureContext, availableWidth, maxFontPx, fontStyle, fontVariant, fontWeight, fontFamily)) {
+    return createDefaultTitleState(title);
+  }
+
+  if (!titleWordsFit(titleWords, measureContext, availableWidth, minFontPx, fontStyle, fontVariant, fontWeight, fontFamily)) {
+    setTitleMeasureFont(measureContext, minFontPx, fontStyle, fontVariant, fontWeight, fontFamily);
+
+    return {
+      sourceTitle: title,
+      renderedTitle: hyphenateLongTitleTokens(title, measureContext, availableWidth),
+      fontSizePx: roundFontSize(minFontPx),
+      hyphenated: true,
+    };
+  }
+
+  let lowFontPx = minFontPx;
+  let highFontPx = maxFontPx;
+
+  for (let step = 0; step < 10; step += 1) {
+    const middleFontPx = (lowFontPx + highFontPx) / 2;
+
+    if (titleWordsFit(titleWords, measureContext, availableWidth, middleFontPx, fontStyle, fontVariant, fontWeight, fontFamily)) {
+      lowFontPx = middleFontPx;
+    } else {
+      highFontPx = middleFontPx;
+    }
+  }
+
+  return {
+    sourceTitle: title,
+    renderedTitle: title,
+    fontSizePx: roundFontSize(lowFontPx),
+    hyphenated: false,
+  };
+}
+
+function getTitleMeasureContext() {
+  if (typeof document === "undefined" || typeof CanvasRenderingContext2D === "undefined") {
+    return null;
+  }
+
+  titleMeasureCanvas ??= document.createElement("canvas");
+
+  return titleMeasureCanvas.getContext("2d");
+}
+
+function splitTitleWords(title: string) {
+  return title.split(/\s+/).filter(Boolean);
+}
+
+function titleWordsFit(
+  words: string[],
+  measureContext: CanvasRenderingContext2D,
+  availableWidth: number,
+  fontSizePx: number,
+  fontStyle: string,
+  fontVariant: string,
+  fontWeight: string,
+  fontFamily: string,
+) {
+  setTitleMeasureFont(measureContext, fontSizePx, fontStyle, fontVariant, fontWeight, fontFamily);
+
+  return words.every((word) => measureContext.measureText(word).width <= availableWidth);
+}
+
+function setTitleMeasureFont(
+  measureContext: CanvasRenderingContext2D,
+  fontSizePx: number,
+  fontStyle: string,
+  fontVariant: string,
+  fontWeight: string,
+  fontFamily: string,
+) {
+  measureContext.font = `${fontStyle || "normal"} ${fontVariant || "normal"} ${fontWeight || "400"} ${fontSizePx}px ${fontFamily}`;
+}
+
+function hyphenateLongTitleTokens(title: string, measureContext: CanvasRenderingContext2D, availableWidth: number) {
+  const safeWidth = Math.max(availableWidth * 0.92, 1);
+
+  return title
+    .split(/(\s+)/)
+    .map((token) => {
+      if (!token.trim() || measureContext.measureText(token).width <= availableWidth || token.includes(titleSoftHyphen)) {
+        return token;
+      }
+
+      return softHyphenateToken(token, measureContext, safeWidth);
+    })
+    .join("");
+}
+
+function softHyphenateToken(token: string, measureContext: CanvasRenderingContext2D, maxChunkWidth: number) {
+  const chunks: string[] = [];
+  let currentChunk = "";
+
+  for (const character of splitGraphemes(token)) {
+    const nextChunk = `${currentChunk}${character}`;
+
+    if (currentChunk && measureContext.measureText(nextChunk).width > maxChunkWidth) {
+      chunks.push(currentChunk);
+      currentChunk = character;
+    } else {
+      currentChunk = nextChunk;
+    }
+  }
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks.join(titleSoftHyphen);
+}
+
+type IntlSegmenterConstructor = new (
+  locale: string,
+  options: { granularity: "grapheme" },
+) => {
+  segment(value: string): Iterable<{ segment: string }>;
+};
+
+function splitGraphemes(value: string) {
+  const Segmenter = (Intl as typeof Intl & { Segmenter?: IntlSegmenterConstructor }).Segmenter;
+
+  if (Segmenter) {
+    return Array.from(new Segmenter("ru", { granularity: "grapheme" }).segment(value), (part) => part.segment);
+  }
+
+  return Array.from(value);
+}
+
+function roundFontSize(fontSizePx: number) {
+  return Math.round(fontSizePx * 100) / 100;
+}
+
+function areTitleStatesEqual(currentState: AdaptiveStoryTitleState, nextState: AdaptiveStoryTitleState) {
+  const currentFontSize = currentState.fontSizePx ?? 0;
+  const nextFontSize = nextState.fontSizePx ?? 0;
+
+  return (
+    currentState.sourceTitle === nextState.sourceTitle &&
+    currentState.renderedTitle === nextState.renderedTitle &&
+    currentState.hyphenated === nextState.hyphenated &&
+    Math.abs(currentFontSize - nextFontSize) < 0.5
+  );
 }

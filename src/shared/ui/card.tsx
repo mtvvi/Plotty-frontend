@@ -14,7 +14,7 @@ export type SurfaceVariant =
 
 const surfaceClasses: Record<SurfaceVariant, string> = {
   default:
-    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.82)] shadow-[var(--plotty-shadow-card)]",
+    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] shadow-[var(--plotty-shadow-card)]",
   panel:
     "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[var(--plotty-panel-muted)]",
   inset:
@@ -22,13 +22,13 @@ const surfaceClasses: Record<SurfaceVariant, string> = {
   listItem:
     "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.76)]",
   sidebar:
-    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(250,245,238,0.78)] shadow-[0_12px_34px_rgba(58,43,27,0.06)]",
+    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(250,245,238,0.7)] shadow-[0_12px_34px_rgba(58,43,27,0.04)]",
   subtle:
     "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.56)]",
   media:
     "overflow-hidden rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[linear-gradient(135deg,var(--plotty-panel),var(--plotty-paper))]",
   interactive:
-    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.84)] shadow-[var(--plotty-shadow-card)] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-[rgba(195,79,50,0.2)] hover:shadow-[0_24px_58px_rgba(58,43,27,0.13)]",
+    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] shadow-[var(--plotty-shadow-card)] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-[rgba(195,79,50,0.2)] hover:shadow-[0_22px_52px_rgba(58,43,27,0.1)]",
 };
 
 export interface SurfaceProps extends HTMLAttributes<HTMLDivElement> {

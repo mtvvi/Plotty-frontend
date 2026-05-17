@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --plotty-bg: #d8caba;
-  --plotty-bg-highlight: #efe6d9;
+  --plotty-bg: #f3eadf;
+  --plotty-bg-highlight: #fffaf4;
   --plotty-paper: #fbf7f2;
   --plotty-paper-strong: #fffdf9;
   --plotty-paper-soft: #f5eee5;
-  --plotty-panel: #f0e5d6;
-  --plotty-panel-strong: #e7d8c7;
-  --plotty-panel-muted: rgba(255, 251, 245, 0.72);
-  --plotty-line: rgba(43, 36, 29, 0.11);
-  --plotty-line-strong: rgba(43, 36, 29, 0.19);
+  --plotty-panel: #f6ecdf;
+  --plotty-panel-strong: #eadbc8;
+  --plotty-panel-muted: rgba(255, 251, 245, 0.7);
+  --plotty-line: rgba(43, 36, 29, 0.1);
+  --plotty-line-strong: rgba(43, 36, 29, 0.17);
   --plotty-ink: #1f1a16;
   --plotty-ink-soft: #3e352d;
   --plotty-muted: #70665b;
@@ -27,11 +27,11 @@
   --plotty-gold-soft: #f0e4cb;
   --plotty-danger: #bd3f32;
   --plotty-danger-soft: #fde5dd;
-  --plotty-shadow: 0 26px 80px rgba(58, 43, 27, 0.14);
-  --plotty-shadow-soft: 0 12px 32px rgba(58, 43, 27, 0.09);
-  --plotty-shadow-card: 0 16px 46px rgba(58, 43, 27, 0.08);
-  --plotty-container: 1720px;
-  --plotty-radius-xl: 26px;
+  --plotty-shadow: 0 28px 90px rgba(58, 43, 27, 0.08);
+  --plotty-shadow-soft: 0 12px 32px rgba(58, 43, 27, 0.07);
+  --plotty-shadow-card: 0 14px 42px rgba(58, 43, 27, 0.07);
+  --plotty-container: 1400px;
+  --plotty-radius-xl: 28px;
   --plotty-radius-lg: 18px;
   --plotty-radius-md: 14px;
   --plotty-radius-sm: 10px;
@@ -50,9 +50,9 @@ body {
   min-height: 100vh;
   color: var(--plotty-ink);
   background:
-    radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.66), transparent 26rem),
-    radial-gradient(circle at 86% 12%, rgba(195, 79, 50, 0.07), transparent 24rem),
-    linear-gradient(180deg, var(--plotty-bg-highlight) 0%, var(--plotty-bg) 100%);
+    radial-gradient(circle at 20% -8%, rgba(255, 255, 255, 0.95), transparent 24rem),
+    radial-gradient(circle at 86% 8%, rgba(255, 255, 255, 0.72), transparent 25rem),
+    linear-gradient(180deg, var(--plotty-bg-highlight) 0%, var(--plotty-bg) 72%, #efe2d4 100%);
   font-family: var(--font-sans), sans-serif;
 }
 
@@ -95,24 +95,43 @@ select {
   position: relative;
   width: 100%;
   min-height: 100vh;
-  padding: 0.45rem clamp(0.45rem, 2.4vw, 1.4rem) 4.5rem;
+  padding: 0 clamp(0.8rem, 2.4vw, 1.8rem) 4.5rem;
   overflow-x: clip;
 }
 
 .plotty-frame {
   width: min(100%, var(--plotty-container));
-  margin: 0 auto 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  border-radius: var(--plotty-radius-xl);
-  background:
-    linear-gradient(180deg, rgba(255, 253, 249, 0.92), rgba(250, 245, 238, 0.98)),
-    var(--plotty-paper);
-  box-shadow: var(--plotty-shadow);
-  overflow: hidden;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .plotty-frame-inner {
-  padding-inline: clamp(1rem, 2.2vw, 2.1rem);
+  padding-inline: clamp(1rem, 2.8vw, 2.35rem);
+}
+
+.plotty-header {
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  background: rgba(255, 250, 244, 0.78);
+  backdrop-filter: blur(22px);
+}
+
+.plotty-header > .plotty-frame-inner {
+  width: min(100%, var(--plotty-container));
+  margin-inline: auto;
+}
+
+.plotty-header::after {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(43, 36, 29, 0.08), transparent);
+  content: "";
 }
 
 .plotty-nav-indicator {
@@ -144,6 +163,46 @@ select {
   box-shadow: var(--plotty-shadow-card);
 }
 
+.plotty-scroll-panel {
+  scrollbar-color: rgba(112, 102, 91, 0.36) transparent;
+  scrollbar-width: thin;
+}
+
+.plotty-scroll-panel::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.plotty-scroll-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.plotty-scroll-panel::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(112, 102, 91, 0.34);
+  background-clip: padding-box;
+}
+
+.plotty-scroll-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(112, 102, 91, 0.48);
+  background-clip: padding-box;
+}
+
+@media (min-width: 1024px) {
+  .plotty-workshop-story-list {
+    max-height: min(36rem, calc(100vh - 16rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.25rem;
+  }
+
+  .plotty-workshop-chapter-list {
+    max-height: min(28rem, calc(100vh - 18rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 .plotty-seriffed,
 .plotty-serif {
   font-family: var(--font-serif), serif;
@@ -151,7 +210,7 @@ select {
 
 .plotty-logo {
   font-family: var(--font-serif), serif;
-  font-size: clamp(2rem, 1.4rem + 1.55vw, 3.2rem);
+  font-size: clamp(1.9rem, 1.45rem + 1.1vw, 2.75rem);
   font-weight: 700;
   line-height: 0.92;
   letter-spacing: 0;
@@ -167,10 +226,20 @@ select {
 
 .plotty-page-title {
   font-family: var(--font-serif), serif;
-  font-size: clamp(2.25rem, 1.35rem + 2.6vw, 4.25rem);
+  font-size: clamp(2.65rem, 1.55rem + 3.1vw, 5.1rem);
   font-weight: 700;
   line-height: 0.98;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.plotty-adaptive-story-title {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
 }
 
 .plotty-section-title {
@@ -187,6 +256,7 @@ select {
   font-weight: 700;
   line-height: 1.14;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .plotty-story-card {
@@ -223,6 +293,7 @@ select {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .plotty-story-title-anchor {
@@ -370,6 +441,11 @@ select {
     margin-bottom: 0;
     border: 0;
     border-radius: 0;
+    overflow: hidden;
+  }
+
+  .plotty-header {
+    background: rgba(251, 247, 242, 0.94);
   }
 }
 

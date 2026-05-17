@@ -185,7 +185,7 @@ export function StoriesCatalogShell() {
       onMenuOpenChange={setIsMobileMenuOpen}
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       pageActions={
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden items-center gap-3 lg:mt-3 lg:flex">
           <CatalogSortSelect value={currentSort} onChange={handleSortChange} />
         </div>
       }
@@ -209,17 +209,16 @@ export function StoriesCatalogShell() {
           </Button>
         </div>
       }
-      contentClassName="pt-4 lg:pt-7"
-      className="lg:!px-5"
+      contentClassName="pt-5 lg:pt-10"
     >
-      <div className="grid gap-4 lg:grid-cols-[21rem_minmax(0,1fr)] lg:gap-6">
+      <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-7 xl:grid-cols-[18rem_minmax(0,1fr)] xl:gap-8">
         <aside className="hidden lg:block">
-          <PlottySectionCard variant="sidebar" className="sticky top-[7.25rem] space-y-5 shadow-none">
+          <PlottySectionCard variant="sidebar" className="sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
             {filters}
           </PlottySectionCard>
         </aside>
 
-        <section className="min-w-0 space-y-4">
+        <section className="min-w-0 space-y-5">
           <div className="flex flex-wrap items-center gap-2">
             {appliedQuery.q ? (
               <ActiveFilter label={`Поиск: ${appliedQuery.q}`} onClear={() => navigateToQuery({ ...appliedQuery, q: "", page: 1 })} />
@@ -264,7 +263,7 @@ export function StoriesCatalogShell() {
               onAction={clearAppliedFilters}
             />
           ) : catalogStories.length ? (
-            <div className="space-y-3.5" aria-live="polite">
+            <div className="space-y-4" aria-live="polite">
               {catalogStories.map((story) => (
                 <StoryCard key={story.id} story={story} showChapterActions={false} />
               ))}
@@ -322,11 +321,11 @@ function CatalogFilters({
     <div className="space-y-5">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="plotty-section-title flex items-center gap-2 text-[1.35rem]">
-            <SlidersHorizontal className="size-5 text-[var(--plotty-accent)]" aria-hidden="true" />
+          <h2 className="plotty-section-title flex items-center gap-2 text-[1.3rem]">
+            <SlidersHorizontal className="size-4 text-[var(--plotty-accent)]" aria-hidden="true" />
             Фильтры
           </h2>
-          <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearTagFilters}>
+          <Button variant="ghost" className="min-h-8 px-2 text-xs" onClick={clearTagFilters}>
             Сбросить всё
           </Button>
         </div>
@@ -394,7 +393,7 @@ function CatalogSearchField({
   return (
     <Surface
       variant="inset"
-      className="grid grid-cols-[auto_1fr] items-center gap-3 px-4 py-1.5 transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]"
+      className="grid grid-cols-[auto_1fr] items-center gap-3 bg-[rgba(255,253,249,0.9)] px-4 py-1.5 shadow-[0_10px_24px_rgba(58,43,27,0.04)] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]"
     >
       <Search className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
       <Input
@@ -421,7 +420,7 @@ function CatalogSortSelect({
   const selectedOption = sortOptions.find((option) => option.value === value) ?? sortOptions[0];
 
   return (
-    <div ref={popover.triggerRef} className={cn("relative", compact ? "w-full" : "min-w-[12.5rem]")}>
+    <div ref={popover.triggerRef} className={cn("relative", compact ? "w-full" : "min-w-[11.5rem]")}>
       <button
         type="button"
         aria-label="Сортировка"
@@ -429,7 +428,7 @@ function CatalogSortSelect({
         aria-expanded={popover.open}
         onClick={popover.toggle}
         className={cn(
-          "inline-grid min-h-12 w-full grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] px-3 text-left text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_8px_24px_rgba(58,43,27,0.05)] transition-[border-color,box-shadow] hover:border-[var(--plotty-line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+          "inline-grid min-h-11 w-full grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] px-3 text-left text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_10px_24px_rgba(58,43,27,0.05)] transition-[border-color,box-shadow] hover:border-[var(--plotty-line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
           compact ? "w-full" : "",
         )}
       >
