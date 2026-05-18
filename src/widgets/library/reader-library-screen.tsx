@@ -10,6 +10,7 @@ import {
 } from "@/entities/library/api/library-api";
 import type { ReaderShelf } from "@/entities/library/model/types";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { RequireAuth } from "@/widgets/auth/require-auth";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
@@ -62,29 +63,33 @@ function ReaderLibraryContent() {
           ))}
         </SegmentedControl>
 
-        <PlottySectionCard
-          title={activeTab === "all" ? "Вся полка" : readerShelfLabels[activeTab]}
-          description={`${visibleEntries.length} ${getStoryLabel(visibleEntries.length)}`}
-          className="plotty-tab-panel-enter"
-        >
-          {shelfQuery.isLoading ? (
-            <div className="space-y-3">
-              <div className="h-44 rounded-[22px] bg-white/50" />
-              <div className="h-44 rounded-[22px] bg-white/50" />
-            </div>
-          ) : visibleEntries.length ? (
-            <div className="plotty-stagger space-y-4">
-              {visibleEntries.map((entry) => (
-                <div key={`${entry.storyId}-${entry.shelf}`} className="plotty-stagger-item space-y-2">
-                  <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]} · обновлен ${new Date(entry.updatedAt).toLocaleDateString("ru-RU")}`}</div>
-                  <StoryCard story={entry.story} showChapterActions={false} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title="Здесь пока пусто" description="Добавьте статус чтения на странице истории или в каталоге." />
-          )}
-        </PlottySectionCard>
+        <AnimatedTabPanel activeKey={activeTab} panelKey={activeTab}>
+          <PlottySectionCard
+            title={activeTab === "all" ? "Вся полка" : readerShelfLabels[activeTab]}
+            description={`${visibleEntries.length} ${getStoryLabel(visibleEntries.length)}`}
+          >
+            {shelfQuery.isLoading ? (
+              <div className="space-y-3">
+                <div className="h-44 rounded-[22px] bg-white/50" />
+                <div className="h-44 rounded-[22px] bg-white/50" />
+              </div>
+            ) : visibleEntries.length ? (
+              <AnimatedList
+                items={visibleEntries}
+                getKey={(entry) => `${entry.storyId}-${entry.shelf}`}
+                className="space-y-4"
+                renderItem={(entry) => (
+                  <div className="space-y-2">
+                    <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]} · обновлен ${new Date(entry.updatedAt).toLocaleDateString("ru-RU")}`}</div>
+                    <StoryCard story={entry.story} showChapterActions={false} />
+                  </div>
+                )}
+              />
+            ) : (
+              <EmptyState title="Здесь пока пусто" description="Добавьте статус чтения на странице истории или в каталоге." />
+            )}
+          </PlottySectionCard>
+        </AnimatedTabPanel>
       </div>
     </PlottyPageShell>
   );

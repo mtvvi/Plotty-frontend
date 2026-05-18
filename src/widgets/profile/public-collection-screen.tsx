@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { deleteCollection, libraryKeys, removeStoryFromCollection, updateCollection } from "@/entities/library/api/library-api";
 import { profileKeys, publicUserCollectionQueryOptions } from "@/entities/profile/api/profile-api";
-import { ApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
@@ -16,6 +16,8 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
+
+import { CollectionLinkIcon } from "./profile-icons";
 
 export function PublicCollectionScreen({
   username,
@@ -70,7 +72,7 @@ export function PublicCollectionScreen({
   }
 
   function handleMutationError(error: unknown) {
-    setLocalError(error instanceof ApiError ? error.message : "Не удалось обновить подборку");
+    setLocalError(toUserFacingErrorMessage(error, "Не удалось обновить подборку"));
   }
 
   if (collectionQuery.isLoading) {
@@ -150,24 +152,25 @@ export function PublicCollectionScreen({
       pageTitle={collection.title}
       pageDescription={collection.description ?? "Публичная подборка историй."}
       pageActions={
-        <>
-          <ButtonLink href={`${routes.user(username)}?tab=library`} variant="secondary">
+        <div className="flex flex-wrap items-center justify-end gap-3 lg:flex-nowrap">
+          <ButtonLink href={`${routes.user(username)}?tab=library`} variant="secondary" size="sm">
             К профилю
           </ButtonLink>
-          <Button type="button" variant="secondary" onClick={handleCopyLink}>
+          <Button type="button" variant="secondary" size="sm" onClick={handleCopyLink}>
+            <CollectionLinkIcon className="size-4" />
             {copied ? "Скопировано" : "Ссылка"}
           </Button>
           {isOwner ? (
             <>
-              <Button type="button" variant="secondary" onClick={handleStartEdit}>
+              <Button type="button" variant="secondary" size="sm" onClick={handleStartEdit}>
                 Изменить
               </Button>
-              <Button type="button" variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
+              <Button type="button" variant="destructive" size="sm" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
                 Удалить
               </Button>
             </>
           ) : null}
-        </>
+        </div>
       }
       showMobileBack
       mobileBackHref={routes.user(username)}

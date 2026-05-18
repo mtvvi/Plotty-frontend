@@ -84,11 +84,19 @@ interface BackendChapterDetails {
 interface BackendChapterComment {
   id: string;
   chapterId: string;
-  userId: number;
-  username: string;
+  userId?: number;
+  username?: string;
+  author?: {
+    id?: number;
+    username?: string;
+    email?: string;
+    avatarUrl?: string | null;
+  };
   avatarUrl?: string | null;
   content: string;
   createdAt: string;
+  updatedAt?: string;
+  viewerCanDelete?: boolean;
 }
 
 interface BackendStoryMutationResponse {
@@ -187,19 +195,23 @@ function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
 }
 
 function mapChapterComment(comment: BackendChapterComment, storyId: string): StoryComment {
+  const author = comment.author;
+  const username = author?.username ?? comment.username ?? "Читатель";
+
   return {
     id: comment.id,
     storyId,
     chapterId: comment.chapterId,
     author: {
-      id: comment.userId,
-      username: comment.username,
-      email: "",
-      avatarUrl: comment.avatarUrl,
+      id: author?.id ?? comment.userId ?? 0,
+      username,
+      email: author?.email ?? "",
+      avatarUrl: author?.avatarUrl ?? comment.avatarUrl,
     },
     content: comment.content,
     createdAt: comment.createdAt,
-    updatedAt: comment.createdAt,
+    updatedAt: comment.updatedAt ?? comment.createdAt,
+    viewerCanDelete: comment.viewerCanDelete,
   };
 }
 

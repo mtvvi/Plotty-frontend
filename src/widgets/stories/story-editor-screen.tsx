@@ -20,13 +20,15 @@ import {
   storyKeys,
   updateChapter,
 } from "@/entities/story/api/stories-api";
-import type { CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
+import type { AiJobStatus, CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
 import { isApiError, isAuthError, isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { diffWords } from "@/shared/lib/text-diff";
 import { resolveTextRangeByOffsets, type ResolvedTextRange } from "@/shared/lib/text-ranges";
+import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { EmptyState } from "@/shared/ui/empty-state";
 import type { HighlightRange } from "@/shared/ui/highlighted-textarea";
+import type { AsyncJobStatusValue } from "@/shared/ui/motion";
 
 import { ChapterImageFrame } from "./chapter-image-frame";
 import { GenerateChapterImageButton } from "./generate-chapter-image-button";
@@ -563,7 +565,10 @@ export function StoryEditorScreen({
   const canonStatusLabel = canonCheckError
     ? canonCheckError
     : canonCheckJobQuery.data?.status === "failed"
-      ? canonCheckJobQuery.data.errorMessage ?? "Проверка канона завершилась с ошибкой."
+      ? sanitizeUserFacingMessage(
+          canonCheckJobQuery.data.errorMessage ?? canonCheckJobQuery.data.error,
+          "Проверка канона завершилась с ошибкой.",
+        )
       : isPreparingCanonCheck
         ? "Сохраняем черновик перед проверкой канона..."
         : canonCheckJobQuery.data?.status === "processing" || canonCheckJobQuery.data?.status === "queued"
@@ -585,23 +590,61 @@ export function StoryEditorScreen({
     canonCheckMutation.isPending ||
     canonCheckJobQuery.data?.status === "queued" ||
     canonCheckJobQuery.data?.status === "processing";
+  const spellcheckStatus = getEditorAsyncStatus({
+    isPending: spellcheckMutation.isPending,
+    status: spellcheckJobQuery.data?.status,
+    hasResult: Boolean(latestSpellcheckResult),
+  });
+  const logicCheckStatus = getEditorAsyncStatus({
+    isPending: logicCheckMutation.isPending,
+    status: logicCheckJobQuery.data?.status,
+    hasResult: Boolean(logicCheckJobQuery.data?.result),
+  });
+  const canonCheckStatus = getEditorAsyncStatus({
+    isPending: isPreparingCanonCheck || canonCheckMutation.isPending,
+    status: canonCheckJobQuery.data?.status,
+    hasResult: Boolean(canonCheckJobQuery.data?.result),
+    hasError: Boolean(canonCheckError),
+  });
+  const spellcheckStatusError =
+    spellcheckJobQuery.data?.status === "failed"
+      ? sanitizeUserFacingMessage(
+          spellcheckJobQuery.data.errorMessage ?? spellcheckJobQuery.data.error,
+          "Проверка орфографии завершилась с ошибкой.",
+        )
+      : undefined;
+  const logicStatusError =
+    logicCheckJobQuery.data?.status === "failed"
+      ? sanitizeUserFacingMessage(
+          logicCheckJobQuery.data.errorMessage ?? logicCheckJobQuery.data.error,
+          "Проверка логики завершилась с ошибкой.",
+        )
+      : undefined;
+  const canonStatusError =
+    canonCheckError ||
+    (canonCheckJobQuery.data?.status === "failed"
+      ? sanitizeUserFacingMessage(
+          canonCheckJobQuery.data.errorMessage ?? canonCheckJobQuery.data.error,
+          "Проверка канона завершилась с ошибкой.",
+        )
+      : undefined);
 
   return (
     <PlottyShell
       title={
         chapterQuery.data.storySlug ? (
-          <>
+          <span className="plotty-page-title-row">
             <Link
               href={`${routes.write}?story=${encodeURIComponent(chapterQuery.data.storySlug)}#active-story`}
               className="plotty-story-title-anchor plotty-story-title-inline-anchor group text-[var(--plotty-ink)] transition-colors hover:text-[var(--plotty-accent)] focus-visible:text-[var(--plotty-accent)]"
             >
-              <ArrowLeft className="size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
+              <ArrowLeft className="plotty-page-title-back-icon size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
               <span className="plotty-story-title-text text-[2rem]">
                 {chapterQuery.data.storyTitle ?? "История"}
               </span>
             </Link>
-            <span className="text-[2rem]">{` • Глава ${chapterQuery.data.number ?? "—"}`}</span>
-          </>
+            <span className="plotty-page-title-part text-[2rem]">{`• Глава ${chapterQuery.data.number ?? "—"}`}</span>
+          </span>
         ) : (
           values.chapterTitle || chapterQuery.data.title
         )
@@ -618,10 +661,16 @@ export function StoryEditorScreen({
         spellcheckResult={visibleSpellcheckResult}
         spellcheckHighlights={spellcheckHighlights}
         aiStatusLabel={aiStatusLabel}
+        spellcheckStatus={spellcheckStatus}
+        spellcheckStatusError={spellcheckStatusError}
         logicCheckResult={logicCheckJobQuery.data?.result}
         logicStatusLabel={logicStatusLabel}
+        logicCheckStatus={logicCheckStatus}
+        logicStatusError={logicStatusError}
         canonCheckResult={canonCheckJobQuery.data?.result}
         canonStatusLabel={canonStatusLabel}
+        canonCheckStatus={canonCheckStatus}
+        canonStatusError={canonStatusError}
         creditBalance={creditBalanceQuery.data?.balance}
         creditError={aiCreditError}
         isSaving={updateChapterMutation.isPending}
@@ -668,6 +717,36 @@ export function StoryEditorScreen({
 
 function getEditableChapterTitle(chapter: ChapterDetails) {
   return chapter.draftTitle ?? chapter.title;
+}
+
+function getEditorAsyncStatus({
+  isPending,
+  status,
+  hasResult,
+  hasError = false,
+}: {
+  isPending: boolean;
+  status?: AiJobStatus;
+  hasResult: boolean;
+  hasError?: boolean;
+}): AsyncJobStatusValue {
+  if (hasError || status === "failed") {
+    return "failed";
+  }
+
+  if (isPending) {
+    return "queued";
+  }
+
+  if (status === "queued" || status === "processing") {
+    return status;
+  }
+
+  if (status === "completed" && hasResult) {
+    return "completed";
+  }
+
+  return "idle";
 }
 
 function getEditableChapterContent(chapter: ChapterDetails) {
@@ -912,7 +991,7 @@ function getCanonCheckErrorMessage(error: unknown) {
     return "Маршрут проверки канона не найден на бэке.";
   }
 
-  return rawMessage || "Не удалось запустить проверку канона. Попробуйте ещё раз.";
+  return sanitizeUserFacingMessage(rawMessage, "Не удалось запустить проверку канона. Попробуйте ещё раз.");
 }
 
 function getInsufficientCreditsMessage(requiredCredits: number, balance?: number) {

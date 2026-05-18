@@ -21,6 +21,7 @@ import { cn } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
 import { StoryRevealButtonLink, StoryRevealLink } from "@/shared/ui/story-reveal-transition";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
@@ -32,7 +33,7 @@ import { StoryShelfControl } from "./story-shelf-control";
 type MobileStorySection = "description" | "chapters" | "info";
 
 const storyTitleMinFontRem = 2.65;
-const titleSoftHyphen = "\u00AD";
+const titleSoftHyphen = "­";
 
 let titleMeasureCanvas: HTMLCanvasElement | null = null;
 
@@ -229,23 +230,28 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
             </TabButton>
           </SegmentedControl>
 
-          <PlottySectionCard id="story-content" title="Аннотация" className={activeMobileSection === "description" ? "lg:hidden" : "hidden"}>
-            <p className="plotty-body text-[var(--plotty-ink-soft)]">{storyDescription}</p>
-          </PlottySectionCard>
+          <AnimatedTabPanel activeKey={activeMobileSection} panelKey="description" className="lg:hidden">
+            <PlottySectionCard id="story-content" title="Аннотация">
+              <p className="plotty-body text-[var(--plotty-ink-soft)]">{storyDescription}</p>
+            </PlottySectionCard>
+          </AnimatedTabPanel>
 
           <PlottySectionCard
             id="chapters"
             title="Главы"
             description={`${readerChapters.length} ${getChapterLabel(readerChapters.length)}`}
-            className={activeMobileSection === "chapters" ? undefined : "max-lg:hidden"}
+            className={cn(activeMobileSection === "chapters" && "plotty-motion-tab-panel", activeMobileSection === "chapters" ? undefined : "max-lg:hidden")}
           >
             {readerChapters.length ? (
-              <div className="plotty-stagger divide-y divide-[var(--plotty-line)] overflow-hidden rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.62)]">
-                {readerChapters.map((chapter) => {
+              <AnimatedList
+                items={readerChapters}
+                getKey={(chapter) => chapter.id}
+                className="plotty-scroll-panel plotty-story-details-chapter-list divide-y divide-[var(--plotty-line)] rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.62)]"
+                renderItem={(chapter) => {
                   const viewed = viewedByChapterId.get(chapter.id);
 
                   return (
-                    <div key={chapter.id} className="plotty-stagger-item plotty-lift-panel grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                    <div className="plotty-lift-panel grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
                       <span className="plotty-card-title text-[1.35rem]">{chapter.number ?? "—"}.</span>
                       <div className="min-w-0">
                         <StoryRevealLink
@@ -276,8 +282,8 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                       </StoryRevealButtonLink>
                     </div>
                   );
-                })}
-              </div>
+                }}
+              />
             ) : (
               <EmptyState title="У истории пока нет глав" description="Загляните позже или выберите другую историю из каталога." />
             )}
@@ -285,7 +291,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
         </main>
 
         <aside className="plotty-stagger space-y-4">
-          <PlottySectionCard id="story-info" title="О истории" variant="sidebar" className={cn("plotty-stagger-item plotty-lift-panel", activeMobileSection === "info" ? undefined : "max-lg:hidden")}>
+          <PlottySectionCard id="story-info" title="О истории" variant="sidebar" className={cn("plotty-stagger-item plotty-lift-panel", activeMobileSection === "info" && "plotty-motion-tab-panel", activeMobileSection === "info" ? undefined : "max-lg:hidden")}>
             <div className="grid gap-3 text-sm">
               <InfoRow icon={<Tag className="size-4" />} label="Фандом" value={story.fandom ?? "Не указан"} />
               <InfoRow icon={<BookOpen className="size-4" />} label="Рейтинг" value={story.ratingLabel ?? "Не указан"} />

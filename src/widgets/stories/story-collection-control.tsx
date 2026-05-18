@@ -14,8 +14,9 @@ import {
   removeStoryFromCollection,
 } from "@/entities/library/api/library-api";
 import { profileKeys } from "@/entities/profile/api/profile-api";
-import { ApiError, isAuthError } from "@/shared/api/fetch-json";
+import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
@@ -91,7 +92,7 @@ export function StoryCollectionControl({
       return;
     }
 
-    setLocalError(error instanceof ApiError ? error.message : "Не удалось обновить подборку");
+    setLocalError(toUserFacingErrorMessage(error, "Не удалось обновить подборку"));
   }
 
   function ensureAuthenticated() {

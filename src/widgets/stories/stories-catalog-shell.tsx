@@ -16,6 +16,7 @@ import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Input } from "@/shared/ui/input";
+import { AnimatedList } from "@/shared/ui/motion";
 import { PopoverContent, usePopover } from "@/shared/ui/popover";
 import { PlottyAppMenu, PlottyMobileSheet, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
@@ -263,13 +264,13 @@ export function StoriesCatalogShell() {
               onAction={clearAppliedFilters}
             />
           ) : catalogStories.length ? (
-            <div className="plotty-stagger space-y-4" aria-live="polite">
-              {catalogStories.map((story) => (
-                <div key={story.id} className="plotty-stagger-item">
-                  <StoryCard story={story} showChapterActions={false} />
-                </div>
-              ))}
-            </div>
+            <AnimatedList
+              items={catalogStories}
+              getKey={(story) => story.id}
+              className="space-y-4"
+              ariaLive="polite"
+              renderItem={(story) => <StoryCard story={story} showChapterActions={false} />}
+            />
           ) : (
             <EmptyState
               title="Под этот запрос историй не нашлось"

@@ -15,6 +15,7 @@ export function StoryCoverPreview({
   extendSurface = false,
   fullHeight = false,
   enableLightbox = false,
+  isLoading = false,
 }: {
   title: string;
   imageUrl?: string;
@@ -24,13 +25,16 @@ export function StoryCoverPreview({
   extendSurface?: boolean;
   fullHeight?: boolean;
   enableLightbox?: boolean;
+  isLoading?: boolean;
 }) {
   const [hasImageError, setHasImageError] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(Boolean(imageUrl));
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const fallbackAspectRatio = "1 / 1";
 
   useEffect(() => {
     setHasImageError(false);
+    setIsImageLoading(Boolean(imageUrl));
   }, [imageUrl]);
 
   useEffect(() => {
@@ -40,8 +44,13 @@ export function StoryCoverPreview({
 
     const probe = new window.Image();
 
-    probe.onload = () => setHasImageError(false);
-    probe.onerror = () => setHasImageError(true);
+    probe.onload = () => {
+      setHasImageError(false);
+    };
+    probe.onerror = () => {
+      setHasImageError(true);
+      setIsImageLoading(false);
+    };
     probe.src = imageUrl;
 
     return () => {
@@ -52,6 +61,7 @@ export function StoryCoverPreview({
 
   const hasCover = Boolean(imageUrl && !hasImageError);
   const coverStyle = hasCover && !fullHeight ? { aspectRatio: fallbackAspectRatio } : undefined;
+  const showLoadingIndicator = isLoading || isImageLoading;
 
   return (
     <div
@@ -79,8 +89,13 @@ export function StoryCoverPreview({
               sizes="100vw"
               unoptimized
               className="object-cover"
-              onError={() => setHasImageError(true)}
+              onLoad={() => setIsImageLoading(false)}
+              onError={() => {
+                setHasImageError(true);
+                setIsImageLoading(false);
+              }}
             />
+            {showLoadingIndicator ? <CoverLoadingIndicator /> : null}
           </button>
         ) : (
           <div
@@ -95,8 +110,13 @@ export function StoryCoverPreview({
               sizes="100vw"
               unoptimized
               className="object-cover"
-              onError={() => setHasImageError(true)}
+              onLoad={() => setIsImageLoading(false)}
+              onError={() => {
+                setHasImageError(true);
+                setIsImageLoading(false);
+              }}
             />
+            {showLoadingIndicator ? <CoverLoadingIndicator /> : null}
           </div>
         )
       ) : (
@@ -124,6 +144,7 @@ export function StoryCoverPreview({
               Обложка появится, когда у первой главы будет иллюстрация.
             </p>
           </div>
+          {isLoading ? <CoverLoadingIndicator /> : null}
         </div>
       )}
 
@@ -146,5 +167,14 @@ export function StoryCoverPreview({
         />
       ) : null}
     </div>
+  );
+}
+
+function CoverLoadingIndicator() {
+  return (
+    <span className="plotty-cover-loading" role="status" aria-live="polite">
+      <span className="plotty-cover-loading-spinner" aria-hidden="true" />
+      <span className="sr-only">Загружаем обложку</span>
+    </span>
   );
 }

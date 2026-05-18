@@ -84,6 +84,27 @@ export function PublicCollectionsIcon(props: ProfileIconProps) {
   );
 }
 
+export function CollectionLinkIcon(props: ProfileIconProps) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false" {...props}>
+      <path
+        d="M8.4 12.6 6.9 14.1a3.25 3.25 0 0 0 4.6 4.6l2.4-2.4a3.25 3.25 0 0 0 0-4.6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="m15.6 11.4 1.5-1.5a3.25 3.25 0 0 0-4.6-4.6l-2.4 2.4a3.25 3.25 0 0 0 0 4.6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path d="m9.5 14.5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M18.5 16.5c1.2.2 2 .9 2 1.7 0 1.2-1.9 2.1-4.3 2.1-1.1 0-2.1-.2-2.8-.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function OpenBookIcon(props: ProfileIconProps) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false" {...props}>

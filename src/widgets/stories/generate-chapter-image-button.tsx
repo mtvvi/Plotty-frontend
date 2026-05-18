@@ -11,11 +11,12 @@ import {
   startImageGeneration,
   storyKeys,
 } from "@/entities/story/api/stories-api";
-import type { ImageGenerationResult } from "@/entities/story/model/types";
+import type { AiJobStatus, ImageGenerationResult } from "@/entities/story/model/types";
 import { isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Button, ButtonLink } from "@/shared/ui/button";
-import { Surface } from "@/shared/ui/card";
+import { AsyncJobStatus, type AsyncJobStatusValue } from "@/shared/ui/motion";
 import { CreditCostBadge } from "@/widgets/credits/credit-cost-badge";
 
 export function GenerateChapterImageButton({
@@ -90,6 +91,20 @@ export function GenerateChapterImageButton({
   const isGenerating =
     imageMutation.isPending || jobQuery.data?.status === "queued" || jobQuery.data?.status === "processing";
   const hasImage = Boolean(chapterQuery.data?.imageUrl || jobQuery.data?.result?.images[0]?.imageUrl);
+  const imageStatus = getImageAsyncStatus({
+    isPending: imageMutation.isPending,
+    status: jobQuery.data?.status,
+    hasResult: Boolean(jobQuery.data?.result?.images[0]?.imageUrl),
+    hasError: Boolean(creditError),
+  });
+  const imageStatusError =
+    creditError ||
+    (jobQuery.data?.status === "failed"
+      ? sanitizeUserFacingMessage(
+          jobQuery.data.errorMessage ?? jobQuery.data.error,
+          "Не удалось сгенерировать иллюстрацию. Попробуйте ещё раз.",
+        )
+      : undefined);
   const shouldOfferTopUp =
     typeof balanceQuery.data?.balance === "number" && balanceQuery.data.balance < AI_CREDIT_COSTS.imageGeneration;
 
@@ -100,18 +115,17 @@ export function GenerateChapterImageButton({
           Пополнить баланс
         </ButtonLink>
       ) : null}
-      {isGenerating ? (
-        <p className="plotty-meta" aria-live="polite">
-          Генерируем иллюстрацию...
-        </p>
-      ) : null}
+      <AsyncJobStatus
+        compact
+        status={imageStatus}
+        label={imageStatus === "completed" ? "Иллюстрация готова" : "Генерируем иллюстрацию"}
+        description="Обновляем изображение главы после подтверждения результата."
+        error={imageStatusError}
+      />
       {creditError ? (
-        <Surface variant="subtle" className="space-y-3 p-3">
-          <p className="text-sm font-semibold text-[var(--plotty-danger)]">{creditError}</p>
-          <ButtonLink href={routes.credits} variant="secondary" size="sm">
-            Пополнить
-          </ButtonLink>
-        </Surface>
+        <ButtonLink href={routes.credits} variant="secondary" size="sm">
+          Пополнить
+        </ButtonLink>
       ) : null}
       <span className="relative inline-flex">
         <Button variant="secondary" onClick={handleGenerate} isLoading={isGenerating}>
@@ -121,6 +135,36 @@ export function GenerateChapterImageButton({
       </span>
     </div>
   );
+}
+
+function getImageAsyncStatus({
+  isPending,
+  status,
+  hasResult,
+  hasError,
+}: {
+  isPending: boolean;
+  status?: AiJobStatus;
+  hasResult: boolean;
+  hasError: boolean;
+}): AsyncJobStatusValue {
+  if (hasError || status === "failed") {
+    return "failed";
+  }
+
+  if (isPending) {
+    return "queued";
+  }
+
+  if (status === "queued" || status === "processing") {
+    return status;
+  }
+
+  if (status === "completed" && hasResult) {
+    return "completed";
+  }
+
+  return "idle";
 }
 
 function getInsufficientCreditsMessage(balance?: number) {

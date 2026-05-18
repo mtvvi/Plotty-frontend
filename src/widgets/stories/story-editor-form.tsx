@@ -19,6 +19,7 @@ import { Surface } from "@/shared/ui/card";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { HighlightedTextarea, type HighlightRange } from "@/shared/ui/highlighted-textarea";
 import { Input } from "@/shared/ui/input";
+import { AnimatedList, AsyncJobStatus, type AsyncJobStatusValue } from "@/shared/ui/motion";
 import { PopoverContent, type PopoverPosition } from "@/shared/ui/popover";
 import { CreditCostBadge } from "@/widgets/credits/credit-cost-badge";
 
@@ -44,10 +45,16 @@ export interface StoryEditorFormProps {
   spellcheckResult?: SpellcheckResult;
   spellcheckHighlights?: HighlightRange<SpellcheckIssue>[];
   aiStatusLabel?: string;
+  spellcheckStatus?: AsyncJobStatusValue;
+  spellcheckStatusError?: string;
   logicCheckResult?: LogicCheckResult;
   logicStatusLabel?: string;
+  logicCheckStatus?: AsyncJobStatusValue;
+  logicStatusError?: string;
   canonCheckResult?: CanonCheckResult;
   canonStatusLabel?: string;
+  canonCheckStatus?: AsyncJobStatusValue;
+  canonStatusError?: string;
   creditBalance?: number;
   creditError?: string;
   isSaving?: boolean;
@@ -81,10 +88,16 @@ export function StoryEditorForm({
   spellcheckResult,
   spellcheckHighlights = [],
   aiStatusLabel,
+  spellcheckStatus = "idle",
+  spellcheckStatusError,
   logicCheckResult,
   logicStatusLabel,
+  logicCheckStatus = "idle",
+  logicStatusError,
   canonCheckResult,
   canonStatusLabel,
+  canonCheckStatus = "idle",
+  canonStatusError,
   creditBalance,
   creditError,
   isSaving,
@@ -420,65 +433,78 @@ export function StoryEditorForm({
 
         <div className="space-y-5">
           <ShellCard title="Орфография" description={aiStatusLabel ?? "Проверка запускается вручную после сохранения текста."}>
+            <AsyncJobStatus
+              compact
+              status={spellcheckStatus}
+              label={spellcheckStatus === "completed" ? "Проверка орфографии готова" : "Проверяем орфографию"}
+              description="Ищем спорные фрагменты и готовим подсказки."
+              error={spellcheckStatusError}
+              className="mb-3"
+            />
             {spellcheckResult ? (
               <div className="space-y-3">
                 <p className="text-sm leading-6 text-[var(--plotty-muted)]">{spellcheckResult.summary}</p>
                 <div className="min-w-0 max-h-[32rem] space-y-2 overflow-y-auto pr-1">
                   {spellcheckResult.items.length ? (
-                    spellcheckResult.items.map((issue) => {
-                      const issueId = getSpellcheckIssueKey(issue);
-                      const isUnresolved = unresolvedSpellcheckIssueId === issueId;
-                      const isActive = activeSpellcheckIssueId === issueId;
+                    <AnimatedList
+                      items={spellcheckResult.items}
+                      getKey={getSpellcheckIssueKey}
+                      className="space-y-2"
+                      renderItem={(issue) => {
+                        const issueId = getSpellcheckIssueKey(issue);
+                        const isUnresolved = unresolvedSpellcheckIssueId === issueId;
+                        const isActive = activeSpellcheckIssueId === issueId;
 
-                      return (
-                        <Surface
-                          key={issueId}
-                          variant="listItem"
+                        return (
+                          <Surface
+                            variant="listItem"
                             className={`plotty-lift-panel min-w-0 p-3 transition-[border-color,background-color] duration-150 ${
-                            isActive
-                              ? "border-[rgba(195,79,50,0.28)] bg-[var(--plotty-accent-wash)]"
-                              : ""
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            className="block min-w-0 w-full text-left"
-                            onClick={() => openSpellcheckIssue(issue)}
+                              isActive
+                                ? "border-[rgba(195,79,50,0.28)] bg-[var(--plotty-accent-wash)]"
+                                : ""
+                            }`}
                           >
-                            <div className="min-w-0 space-y-1">
-                              <div className="truncate text-sm font-semibold">{issue.fragmentText}</div>
-                              <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
-                              <div className="break-words text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
-                              {isUnresolved ? (
-                                <div className="text-xs font-semibold text-[var(--plotty-danger)]">
-                                  Фрагмент не найден в текущем тексте. Запустите проверку заново.
-                                </div>
-                              ) : null}
+                            <button
+                              type="button"
+                              className="block min-w-0 w-full text-left"
+                              onClick={() => openSpellcheckIssue(issue)}
+                            >
+                              <div className="min-w-0 space-y-1">
+                                <div className="truncate text-sm font-semibold">{issue.fragmentText}</div>
+                                <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
+                                <div className="break-words text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+                                {isUnresolved ? (
+                                  <div className="text-xs font-semibold text-[var(--plotty-danger)]">
+                                    Фрагмент не найден в текущем тексте. Запустите проверку заново.
+                                  </div>
+                                ) : null}
+                              </div>
+                            </button>
+                            <div className="pt-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => applySpellcheckIssue(issue)}
+                                >
+                                  Исправить
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Оставить как есть"
+                                  onClick={() => dismissSpellcheckIssue(issue)}
+                                >
+                                  Как есть
+                                </Button>
+                              </div>
                             </div>
-                          </button>
-                          <div className="pt-2">
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => applySpellcheckIssue(issue)}
-                              >
-                                Исправить
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => dismissSpellcheckIssue(issue)}
-                              >
-                                Оставить как есть
-                              </Button>
-                            </div>
-                          </div>
-                        </Surface>
-                      );
-                    })
+                          </Surface>
+                        );
+                      }}
+                    />
                   ) : (
                     <Surface variant="listItem" className="p-3 text-sm text-[var(--plotty-muted)]">
                       Ошибок не найдено.
@@ -508,8 +534,16 @@ export function StoryEditorForm({
               "ИИ проверяет причинно-следственные связи, мотивацию персонажей и внутренние нестыковки сцены."
             }
           >
+            <AsyncJobStatus
+              compact
+              status={logicCheckStatus}
+              label={logicCheckStatus === "completed" ? "Проверка логики готова" : "Проверяем логику"}
+              description="Сверяем причинность, мотивацию и внутренние противоречия."
+              error={logicStatusError}
+              className="mb-3"
+            />
             {logicCheckResult ? (
-              <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
+              <p className="plotty-motion-tab-panel whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
                 Отправьте главу на проверку, и здесь появится список замечаний.
@@ -524,8 +558,16 @@ export function StoryEditorForm({
               "ИИ сверяет текст с каноном и правилами мира."
             }
           >
+            <AsyncJobStatus
+              compact
+              status={canonCheckStatus}
+              label={canonCheckStatus === "completed" ? "Проверка канона готова" : "Проверяем канон"}
+              description="Сравниваем сцену с правилами мира и уже опубликованным каноном."
+              error={canonStatusError}
+              className="mb-3"
+            />
             {canonCheckResult ? (
-              <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{canonCheckResult.message}</p>
+              <p className="plotty-motion-tab-panel whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{canonCheckResult.message}</p>
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
                 Отправьте главу на проверку, и здесь появится список замечаний.
@@ -537,7 +579,7 @@ export function StoryEditorForm({
         <ShellCard title="Навигация по главам" description="Быстрый переход между главами и действия над текущей главой.">
           <div className="space-y-3">
             {storySlug && chapters.length ? (
-              <div className="space-y-2">
+              <div className="plotty-scroll-panel plotty-editor-chapter-nav-list space-y-2">
                 {chapters.map((chapter) => (
                   <Link
                     key={chapter.id}

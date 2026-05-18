@@ -383,7 +383,7 @@ function PlottyPageShellFallback({
         <div key={pathname} className={cn("plotty-frame-inner plotty-page-enter pb-6 pt-4 lg:pb-10 lg:pt-8", contentClassName)}>
           {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
             <div className="mb-5 space-y-4 lg:mb-7">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0 space-y-1.5">
                   {pageMeta ? <div className="flex flex-wrap items-center gap-2">{pageMeta}</div> : null}
                   {pageTitle ? <h1 className="plotty-page-title">{pageTitle}</h1> : null}
@@ -518,7 +518,7 @@ function PlottyPageContent({
 
         {!suppressPageIntro && (pageTitle || pageDescription || pageMeta || pageActions) ? (
           <div className="mb-5 space-y-4 lg:mb-7">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 space-y-1.5">
                 {pageMeta ? <div className="flex flex-wrap items-center gap-2">{pageMeta}</div> : null}
                 {pageTitle ? <h1 className="plotty-page-title">{pageTitle}</h1> : null}

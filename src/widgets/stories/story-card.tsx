@@ -48,6 +48,7 @@ export function StoryCard({
     refetchOnWindowFocus: false,
   });
   const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
+  const isCoverLoading = Boolean(!story.coverImageUrl && (storyDetailsQuery.isLoading || firstChapterQuery.isLoading));
   const chaptersHref = `${routes.story(story.slug)}?tab=chapters`;
   const readHref = firstChapter ? routes.chapter(story.slug, firstChapter.number ?? 1) : resolvedStoryHref;
   const viewerHasLiked = Boolean(storyDetailsQuery.data?.viewerHasLiked ?? story.viewerHasLiked);
@@ -91,6 +92,7 @@ export function StoryCard({
             className="h-full rounded-none border-0"
             imageClassName="h-full min-h-[18rem] max-md:!min-h-0"
             fullHeight
+            isLoading={isCoverLoading}
           />
         </Link>
 

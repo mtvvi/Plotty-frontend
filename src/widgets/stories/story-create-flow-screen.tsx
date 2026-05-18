@@ -25,6 +25,7 @@ import { Button } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { AnimatedTabPanel } from "@/shared/ui/motion";
 import { Textarea } from "@/shared/ui/textarea";
 
 import { PlottyShell, ShellCard } from "./plotty-shell";
@@ -229,7 +230,7 @@ export function StoryCreateFlowScreen() {
           </div>
         </ShellCard>
 
-        {stage === "details" ? (
+        <AnimatedTabPanel activeKey={stage} panelKey="details">
               <ShellCard title="Название">
                 <div className="grid gap-5">
                   <Field>
@@ -254,9 +255,9 @@ export function StoryCreateFlowScreen() {
                   </div>
                 </div>
               </ShellCard>
-        ) : null}
+        </AnimatedTabPanel>
 
-        {stage === "taxonomy" ? (
+        <AnimatedTabPanel activeKey={stage} panelKey="taxonomy">
               <ShellCard title="Теги и категории">
                 <div className="space-y-5">
                   <div className="grid gap-4 md:grid-cols-2">
@@ -281,9 +282,9 @@ export function StoryCreateFlowScreen() {
                   </div>
                 </div>
               </ShellCard>
-        ) : null}
+        </AnimatedTabPanel>
 
-        {stage === "review" ? (
+        <AnimatedTabPanel activeKey={stage} panelKey="review">
               <ShellCard title="Проверьте историю перед сохранением">
                 <div className="space-y-5">
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
@@ -336,7 +337,7 @@ export function StoryCreateFlowScreen() {
                   </div>
                 </div>
               </ShellCard>
-        ) : null}
+        </AnimatedTabPanel>
       </div>
     </PlottyShell>
   );
@@ -362,7 +363,8 @@ function FlowStepButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-[20px] border px-4 py-3 text-left transition-colors ${
+      data-active={active ? "true" : "false"}
+      className={`plotty-flow-step-button rounded-[20px] border px-4 py-3 text-left transition-colors ${
         active
           ? "border-transparent bg-[var(--plotty-accent-soft)] text-[var(--plotty-accent)]"
           : complete

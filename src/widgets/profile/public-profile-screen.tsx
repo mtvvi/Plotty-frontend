@@ -16,13 +16,14 @@ import {
   publicUserStoriesQueryOptions,
 } from "@/entities/profile/api/profile-api";
 import { myStoriesQueryOptions } from "@/entities/story/api/stories-api";
-import { ApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { usernameValidationMessage } from "@/shared/lib/username";
+import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { Button } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldHint, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
 import { TabButton } from "@/shared/ui/tabs";
 import { Textarea } from "@/shared/ui/textarea";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
@@ -103,7 +104,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
       ]);
     },
     onError: (error) => {
-      setAvatarError(error instanceof ApiError ? error.message : "Не удалось загрузить аватар");
+      setAvatarError(toUserFacingErrorMessage(error, "Не удалось загрузить аватар"));
     },
   });
   const logoutMutation = useMutation({
@@ -158,7 +159,9 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const stories = isOwnProfile ? ownStories.data?.items ?? [] : publicStoriesQuery.data?.items ?? [];
   const collections = collectionsQuery.data?.items ?? [];
   const clientUsernameError = usernameValidationMessage(usernameDraft);
-  const serverError = updateProfileMutation.error instanceof ApiError ? updateProfileMutation.error.message : null;
+  const serverError = updateProfileMutation.error
+    ? toUserFacingErrorMessage(updateProfileMutation.error, "Не удалось обновить профиль")
+    : null;
 
   function handleStartEdit() {
     setUsernameDraft(profile.username);
@@ -317,11 +320,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
           ) : null}
         </div>
 
-        {activeTab === "works" ? (
+        <AnimatedTabPanel activeKey={activeTab} panelKey="works">
           <PlottySectionCard
-            title={<ProfileTitle icon={<CreativityIcon className="size-5" />}>Творчество</ProfileTitle>}
+            title={<ProfileTitle icon={<CreativityIcon className="size-5" />}>{"Творчество"}</ProfileTitle>}
             description={isOwnProfile ? "Ваши работы" : "Публичный список опубликованных работ автора."}
-            className="plotty-tab-panel-enter"
           >
             {(isOwnProfile ? ownStories.isLoading : publicStoriesQuery.isLoading) ? (
               <div className="space-y-3">
@@ -329,33 +331,33 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 <div className="h-44 rounded-[22px] bg-white/50" />
               </div>
             ) : stories.length ? (
-              <div className="plotty-stagger space-y-4">
-                {stories.map((story) => (
-                  <div key={story.id} className="plotty-stagger-item">
-                    <StoryCard
-                      story={story}
-                      showShelfControl
-                      showChapterActions={false}
-                    />
-                  </div>
-                ))}
-              </div>
+              <AnimatedList
+                items={stories}
+                getKey={(story) => story.id}
+                className="space-y-4"
+                renderItem={(story) => (
+                  <StoryCard
+                    story={story}
+                    showShelfControl
+                    showChapterActions={false}
+                  />
+                )}
+              />
             ) : (
               <EmptyState title="Работ пока нет" description={isOwnProfile ? "Создайте первую историю в мастерской." : "У пользователя нет опубликованных историй."} />
             )}
           </PlottySectionCard>
-        ) : null}
+        </AnimatedTabPanel>
 
-        {activeTab === "collections" ? (
-          isOwnProfile ? (
+        <AnimatedTabPanel activeKey={activeTab} panelKey="collections">
+          {isOwnProfile ? (
             <PlottySectionCard>
               <ProfileCollectionsManager username={profile.username} />
             </PlottySectionCard>
           ) : (
             <PlottySectionCard
-              title={<ProfileTitle icon={<PublicCollectionsIcon className="size-5" />}>Публичные подборки</ProfileTitle>}
+              title={<ProfileTitle icon={<PublicCollectionsIcon className="size-5" />}>{"Публичные подборки"}</ProfileTitle>}
               description="Подборки, которыми пользователь хочет поделиться"
-              className="plotty-tab-panel-enter"
             >
               {collectionsQuery.isLoading ? (
                 <div className="grid gap-3 md:grid-cols-2">
@@ -363,12 +365,15 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   <div className="h-36 rounded-[22px] bg-white/50" />
                 </div>
               ) : collections.length ? (
-                <div className="grid gap-3 md:grid-cols-2">
-                  {collections.map((collection) => (
+                <AnimatedList
+                  items={collections}
+                  getKey={(collection) => collection.id}
+                  className="grid gap-3 md:grid-cols-2"
+                  itemClassName="h-full"
+                  renderItem={(collection) => (
                     <Link
-                      key={collection.id}
                       href={routes.userCollection(profile.username, collection.id)}
-                      className="plotty-lift-panel rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4 transition-[background-color,transform] hover:-translate-y-[1px] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                      className="plotty-collection-tile plotty-lift-panel block h-full rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
                     >
                       <div className="space-y-2">
                         <div className="plotty-card-title text-[1.2rem]">{collection.title}</div>
@@ -382,20 +387,21 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         </div>
                       </div>
                     </Link>
-                  ))}
-                </div>
+                  )}
+                />
               ) : (
                 <EmptyState title="Публичных подборок пока нет" />
               )}
             </PlottySectionCard>
-          )
-        ) : null}
+          )}
+        </AnimatedTabPanel>
 
-        {activeTab === "library" && isOwnProfile ? (
-          <PlottySectionCard title={<ProfileTitle icon={<OpenBookIcon className="size-5" />}>Моя полка</ProfileTitle>} className="plotty-tab-panel-enter">
+        {isOwnProfile ? (
+          <AnimatedTabPanel activeKey={activeTab} panelKey="library">
+            <PlottySectionCard title={<ProfileTitle icon={<OpenBookIcon className="size-5" />}>{"Моя полка"}</ProfileTitle>}>
               <div className="mb-4 flex flex-wrap gap-2">
                 <TabButton type="button" isActive={libraryTab === "all"} onClick={() => setLibraryTab("all")}>
-                  Все
+                  {"Все"}
                 </TabButton>
                 {readerShelfOptions.map((option) => (
                   <TabButton key={option.value} type="button" isActive={libraryTab === option.value} onClick={() => setLibraryTab(option.value)}>
@@ -409,18 +415,22 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   <div className="h-44 rounded-[22px] bg-white/50" />
                 </div>
               ) : visibleShelfEntries.length ? (
-                <div className="plotty-stagger space-y-4">
-                  {visibleShelfEntries.map((entry) => (
-                    <div key={`${entry.storyId}-${entry.shelf}`} className="plotty-stagger-item space-y-2">
+                <AnimatedList
+                  items={visibleShelfEntries}
+                  getKey={(entry) => `${entry.storyId}-${entry.shelf}`}
+                  className="space-y-4"
+                  renderItem={(entry) => (
+                    <div className="space-y-2">
                       <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]}`}</div>
                       <StoryCard story={entry.story} showChapterActions={false} />
                     </div>
-                  ))}
-                </div>
+                  )}
+                />
               ) : (
                 <EmptyState title="Здесь пока пусто" description="Добавьте статус чтения на странице истории или в каталоге." />
               )}
             </PlottySectionCard>
+          </AnimatedTabPanel>
         ) : null}
       </div>
     </PlottyPageShell>

@@ -11,6 +11,7 @@ import type { LoginPayload, RegisterPayload } from "@/entities/auth/model/types"
 import type { ApiFieldError } from "@/shared/api/fetch-json";
 import { isApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Button } from "@/shared/ui/button";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -241,5 +242,5 @@ function getAuthErrorMessage(error: { message: string; status: number }, mode: A
     return authFallbackMessages[mode];
   }
 
-  return message || authFallbackMessages[mode];
+  return sanitizeUserFacingMessage(message, authFallbackMessages[mode]);
 }

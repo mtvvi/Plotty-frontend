@@ -18,10 +18,12 @@ import {
 } from "@/entities/credits/model/credit-utils";
 import type { CreditPackage, CreditTransaction } from "@/entities/credits/model/types";
 import { isApiError } from "@/shared/api/fetch-json";
+import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, Surface } from "@/shared/ui/card";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { AnimatedList, AnimatedTabPanel, AsyncJobStatus } from "@/shared/ui/motion";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { PlottyAppMenu, PlottyPageShell } from "@/widgets/layout/plotty-page-shell";
 
@@ -74,6 +76,14 @@ export function CreditsScreen() {
   const transactions = transactionsQuery.data ?? [];
   const balance = balanceQuery.data?.balance;
   const bestPackageId = useMemo(() => getBestPackageId(packages), [packages]);
+  const hasCreditsData = Boolean(balanceQuery.data || transactionsQuery.data);
+  const creditFeedbackStatus = purchaseError
+    ? "failed"
+    : purchaseMutation.isPending
+      ? "processing"
+      : hasCreditsData && (isReturnPolling || balanceQuery.isFetching || transactionsQuery.isFetching)
+        ? "processing"
+        : "idle";
 
   async function refreshCredits() {
     await Promise.all([
@@ -107,6 +117,13 @@ export function CreditsScreen() {
       <div className="space-y-6">
         <BalanceSummary balance={balance} isLoading={balanceQuery.isLoading} />
 
+        <AsyncJobStatus
+          status={creditFeedbackStatus}
+          label={purchaseError ? "Не удалось начать оплату" : purchaseMutation.isPending ? "Открываем оплату" : "Обновляем баланс"}
+          description={purchaseMutation.isPending ? "Готовим ссылку на платежную страницу." : "Проверяем последние операции и доступный баланс."}
+          error={purchaseError || undefined}
+        />
+
         <SegmentedControl className="w-full sm:w-fit">
           <TabButton type="button" isActive={activeTab === "packages"} onClick={() => setActiveTab("packages")}>
             Пакеты
@@ -120,7 +137,7 @@ export function CreditsScreen() {
           </TabButton>
         </SegmentedControl>
 
-        {activeTab === "packages" ? (
+        <AnimatedTabPanel activeKey={activeTab} panelKey="packages">
           <section className="space-y-4" aria-label="Пакеты кредитов">
             {packagesQuery.isLoading ? (
               <PackageSkeleton />
@@ -139,16 +156,11 @@ export function CreditsScreen() {
             ) : (
               <EmptyState title="Пакеты недоступны" description="Не удалось получить варианты пополнения." />
             )}
-
-            {purchaseError ? (
-              <Surface variant="subtle" className="p-4">
-                <p className="text-sm font-semibold text-[var(--plotty-danger)]">{purchaseError}</p>
-              </Surface>
-            ) : null}
           </section>
-        ) : (
+        </AnimatedTabPanel>
+        <AnimatedTabPanel activeKey={activeTab} panelKey="transactions">
           <TransactionsList transactions={transactions} isLoading={transactionsQuery.isLoading} />
-        )}
+        </AnimatedTabPanel>
       </div>
     </PlottyPageShell>
   );
@@ -230,20 +242,25 @@ function TransactionsList({
   }
 
   return (
-    <section className="space-y-3" aria-label="История кредитов">
-      {transactions.map((transaction) => (
-        <Surface key={transaction.id} variant="listItem" className="p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0 space-y-1">
-              <div className="font-semibold text-[var(--plotty-ink)]">{getTransactionTitle(transaction)}</div>
-              <p className="plotty-meta">{formatTransactionDate(transaction.createdAt)}</p>
+    <section aria-label="История кредитов">
+      <AnimatedList
+        items={transactions}
+        getKey={(transaction) => transaction.id}
+        className="space-y-3"
+        renderItem={(transaction) => (
+          <Surface variant="listItem" className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 space-y-1">
+                <div className="font-semibold text-[var(--plotty-ink)]">{getTransactionTitle(transaction)}</div>
+                <p className="plotty-meta">{formatTransactionDate(transaction.createdAt)}</p>
+              </div>
+              <Badge tone={transaction.amount > 0 ? "olive" : "accent"}>
+                {formatCreditTransactionAmount(transaction.amount)}
+              </Badge>
             </div>
-            <Badge tone={transaction.amount > 0 ? "olive" : "accent"}>
-              {formatCreditTransactionAmount(transaction.amount)}
-            </Badge>
-          </div>
-        </Surface>
-      ))}
+          </Surface>
+        )}
+      />
     </section>
   );
 }
@@ -318,5 +335,5 @@ function getPurchaseErrorMessage(error: unknown) {
     return "Такой пакет кредитов больше недоступен.";
   }
 
-  return error.message || "Не удалось начать оплату. Попробуйте ещё раз.";
+  return sanitizeUserFacingMessage(error.message, "Не удалось начать оплату. Попробуйте ещё раз.");
 }
