@@ -578,7 +578,7 @@ function CreditCostButton({
   ...props
 }: ButtonProps & { cost: number; showCostBadge?: boolean }) {
   return (
-    <span className="relative inline-flex pt-2">
+    <span className="relative inline-flex">
       <Button className={className} {...props}>
         {children}
       </Button>

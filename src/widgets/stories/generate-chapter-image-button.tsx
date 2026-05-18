@@ -113,7 +113,7 @@ export function GenerateChapterImageButton({
           </ButtonLink>
         </Surface>
       ) : null}
-      <span className="relative inline-flex pt-2">
+      <span className="relative inline-flex">
         <Button variant="secondary" onClick={handleGenerate} isLoading={isGenerating}>
           {hasImage ? "Обновить иллюстрацию" : "Сгенерировать картинку"}
         </Button>

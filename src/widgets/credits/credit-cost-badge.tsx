@@ -5,12 +5,17 @@ export function CreditCostBadge({ cost, className }: { cost: number; className?:
   return (
     <span
       className={cn(
-        "plotty-badge-motion pointer-events-none absolute -right-2 top-0 inline-flex min-h-6 min-w-10 items-center justify-center rounded-md bg-[var(--plotty-accent)] px-2 text-[10px] font-bold leading-none text-white shadow-[0_6px_14px_rgba(195,79,50,0.24)] ring-2 ring-[var(--plotty-paper)]",
+        "plotty-badge-motion plotty-credit-cost-badge pointer-events-none -right-2 -top-2 inline-flex size-6 flex-col items-center justify-center rounded-full bg-[var(--plotty-accent)] p-0 text-white shadow-[0_5px_12px_rgba(195,79,50,0.22)] ring-2 ring-[var(--plotty-paper)]",
         className,
       )}
       aria-label={`Стоимость: ${formatCreditsAmount(cost)}`}
     >
-      {cost} кр
+      <span aria-hidden="true" className="text-[9px] font-extrabold leading-none">
+        {cost}
+      </span>
+      <span aria-hidden="true" className="text-[6px] font-bold leading-none">
+        кр
+      </span>
     </span>
   );
 }

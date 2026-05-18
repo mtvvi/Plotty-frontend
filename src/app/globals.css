@@ -409,6 +409,10 @@ button:active .plotty-chip-motion {
     plotty-chip-selected-glow 620ms var(--ease-out-soft) 80ms both;
 }
 
+.plotty-credit-cost-badge {
+  position: absolute;
+}
+
 .plotty-like-pop[aria-pressed="true"] svg,
 .plotty-like-pop[data-liked="true"] svg {
   animation: plotty-like-pop 360ms var(--ease-out-soft) both;
