@@ -107,8 +107,8 @@ function StoryRevealOverlay({ reveal }: { reveal: RevealRequest }) {
         <div className="plotty-story-reveal-cover">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {reveal.coverUrl ? <img src={reveal.coverUrl} alt="" /> : null}
+          <div className="plotty-story-reveal-cover-vignette" />
           {reveal.title ? <div className="plotty-story-reveal-cover-title">{reveal.title}</div> : null}
-          <div className="plotty-story-reveal-sheet" />
         </div>
       </div>
     </div>

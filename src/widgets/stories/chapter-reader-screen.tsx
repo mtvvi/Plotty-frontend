@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
 import {
@@ -24,6 +25,7 @@ import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
+import { IconButton } from "@/shared/ui/icon-button";
 import { Textarea } from "@/shared/ui/textarea";
 
 import { ChapterImageFrame } from "./chapter-image-frame";
@@ -359,6 +361,24 @@ function ChapterWikiDrawer({
   isError: boolean;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
+
   const sections = [
     { title: "Персонажи", items: normalizeWikiItems(wiki?.characters) },
     { title: "Локации", items: normalizeWikiItems(wiki?.locations) },
@@ -366,7 +386,7 @@ function ChapterWikiDrawer({
   ];
   const hasItems = sections.some((section) => section.items.length > 0);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50">
       <button
         type="button"
@@ -381,9 +401,9 @@ function ChapterWikiDrawer({
             <h2 className="plotty-section-title">Справочник</h2>
             <p className="plotty-meta">Состояние мира доступно только по уже опубликованным ранее главам.</p>
           </div>
-          <Button type="button" variant="secondary" className="min-h-10 px-3 text-sm" onClick={onClose}>
-            Закрыть
-          </Button>
+          <IconButton aria-label="Закрыть справочник" size="sm" onClick={onClose}>
+            <X className="size-5" aria-hidden="true" />
+          </IconButton>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -421,7 +441,8 @@ function ChapterWikiDrawer({
           )}
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

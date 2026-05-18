@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -223,7 +224,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
               </div>
 
               {isOwnProfile && editOpen ? (
-                <form className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4" onSubmit={handleSaveProfile}>
+                <form className="plotty-profile-settings-enter grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4" onSubmit={handleSaveProfile}>
                   <div className="grid gap-4 md:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="own-profile-username">Ник</FieldLabel>
@@ -237,13 +238,25 @@ export function PublicProfileScreen({ username }: { username: string }) {
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="own-profile-avatar">Аватар</FieldLabel>
-                      <Input
+                      <input
                         id="own-profile-avatar"
+                        className="plotty-avatar-upload-input sr-only"
                         type="file"
                         accept="image/png,image/jpeg,image/webp,image/gif"
                         disabled={avatarMutation.isPending}
                         onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
                       />
+                      <label className="plotty-avatar-upload" htmlFor="own-profile-avatar" aria-disabled={avatarMutation.isPending}>
+                        <span className="plotty-avatar-upload-icon" aria-hidden="true">
+                          <Plus className="size-5" strokeWidth={2.2} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block font-semibold text-[var(--plotty-ink)]">
+                            {avatarMutation.isPending ? "Загружаем аватар..." : "Загрузить аватар"}
+                          </span>
+                          <span className="mt-1 block text-sm text-[var(--plotty-muted)]">Выберите файл с изображением</span>
+                        </span>
+                      </label>
                       <FieldHint>PNG, JPG, WEBP или GIF до 5 МБ.</FieldHint>
                     </Field>
                   </div>
