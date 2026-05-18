@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
-type ChipTone = "default" | "accent" | "olive" | "gold" | "blue";
+export type ChipTone = "default" | "accent" | "olive" | "gold" | "blue";
 
 const toneClasses: Record<ChipTone, string> = {
   default: "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.76)] text-[var(--plotty-muted)]",

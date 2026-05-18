@@ -26,7 +26,9 @@ import { StoryTagChip } from "./story-tag-chip";
 const multiSelectCategories = new Set(["rating", "completion", "size"]);
 const singleSelectCategories = new Set(["directionality"]);
 const searchDebounceMs = 300;
+const catalogFilterExitMs = 620;
 type CatalogSort = StoriesSort | "popular-desc";
+type FilterMotionState = "expanded" | "collapsing" | "collapsed";
 
 const sortOptions: Array<{ value: CatalogSort; label: string }> = [
   { value: "updated-desc", label: "Сначала новые" },
@@ -54,8 +56,12 @@ export function StoriesCatalogShell() {
   const [localSort, setLocalSort] = useState<CatalogSort>(appliedQuery.sort ?? defaultStoriesSort);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [filterMotionState, setFilterMotionState] = useState<FilterMotionState>("expanded");
   const [, setIsMobileMenuOpen] = useState(false);
   const lastRequestedSearchRef = useRef(appliedQuery.q);
+  const filterCollapseTimeoutRef = useRef<number | null>(null);
+  const filtersAreHiding = filterMotionState === "collapsing";
+  const filtersAreHidden = filtersCollapsed || filtersAreHiding;
 
   const navigateToQuery = useCallback(
     (nextQuery: StoriesQuery) => {
@@ -75,6 +81,17 @@ export function StoriesCatalogShell() {
       lastRequestedSearchRef.current = appliedQuery.q;
     }
   }, [appliedQuery.q]);
+
+  const clearFilterCollapseTimeout = useCallback(() => {
+    if (filterCollapseTimeoutRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(filterCollapseTimeoutRef.current);
+    filterCollapseTimeoutRef.current = null;
+  }, []);
+
+  useEffect(() => () => clearFilterCollapseTimeout(), [clearFilterCollapseTimeout]);
 
   const normalizedSearchDraft = searchDraft.trim();
   const isSearchDirty = normalizedSearchDraft !== appliedQuery.q;
@@ -160,6 +177,23 @@ export function StoriesCatalogShell() {
     });
   }
 
+  function toggleDesktopFilters() {
+    clearFilterCollapseTimeout();
+
+    if (filtersCollapsed || filtersAreHiding) {
+      setFiltersCollapsed(false);
+      setFilterMotionState("expanded");
+      return;
+    }
+
+    setFilterMotionState("collapsing");
+    setFiltersCollapsed(true);
+    filterCollapseTimeoutRef.current = window.setTimeout(() => {
+      setFilterMotionState("collapsed");
+      filterCollapseTimeoutRef.current = null;
+    }, catalogFilterExitMs);
+  }
+
   function setSingleSelectTag(currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) {
     return replaceCategoryTags(currentTags, categoryTags, tagSlug ? [tagSlug] : []);
   }
@@ -199,22 +233,16 @@ export function StoriesCatalogShell() {
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       pageActions={
         <div className="hidden min-w-0 items-center gap-3 lg:mt-3 lg:flex">
-          <CatalogSearchField
-            value={searchDraft}
-            onChange={setSearchDraft}
-            ariaLabel="Поиск в каталоге"
-            className="min-w-[18rem] max-w-[28rem] flex-1"
-          />
           <CatalogSortSelect value={currentSort} onChange={handleSortChange} ariaLabel="Сортировка каталога" />
           <Button
             type="button"
             variant="secondary"
-            aria-pressed={filtersCollapsed}
+            aria-pressed={filtersAreHidden}
             className="whitespace-nowrap"
-            onClick={() => setFiltersCollapsed((current) => !current)}
+            onClick={toggleDesktopFilters}
           >
             <SlidersHorizontal className="size-4" aria-hidden="true" />
-            {filtersCollapsed ? "Показать фильтры" : "Скрыть фильтры"}
+            {filtersAreHidden ? "Показать фильтры" : "Скрыть фильтры"}
           </Button>
         </div>
       }
@@ -241,13 +269,12 @@ export function StoriesCatalogShell() {
       contentClassName="pt-5 lg:pt-10"
     >
       <div
-        className={cn(
-          "grid gap-5 lg:gap-7 xl:gap-8",
-          filtersCollapsed ? "lg:grid-cols-[minmax(0,1fr)]" : "lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]",
-        )}
+        className="plotty-catalog-layout"
+        data-filters-collapsed={filtersCollapsed ? "true" : "false"}
+        data-filters-state={filterMotionState}
       >
-        <aside className={cn("hidden lg:block", filtersCollapsed && "lg:hidden")}>
-          <PlottySectionCard variant="sidebar" className="plotty-lift-panel sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
+        <aside className="plotty-catalog-filter-rail hidden lg:block" aria-hidden={filtersAreHidden}>
+          <PlottySectionCard variant="sidebar" className="plotty-catalog-filter-card plotty-lift-panel sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
             {filters}
           </PlottySectionCard>
         </aside>
@@ -278,10 +305,7 @@ export function StoriesCatalogShell() {
           </div>
 
           {hasInitialLoading ? (
-            <div className="space-y-3">
-              <div className="h-56 rounded-[var(--plotty-radius-lg)] bg-white/50" />
-              <div className="h-56 rounded-[var(--plotty-radius-lg)] bg-white/50" />
-            </div>
+            <CatalogStoriesSkeleton />
           ) : storiesQuery.isError ? (
             <EmptyState
               title="Не удалось загрузить истории"
@@ -559,6 +583,40 @@ function ActiveFilter({ label, onClear }: { label: string; onClear: () => void }
   );
 }
 
+function CatalogStoriesSkeleton() {
+  return (
+    <div className="space-y-4" role="status" aria-live="polite" aria-label="Загружаем истории">
+      <span className="sr-only">Загружаем истории...</span>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <Surface
+          key={index}
+          variant="panel"
+          className="grid animate-pulse gap-4 overflow-hidden p-0 md:grid-cols-[minmax(12rem,18rem)_minmax(0,1fr)_10rem]"
+        >
+          <div className="aspect-video bg-white/60 md:aspect-auto md:min-h-[13rem]" />
+          <div className="space-y-3 p-4 md:p-5">
+            <div className="h-6 w-3/4 rounded-full bg-white/70" />
+            <div className="h-4 w-1/2 rounded-full bg-white/60" />
+            <div className="space-y-2 pt-2">
+              <div className="h-3 w-full rounded-full bg-white/55" />
+              <div className="h-3 w-5/6 rounded-full bg-white/55" />
+            </div>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <div className="h-8 w-20 rounded-[var(--plotty-radius-sm)] bg-white/60" />
+              <div className="h-8 w-24 rounded-[var(--plotty-radius-sm)] bg-white/60" />
+              <div className="h-8 w-16 rounded-[var(--plotty-radius-sm)] bg-white/60" />
+            </div>
+          </div>
+          <div className="hidden space-y-3 border-l border-[var(--plotty-line)] bg-[rgba(245,238,229,0.42)] p-4 md:block">
+            <div className="h-11 rounded-[var(--plotty-radius-md)] bg-white/70" />
+            <div className="h-11 rounded-[var(--plotty-radius-md)] bg-white/60" />
+          </div>
+        </Surface>
+      ))}
+    </div>
+  );
+}
+
 function CatalogPagination({
   disabled,
   pagination,
@@ -720,13 +778,27 @@ function CatalogFandomDropdown({
           className="max-h-[min(32rem,calc(100vh-2rem))] overflow-y-auto rounded-[var(--plotty-radius-md)] p-2"
         >
           <div className="sticky top-0 z-10 mb-2 bg-[rgba(251,247,242,0.98)] pb-2">
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              aria-label="Поиск по фандомам"
-              placeholder="Найти фандом"
-              className="min-h-10"
-            />
+            <div className="relative">
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="Поиск по фандомам"
+                placeholder="Найти фандом"
+                className="min-h-10 pr-10"
+              />
+              {searchQuery ? (
+                <IconButton
+                  type="button"
+                  aria-label="Очистить поиск фандомов"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 min-h-8 w-8 -translate-y-1/2 rounded-[var(--plotty-radius-sm)] p-0"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </IconButton>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"

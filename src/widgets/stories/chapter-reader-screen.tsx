@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -22,12 +22,19 @@ import type { ChapterWiki, ChapterWikiEntity, StoryCommentsResponse } from "@/en
 import { isAuthError } from "@/shared/api/fetch-json";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { routes } from "@/shared/config/routes";
+import { cn, pluralizeRu } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { IconButton } from "@/shared/ui/icon-button";
+import { AnimatedList } from "@/shared/ui/motion";
 import { Textarea } from "@/shared/ui/textarea";
 
+import {
+  ChapterSortButton,
+  sortChaptersForDisplay,
+  type ChapterSortDirection,
+} from "./chapter-list-sort";
 import { ChapterImageFrame } from "./chapter-image-frame";
 import { PlottyShell, ShellCard } from "./plotty-shell";
 
@@ -54,6 +61,12 @@ export function ChapterReaderScreen({
     () => (storyQuery.data ? publicChaptersForReader(storyQuery.data.chapters) : []),
     [storyQuery.data],
   );
+  const [chapterSortDirection, setChapterSortDirection] = useState<ChapterSortDirection>("asc");
+  const sortedReaderChapters = useMemo(
+    () => sortChaptersForDisplay(readerChapters, chapterSortDirection),
+    [chapterSortDirection, readerChapters],
+  );
+  const chaptersScrollRef = useRef<HTMLDivElement | null>(null);
   const chapterId = useMemo(() => {
     if (chapterIdFromRoute) {
       return chapterIdFromRoute;
@@ -222,6 +235,13 @@ export function ChapterReaderScreen({
     }
   }
 
+  function toggleChapterSortDirection() {
+    setChapterSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+    window.requestAnimationFrame(() => {
+      chaptersScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
   return (
     <PlottyShell
       title={
@@ -260,7 +280,7 @@ export function ChapterReaderScreen({
 
         <ShellCard
           title={<span className="plotty-chapter-title-motion">{readerChapterTitle}</span>}
-          description={`${readerWordCount} слов`}
+          description={formatWordCount(readerWordCount)}
           className="plotty-stagger-item plotty-lift-panel bg-[rgba(255,255,255,0.72)]"
         >
           <div className="space-y-5">
@@ -290,6 +310,66 @@ export function ChapterReaderScreen({
             </div>
           </div>
         </ShellCard>
+
+        {readerChapters.length > 1 ? (
+          <section className="plotty-stagger-item space-y-4 rounded-[24px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.78)] p-4 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <h2 className="plotty-section-title">Главы истории</h2>
+                <p className="plotty-meta">
+                  {readerChapters.length} {getChapterLabel(readerChapters.length)}
+                </p>
+              </div>
+              <ChapterSortButton
+                chapterCount={readerChapters.length}
+                direction={chapterSortDirection}
+                onToggle={toggleChapterSortDirection}
+              />
+            </div>
+            <AnimatedList
+              items={sortedReaderChapters}
+              getKey={(item) => item.id}
+              listRef={chaptersScrollRef}
+              className="plotty-scroll-panel plotty-reader-chapter-list divide-y divide-[var(--plotty-line)] rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.62)]"
+              renderItem={(item) => {
+                const isCurrent = item.id === chapterId;
+
+                return (
+                  <div
+                    className={cn(
+                      "plotty-lift-panel grid gap-3 px-4 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center",
+                      isCurrent && "bg-[var(--plotty-accent-soft)]",
+                    )}
+                  >
+                    <span className="plotty-card-title text-[1.2rem]">{item.number ?? "—"}.</span>
+                    <div className="min-w-0">
+                      <Link
+                        href={routes.chapter(story.slug, item.number ?? 1)}
+                        className={cn(
+                          "plotty-story-title-anchor plotty-card-title text-[1.08rem] hover:text-[var(--plotty-accent)]",
+                          isCurrent && "text-[var(--plotty-accent)]",
+                        )}
+                        aria-current={isCurrent ? "page" : undefined}
+                      >
+                        <span className="plotty-story-title-text">{item.title}</span>
+                      </Link>
+                      <p className="plotty-meta mt-1">{new Date(item.updatedAt).toLocaleDateString("ru-RU")}</p>
+                    </div>
+                    {isCurrent ? (
+                      <Button type="button" variant="primary" size="sm" disabled>
+                        Сейчас
+                      </Button>
+                    ) : (
+                      <ButtonLink href={routes.chapter(story.slug, item.number ?? 1)} variant="secondary" size="sm">
+                        Открыть
+                      </ButtonLink>
+                    )}
+                  </div>
+                );
+              }}
+            />
+          </section>
+        ) : null}
 
         {chapterPublished ? (
           <section id="chapter-comments" className="plotty-stagger-item scroll-mt-24 space-y-5 rounded-[24px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.78)] p-4 sm:p-6">
@@ -377,6 +457,14 @@ export function ChapterReaderScreen({
 
 function countWords(content: string) {
   return content.trim() ? content.trim().split(/\s+/).length : 0;
+}
+
+function formatWordCount(count: number) {
+  return `${count} ${pluralizeRu(count, ["слово", "слова", "слов"])}`;
+}
+
+function getChapterLabel(count: number) {
+  return pluralizeRu(count, ["глава", "главы", "глав"]);
 }
 
 function ChapterWikiDrawer({

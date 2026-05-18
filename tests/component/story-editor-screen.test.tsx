@@ -15,14 +15,14 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-function renderEditor() {
+function renderEditor(storyId = "story-1", chapterId = "chapter-1") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <StoryEditorScreen storyId="story-1" chapterId="chapter-1" />
+      <StoryEditorScreen storyId={storyId} chapterId={chapterId} />
     </QueryClientProvider>,
   );
 }
@@ -49,7 +49,7 @@ describe("StoryEditorScreen", () => {
     const chapterTitle = screen.getByDisplayValue("Глава 1. Архив под лестницей");
     await user.clear(chapterTitle);
     await user.type(chapterTitle, "Глава 1. Новый архив");
-    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    await user.click(screen.getByRole("button", { name: "Сохранить черновик" }));
 
     await waitFor(async () => {
       const response = await fetch("http://localhost/chapters/chapter-1");
@@ -148,14 +148,26 @@ describe("StoryEditorScreen", () => {
   it("runs logic check and renders the verdict", async () => {
     const user = userEvent.setup();
 
-    renderEditor();
+    renderEditor("story-1", "chapter-2");
 
-    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 2. Сухой снег")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Проверить логику" }));
 
     await waitFor(() => expect(screen.getByText(/Логических нестыковок не найдено/i)).toBeInTheDocument(), {
       timeout: 4_000,
     });
+  });
+
+  it("does not allow paid logic or canon checks when they would not run meaningfully", async () => {
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: "Проверить логику" })).toBeDisabled();
+    expect(screen.getByText(/Проверка логики доступна со второй главы/i)).toBeInTheDocument();
+    expect(screen.queryByText(/кредиты не списываются/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Проверить канон" })).toBeDisabled();
+    expect(screen.getByText(/доступна только для историй с выбранным фандомом/i)).toBeInTheDocument();
   });
 
   it("deletes the current chapter and navigates back to the story page", async () => {

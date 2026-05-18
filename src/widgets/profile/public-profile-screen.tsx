@@ -30,6 +30,7 @@ import { StoryCard } from "@/widgets/stories/story-card";
 import { resetViewerSessionCache } from "@/widgets/auth/viewer-session-cache";
 
 import { ProfileCollectionsManager } from "./profile-collections-manager";
+import { getAvatarCropGeometry, type AvatarImageSize } from "./avatar-crop";
 import {
   CreativityIcon,
   EditProfileIcon,
@@ -40,6 +41,9 @@ import {
 } from "./profile-icons";
 
 type ProfileTab = "works" | "collections";
+type ProfileEditMotionState = "closed" | "open" | "closing";
+
+const profileEditExitMs = 520;
 
 const ownStoriesQuery = {
   tags: [],
@@ -58,6 +62,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const initialTab = getInitialTab(searchParams.get("tab"));
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [editOpen, setEditOpen] = useState(false);
+  const [editMotionState, setEditMotionState] = useState<ProfileEditMotionState>("closed");
   const [usernameDraft, setUsernameDraft] = useState("");
   const [bioDraft, setBioDraft] = useState("");
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -67,6 +72,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const [avatarOffsetX, setAvatarOffsetX] = useState(0);
   const [avatarOffsetY, setAvatarOffsetY] = useState(0);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const editCloseTimeoutRef = useRef<number | null>(null);
   const profileQuery = useQuery(publicProfileQueryOptions(normalizedUsername));
   const publicStoriesQuery = useQuery(publicUserStoriesQueryOptions(normalizedUsername));
   const ownStories = useQuery(myStoriesQueryOptions(ownStoriesQuery, { userId: isOwnProfile ? user?.id : null }));
@@ -80,7 +86,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
         queryClient.invalidateQueries({ queryKey: authKeys.session() }),
         queryClient.invalidateQueries({ queryKey: ["profiles"] }),
       ]);
-      setEditOpen(false);
+      closeProfileEditor();
 
       const nextUsername = response.user.username;
 
@@ -134,6 +140,15 @@ export function PublicProfileScreen({ username }: { username: string }) {
     };
   }, [avatarPreviewUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (editCloseTimeoutRef.current !== null) {
+        window.clearTimeout(editCloseTimeoutRef.current);
+        editCloseTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   if (profileQuery.isLoading) {
     return (
       <PlottyPageShell
@@ -165,12 +180,39 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const serverError = updateProfileMutation.error
     ? toUserFacingErrorMessage(updateProfileMutation.error, "Не удалось обновить профиль")
     : null;
+  const editFormMounted = isOwnProfile && (editOpen || editMotionState === "closing");
+  const editFormClosing = editMotionState === "closing";
+
+  function clearEditCloseTimeout() {
+    if (editCloseTimeoutRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(editCloseTimeoutRef.current);
+    editCloseTimeoutRef.current = null;
+  }
 
   function handleStartEdit() {
+    clearEditCloseTimeout();
     setUsernameDraft(profile.username);
     setBioDraft(profile.bio ?? "");
     setAvatarError(null);
     setEditOpen(true);
+    setEditMotionState("open");
+  }
+
+  function closeProfileEditor() {
+    if (!editOpen || editMotionState === "closing") {
+      return;
+    }
+
+    clearEditCloseTimeout();
+    setEditMotionState("closing");
+    editCloseTimeoutRef.current = window.setTimeout(() => {
+      setEditOpen(false);
+      setEditMotionState("closed");
+      editCloseTimeoutRef.current = null;
+    }, profileEditExitMs);
   }
 
   function handleSaveProfile(event: FormEvent) {
@@ -301,61 +343,64 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 ) : null}
               </div>
 
-              {isOwnProfile && editOpen ? (
-                <form className="plotty-profile-settings-enter grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4" onSubmit={handleSaveProfile}>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field>
-                      <FieldLabel htmlFor="own-profile-username">Ник</FieldLabel>
-                      <Input
-                        id="own-profile-username"
-                        value={usernameDraft}
-                        onChange={(event) => setUsernameDraft(event.target.value)}
-                        disabled={updateProfileMutation.isPending}
-                      />
-                      <FieldHint>Латиница, цифры и “_”, от 3 до 40 символов.</FieldHint>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="own-profile-avatar">Аватар</FieldLabel>
-                      <label className="plotty-avatar-upload" htmlFor="own-profile-avatar" aria-disabled={avatarMutation.isPending}>
-                        <span className="plotty-avatar-upload-icon" aria-hidden="true">
-                          <Plus className="size-5" strokeWidth={2.2} />
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block font-semibold text-[var(--plotty-ink)]">
-                            {avatarMutation.isPending ? "Загружаем аватар..." : "Загрузить аватар"}
+              {editFormMounted ? (
+                <div className="plotty-profile-edit-region" data-state={editFormClosing ? "closing" : "open"}>
+                  <form className="plotty-profile-settings-panel" onSubmit={handleSaveProfile}>
+                    <div className="grid gap-4 md:grid-cols-2 md:items-stretch">
+                      <Field className="flex h-full flex-col">
+                        <FieldLabel htmlFor="own-profile-username">Ник</FieldLabel>
+                        <Input
+                          id="own-profile-username"
+                          className="plotty-profile-username-input"
+                          value={usernameDraft}
+                          onChange={(event) => setUsernameDraft(event.target.value)}
+                          disabled={updateProfileMutation.isPending}
+                        />
+                        <FieldHint>Латиница, цифры и “_”, от 3 до 40 символов.</FieldHint>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="own-profile-avatar">Аватар</FieldLabel>
+                        <label className="plotty-avatar-upload" htmlFor="own-profile-avatar" aria-disabled={avatarMutation.isPending}>
+                          <span className="plotty-avatar-upload-icon" aria-hidden="true">
+                            <Plus className="size-5" strokeWidth={2.2} />
                           </span>
-                          <span className="mt-1 block text-sm text-[var(--plotty-muted)]">Выберите файл с изображением</span>
-                        </span>
-                      </label>
-                      <FieldHint>PNG, JPG, WEBP или GIF до 5 МБ.</FieldHint>
+                          <span className="min-w-0">
+                            <span className="block font-semibold text-[var(--plotty-ink)]">
+                              {avatarMutation.isPending ? "Загружаем аватар..." : "Загрузить аватар"}
+                            </span>
+                            <span className="mt-1 block text-sm text-[var(--plotty-muted)]">Выберите файл с изображением</span>
+                          </span>
+                        </label>
+                        <FieldHint>PNG, JPG, WEBP или GIF до 5 МБ.</FieldHint>
+                      </Field>
+                    </div>
+                    <Field>
+                      <FieldLabel htmlFor="own-profile-bio">О себе</FieldLabel>
+                      <Textarea
+                        id="own-profile-bio"
+                        value={bioDraft}
+                        onChange={(event) => setBioDraft(event.target.value)}
+                        disabled={updateProfileMutation.isPending}
+                        className="min-h-32"
+                        maxLength={5000}
+                      />
                     </Field>
-                  </div>
-                  <Field>
-                    <FieldLabel htmlFor="own-profile-bio">О себе</FieldLabel>
-                    <Textarea
-                      id="own-profile-bio"
-                      value={bioDraft}
-                      onChange={(event) => setBioDraft(event.target.value)}
-                      disabled={updateProfileMutation.isPending}
-                      className="min-h-32"
-                      maxLength={5000}
-                    />
-                  </Field>
-                  {clientUsernameError ? <FieldError>{clientUsernameError}</FieldError> : null}
-                  {!clientUsernameError && serverError ? <FieldError>{serverError}</FieldError> : null}
-                  {avatarError ? <FieldError>{avatarError}</FieldError> : null}
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="submit" variant="primary" disabled={updateProfileMutation.isPending || Boolean(clientUsernameError)}>
-                      {updateProfileMutation.isPending ? "Сохраняем..." : "Сохранить"}
-                    </Button>
-                    <Button type="button" variant="secondary" onClick={() => setEditOpen(false)} disabled={updateProfileMutation.isPending}>
-                      Отмена
-                    </Button>
-                  </div>
-                </form>
+                    {clientUsernameError ? <FieldError>{clientUsernameError}</FieldError> : null}
+                    {!clientUsernameError && serverError ? <FieldError>{serverError}</FieldError> : null}
+                    {avatarError ? <FieldError>{avatarError}</FieldError> : null}
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="submit" variant="primary" disabled={updateProfileMutation.isPending || Boolean(clientUsernameError)}>
+                        {updateProfileMutation.isPending ? "Сохраняем..." : "Сохранить"}
+                      </Button>
+                      <Button type="button" variant="secondary" onClick={closeProfileEditor} disabled={updateProfileMutation.isPending}>
+                        Отмена
+                      </Button>
+                    </div>
+                  </form>
+                </div>
               ) : null}
             </div>
-            <div className="grid gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 lg:border-l lg:border-t-0">
+            <div className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 lg:border-l lg:border-t-0 lg:p-7">
               <ProfileStat
                 label="Работ"
                 value={(isOwnProfile ? ownStories.data?.pagination.total : publicStoriesQuery.data?.pagination.total) ?? stories.length}
@@ -527,6 +572,26 @@ function AvatarCropDialog({
   onScaleChange: (value: number) => void;
   scale: number;
 }) {
+  const [imageSize, setImageSize] = useState<AvatarImageSize | null>(null);
+  const cropGeometry = getAvatarCropGeometry(
+    imageSize ?? { naturalHeight: 1, naturalWidth: 1 },
+    { offsetX, offsetY, scale },
+  );
+
+  useEffect(() => {
+    setImageSize(null);
+  }, [imageUrl]);
+
+  useEffect(() => {
+    if (cropGeometry.offsetX !== offsetX) {
+      onOffsetXChange(cropGeometry.offsetX);
+    }
+
+    if (cropGeometry.offsetY !== offsetY) {
+      onOffsetYChange(cropGeometry.offsetY);
+    }
+  }, [cropGeometry.offsetX, cropGeometry.offsetY, offsetX, offsetY, onOffsetXChange, onOffsetYChange]);
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <button
@@ -546,22 +611,48 @@ function AvatarCropDialog({
             <h2 className="plotty-section-title">Аватар</h2>
             <p className="plotty-meta">Отмасштабируйте и сдвиньте изображение перед загрузкой.</p>
           </div>
-          <div className="mx-auto aspect-square w-full max-w-72 overflow-hidden rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-white">
+          <div className="relative mx-auto aspect-square w-full max-w-72 overflow-hidden rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-white">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageUrl}
               alt=""
-              className="size-full object-cover"
+              draggable={false}
+              className="absolute max-w-none select-none"
+              onLoad={(event) => {
+                setImageSize({
+                  naturalHeight: event.currentTarget.naturalHeight || 1,
+                  naturalWidth: event.currentTarget.naturalWidth || 1,
+                });
+              }}
               style={{
-                transform: `translate(${offsetX}%, ${offsetY}%) scale(${scale})`,
-                transformOrigin: "center",
+                height: `${cropGeometry.drawHeightPercent}%`,
+                left: `calc(50% + ${cropGeometry.offsetX}%)`,
+                top: `calc(50% + ${cropGeometry.offsetY}%)`,
+                transform: "translate(-50%, -50%)",
+                width: `${cropGeometry.drawWidthPercent}%`,
               }}
             />
           </div>
           <div className="grid gap-4">
             <AvatarRange label="Масштаб" max={2} min={1} step={0.05} value={scale} onChange={onScaleChange} />
-            <AvatarRange label="Сдвиг по горизонтали" max={40} min={-40} step={1} value={offsetX} onChange={onOffsetXChange} />
-            <AvatarRange label="Сдвиг по вертикали" max={40} min={-40} step={1} value={offsetY} onChange={onOffsetYChange} />
+            <AvatarRange
+              label="Сдвиг по горизонтали"
+              max={Math.ceil(cropGeometry.maxOffsetX)}
+              min={-Math.ceil(cropGeometry.maxOffsetX)}
+              step={1}
+              value={cropGeometry.offsetX}
+              onChange={onOffsetXChange}
+              disabled={cropGeometry.maxOffsetX === 0}
+            />
+            <AvatarRange
+              label="Сдвиг по вертикали"
+              max={Math.ceil(cropGeometry.maxOffsetY)}
+              min={-Math.ceil(cropGeometry.maxOffsetY)}
+              step={1}
+              value={cropGeometry.offsetY}
+              onChange={onOffsetYChange}
+              disabled={cropGeometry.maxOffsetY === 0}
+            />
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>
@@ -578,6 +669,7 @@ function AvatarCropDialog({
 }
 
 function AvatarRange({
+  disabled,
   label,
   max,
   min,
@@ -585,6 +677,7 @@ function AvatarRange({
   step,
   value,
 }: {
+  disabled?: boolean;
   label: string;
   max: number;
   min: number;
@@ -601,6 +694,7 @@ function AvatarRange({
         max={max}
         step={step}
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
         className="px-0"
       />
@@ -645,13 +739,13 @@ async function cropAvatarFile(
     context.fillStyle = "#fff";
     context.fillRect(0, 0, size, size);
 
-    const baseScale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
-    const drawWidth = image.naturalWidth * baseScale * options.scale;
-    const drawHeight = image.naturalHeight * baseScale * options.scale;
-    const drawX = (size - drawWidth) / 2 + (options.offsetX / 100) * size;
-    const drawY = (size - drawHeight) / 2 + (options.offsetY / 100) * size;
+    const cropGeometry = getAvatarCropGeometry(
+      { naturalHeight: image.naturalHeight, naturalWidth: image.naturalWidth },
+      options,
+      size,
+    );
 
-    context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+    context.drawImage(image, cropGeometry.drawX, cropGeometry.drawY, cropGeometry.drawWidth, cropGeometry.drawHeight);
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
 
@@ -678,7 +772,7 @@ function ProfileTitle({ icon, children }: { icon: ReactNode; children: ReactNode
 
 function ProfileStat({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
-    <div className="plotty-lift-panel rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/70 p-4">
+    <div className="plotty-lift-panel h-full rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/70 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-2xl font-bold text-[var(--plotty-ink)]">{value.toLocaleString("ru-RU")}</div>

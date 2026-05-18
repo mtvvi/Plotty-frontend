@@ -51,6 +51,7 @@ describe("StoryDetailsScreen", () => {
     expect(screen.getByRole("button", { name: "Главы" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Комментарии" })).toBeInTheDocument();
     expect(screen.getAllByText(/AI автора: 2 замечания по канону/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Фильтр: Драма" })).toHaveAttribute("href", "/?tag=drama");
     expect(document.querySelector("#story-content")).not.toBeNull();
     expect(screen.queryByText("Новая")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Удалить историю" })).not.toBeInTheDocument();

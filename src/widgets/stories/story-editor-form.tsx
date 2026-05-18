@@ -51,10 +51,12 @@ export interface StoryEditorFormProps {
   logicStatusLabel?: string;
   logicCheckStatus?: AsyncJobStatusValue;
   logicStatusError?: string;
+  logicDisabledReason?: string;
   canonCheckResult?: CanonCheckResult;
   canonStatusLabel?: string;
   canonCheckStatus?: AsyncJobStatusValue;
   canonStatusError?: string;
+  canonDisabledReason?: string;
   creditBalance?: number;
   creditError?: string;
   saveStatusMessage?: string;
@@ -95,10 +97,12 @@ export function StoryEditorForm({
   logicStatusLabel,
   logicCheckStatus = "idle",
   logicStatusError,
+  logicDisabledReason,
   canonCheckResult,
   canonStatusLabel,
   canonCheckStatus = "idle",
   canonStatusError,
+  canonDisabledReason,
   creditBalance,
   creditError,
   saveStatusMessage,
@@ -138,6 +142,9 @@ export function StoryEditorForm({
   } | null>(null);
   const isMobileCorrectionOverlay = useCorrectionOverlayMode();
   const shouldOfferTopUp = typeof creditBalance === "number" && creditBalance < AI_CREDIT_COSTS.imageGeneration;
+  const isSpellcheckFailed = spellcheckStatus === "failed";
+  const isLogicCheckFailed = logicCheckStatus === "failed";
+  const isCanonCheckFailed = canonCheckStatus === "failed";
   const spellcheckHighlightById = useMemo(() => {
     const map = new Map<string, HighlightRange<SpellcheckIssue>>();
 
@@ -351,7 +358,7 @@ export function StoryEditorForm({
 
             <div className="flex flex-wrap gap-3 border-t border-[var(--plotty-line)] pt-4">
               <Button variant="primary" onClick={onSave} disabled={isSaving}>
-                {isSaving ? "Сохраняем..." : "Сохранить"}
+                {isSaving ? "Сохраняем..." : "Сохранить черновик"}
               </Button>
               {typeof onPublish === "function" ? (
                 <Button
@@ -380,23 +387,25 @@ export function StoryEditorForm({
                 onClick={onSpellcheck}
                 disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}
               >
-                {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
+                {isSpellchecking ? "Проверяем..." : isSpellcheckFailed ? "Повторить орфографию" : "Проверить орфографию"}
               </CreditCostButton>
               <CreditCostButton
                 cost={AI_CREDIT_COSTS.logicCheck}
                 variant="secondary"
                 onClick={onLogicCheck}
-                disabled={!chapterId || isLogicChecking || !values.chapterContent.trim()}
+                disabled={!chapterId || isLogicChecking || !values.chapterContent.trim() || Boolean(logicDisabledReason)}
+                title={logicDisabledReason}
               >
-                {isLogicChecking ? "Проверяем логику..." : "Проверить логику"}
+                {isLogicChecking ? "Проверяем логику..." : isLogicCheckFailed ? "Повторить логику" : "Проверить логику"}
               </CreditCostButton>
               <CreditCostButton
                 cost={AI_CREDIT_COSTS.canonCheck}
                 variant="secondary"
                 onClick={onCanonCheck}
-                disabled={!chapterId || isCanonChecking || !values.chapterContent.trim()}
+                disabled={!chapterId || isCanonChecking || !values.chapterContent.trim() || Boolean(canonDisabledReason)}
+                title={canonDisabledReason}
               >
-                {isCanonChecking ? "Проверяем канон..." : "Проверить канон"}
+                {isCanonChecking ? "Проверяем канон..." : isCanonCheckFailed ? "Повторить канон" : "Проверить канон"}
               </CreditCostButton>
               <Button variant="ghost" onClick={onCreateNextChapter} disabled={isSaving || typeof onCreateNextChapter !== "function"}>
                 Новая глава
@@ -408,6 +417,12 @@ export function StoryEditorForm({
               </Surface>
             ) : null}
             <div className="space-y-3">
+              {logicDisabledReason || canonDisabledReason ? (
+                <Surface variant="subtle" className="space-y-1 px-3 py-2 text-sm leading-5 text-[var(--plotty-muted)]">
+                  {logicDisabledReason ? <p>{logicDisabledReason}</p> : null}
+                  {canonDisabledReason ? <p>{canonDisabledReason}</p> : null}
+                </Surface>
+              ) : null}
               {shouldOfferTopUp && !creditError ? (
                 <ButtonLink href={routes.credits} variant="ghost" size="sm">
                   Пополнить баланс

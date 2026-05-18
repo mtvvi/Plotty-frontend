@@ -173,6 +173,18 @@ select {
   content: "";
 }
 
+.plotty-nav-link {
+  border-radius: var(--plotty-radius-md);
+  transition:
+    color var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-nav-link:hover,
+.plotty-nav-link:focus-visible {
+  transform: translateY(-1px);
+}
+
 .plotty-nav-link:hover::after,
 .plotty-nav-link:focus-visible::after {
   transform: scaleX(1);
@@ -199,9 +211,74 @@ select {
   animation: plotty-panel-enter 340ms var(--ease-out-soft) both;
 }
 
-.plotty-profile-settings-enter {
+.plotty-profile-edit-region {
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
   transform-origin: top center;
-  animation: plotty-profile-settings-enter 360ms var(--ease-out-soft) both;
+  animation: plotty-profile-edit-region-enter 520ms var(--ease-out-soft) both;
+}
+
+.plotty-profile-edit-region[data-state="closing"] {
+  pointer-events: none;
+  animation: plotty-profile-edit-region-exit 520ms var(--ease-in-out-soft) both;
+}
+
+.plotty-profile-settings-panel {
+  display: grid;
+  min-height: 0;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(41, 38, 34, 0.08);
+  border-radius: 22px;
+  background: var(--plotty-panel-muted);
+  transform-origin: top center;
+  animation: plotty-profile-settings-enter 440ms var(--ease-out-soft) both;
+}
+
+.plotty-profile-edit-region[data-state="closing"] .plotty-profile-settings-panel {
+  animation: plotty-profile-settings-exit 420ms var(--ease-in-out-soft) both;
+}
+
+.plotty-profile-settings-panel > * {
+  animation: plotty-profile-settings-item-enter 380ms var(--ease-out-soft) both;
+  animation-delay: calc(var(--plotty-profile-edit-index, 0) * 34ms);
+}
+
+.plotty-profile-settings-panel > :nth-child(1) {
+  --plotty-profile-edit-index: 1;
+}
+
+.plotty-profile-settings-panel > :nth-child(2) {
+  --plotty-profile-edit-index: 2;
+}
+
+.plotty-profile-settings-panel > :nth-child(3) {
+  --plotty-profile-edit-index: 3;
+}
+
+.plotty-profile-settings-panel > :nth-child(4) {
+  --plotty-profile-edit-index: 4;
+}
+
+.plotty-profile-settings-panel > :nth-child(5) {
+  --plotty-profile-edit-index: 5;
+}
+
+.plotty-profile-settings-panel > :nth-child(6) {
+  --plotty-profile-edit-index: 6;
+}
+
+.plotty-profile-edit-region[data-state="closing"] .plotty-profile-settings-panel > * {
+  animation: plotty-profile-settings-item-exit 280ms var(--ease-in-out-soft) both;
+  animation-delay: calc((7 - var(--plotty-profile-edit-index, 0)) * 24ms);
+}
+
+.plotty-profile-username-input {
+  min-height: 5.25rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.55rem;
 }
 
 .plotty-avatar-upload {
@@ -614,17 +691,18 @@ button:active .plotty-chip-motion {
 }
 
 .plotty-async-status-busy .plotty-async-status-icon {
-  background: var(--plotty-accent);
-  box-shadow: 0 0 0 3px rgba(195, 79, 50, 0.12);
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.15rem;
+  border: 2px solid rgba(195, 79, 50, 0.22);
+  border-top-color: var(--plotty-accent);
+  background: transparent;
+  box-shadow: none;
+  animation: plotty-cover-loading-spin 720ms linear infinite;
 }
 
 .plotty-async-status-busy .plotty-async-status-icon::after {
-  position: absolute;
-  inset: -0.28rem;
-  border: 1px solid rgba(195, 79, 50, 0.32);
-  border-radius: inherit;
-  animation: plotty-async-status-orbit 1.2s var(--ease-in-out-soft) infinite;
-  content: "";
+  content: none;
 }
 
 .plotty-async-status-completed .plotty-async-status-icon {
@@ -644,7 +722,7 @@ button:active .plotty-chip-motion {
   height: 3px;
   margin-inline: calc(clamp(1rem, 2.8vw, 2.35rem) * -1);
   overflow: hidden;
-  background: rgba(43, 36, 29, 0.06);
+  background: transparent;
 }
 
 .plotty-reader-progress-bar {
@@ -758,6 +836,140 @@ button:active .plotty-chip-motion {
   box-shadow: none !important;
 }
 
+.plotty-catalog-layout {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.plotty-catalog-filter-rail {
+  min-width: 0;
+}
+
+.plotty-catalog-filter-card {
+  transform-origin: left top;
+  transition:
+    opacity 260ms var(--ease-out-soft),
+    filter 420ms var(--ease-out-soft),
+    transform 520ms var(--ease-out-soft),
+    box-shadow 420ms var(--ease-out-soft);
+  will-change: opacity, filter, transform;
+}
+
+.plotty-catalog-filter-card > div > * {
+  transition:
+    opacity 280ms var(--ease-out-soft),
+    transform 440ms var(--ease-out-soft);
+  transition-delay: calc(var(--plotty-filter-index, 0) * 28ms);
+}
+
+.plotty-catalog-filter-card > div > :nth-child(1) {
+  --plotty-filter-index: 1;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(2) {
+  --plotty-filter-index: 2;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(3) {
+  --plotty-filter-index: 3;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(4) {
+  --plotty-filter-index: 4;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(5) {
+  --plotty-filter-index: 5;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(6) {
+  --plotty-filter-index: 6;
+}
+
+@media (min-width: 1024px) {
+  .plotty-catalog-layout {
+    grid-template-columns: 17rem minmax(0, 1fr);
+    column-gap: 1.75rem;
+    row-gap: 1.75rem;
+    align-items: start;
+    transition:
+      column-gap 520ms var(--ease-in-out-soft),
+      grid-template-columns 620ms var(--ease-in-out-soft);
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] {
+    grid-template-columns: 0 minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .plotty-catalog-filter-rail {
+    position: relative;
+    z-index: 2;
+    overflow: clip;
+    opacity: 1;
+    transition:
+      opacity 260ms var(--ease-out-soft),
+      transform 620ms var(--ease-in-out-soft);
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-rail {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-1.25rem);
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-card {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateX(-1.1rem) scale(0.96);
+    box-shadow: none;
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-card > div > * {
+    opacity: 0;
+    transform: translateY(0.75rem);
+    transition-delay: 0ms;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-rail {
+    overflow: visible;
+    opacity: 1;
+    pointer-events: none;
+    transform: none;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card {
+    width: 17rem;
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateX(-1.1rem) scale(0.96);
+    box-shadow: none;
+    transition-delay: 190ms, 150ms, 150ms, 150ms;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card > div > * {
+    opacity: 0;
+    transform: translateX(-0.25rem) translateY(0.75rem);
+    transition-delay: calc((7 - var(--plotty-filter-index, 0)) * 28ms);
+  }
+}
+
+@media (min-width: 1280px) {
+  .plotty-catalog-layout {
+    grid-template-columns: 18rem minmax(0, 1fr);
+    column-gap: 2rem;
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] {
+    grid-template-columns: 0 minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card {
+    width: 18rem;
+  }
+}
+
 .plotty-info-row {
   transition: color var(--motion-base) var(--ease-out-soft);
 }
@@ -813,6 +1025,20 @@ button:active .plotty-chip-motion {
   max-height: min(34rem, calc(100vh - 14rem));
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.plotty-reader-chapter-list {
+  max-height: min(24rem, calc(100vh - 16rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.plotty-chapter-sort-button {
+  min-height: 2.35rem;
+  padding-inline: 0.72rem;
+  font-size: 0.82rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 @media (min-width: 1024px) {
@@ -1361,15 +1587,79 @@ button:active .plotty-chip-motion {
 @keyframes plotty-profile-settings-enter {
   0% {
     opacity: 0;
-    transform: translateY(-8px) scale(0.992);
+    filter: blur(6px);
+    transform: translateY(-10px) scale(0.992);
   }
   72% {
     opacity: 1;
+    filter: blur(0);
     transform: translateY(1px) scale(1);
   }
   100% {
     opacity: 1;
+    filter: blur(0);
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes plotty-profile-settings-exit {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(-10px) scale(0.985);
+  }
+}
+
+@keyframes plotty-profile-edit-region-enter {
+  0% {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+  100% {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-profile-edit-region-exit {
+  0% {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+}
+
+@keyframes plotty-profile-settings-item-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-profile-settings-item-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
   }
 }
 

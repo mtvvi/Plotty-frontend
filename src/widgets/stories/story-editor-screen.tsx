@@ -20,7 +20,7 @@ import {
   storyKeys,
   updateChapter,
 } from "@/entities/story/api/stories-api";
-import type { AiJobStatus, CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
+import type { AiJobStatus, CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult, StoryTag } from "@/entities/story/model/types";
 import { isApiError, isAuthError, isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { diffWords } from "@/shared/lib/text-diff";
@@ -272,6 +272,12 @@ export function StoryEditorScreen({
         : undefined,
     [hasPublishedVersion, publishedContent, publishedTitle, values.chapterContent, values.chapterTitle],
   );
+  const storyFandomTag = chapterQuery.data?.storyTags?.find((tag) => tag.category === "directionality");
+  const logicDisabledReason =
+    (chapterQuery.data?.number ?? 1) <= 1
+      ? "Проверка логики доступна со второй главы: для первой главы нет предыдущего контекста."
+      : undefined;
+  const canonDisabledReason = getCanonCheckDisabledReason(storyFandomTag);
 
   async function persistCurrentDraft() {
     await updateChapterMutation.mutateAsync({
@@ -470,6 +476,10 @@ export function StoryEditorScreen({
   }
 
   async function handleLogicCheck() {
+    if (logicDisabledReason) {
+      return;
+    }
+
     setAiCreditError("");
 
     try {
@@ -496,6 +506,11 @@ export function StoryEditorScreen({
   }
 
   async function handleCanonCheck() {
+    if (canonDisabledReason) {
+      setCanonCheckError(canonDisabledReason);
+      return;
+    }
+
     setCanonCheckError("");
     setCanonCheckJobId("");
     setAiCreditError("");
@@ -676,10 +691,12 @@ export function StoryEditorScreen({
         logicStatusLabel={logicStatusLabel}
         logicCheckStatus={logicCheckStatus}
         logicStatusError={logicStatusError}
+        logicDisabledReason={logicDisabledReason}
         canonCheckResult={canonCheckJobQuery.data?.result}
         canonStatusLabel={canonStatusLabel}
         canonCheckStatus={canonCheckStatus}
         canonStatusError={canonStatusError}
+        canonDisabledReason={canonDisabledReason}
         creditBalance={creditBalanceQuery.data?.balance}
         creditError={aiCreditError}
         saveStatusMessage={saveStatusMessage}
@@ -1005,6 +1022,18 @@ function getCanonCheckErrorMessage(error: unknown) {
   }
 
   return sanitizeUserFacingMessage(rawMessage, "Не удалось запустить проверку канона. Попробуйте ещё раз.");
+}
+
+function getCanonCheckDisabledReason(fandomTag?: StoryTag) {
+  if (!fandomTag) {
+    return "Проверка канона доступна только для историй с выбранным фандомом. Добавьте фандом в настройках истории, чтобы запустить проверку.";
+  }
+
+  if (fandomTag.slug === "originals") {
+    return "Проверка канона отключена для ориджиналов: у оригинальной истории нет внешнего фандома для сверки.";
+  }
+
+  return undefined;
 }
 
 function getInsufficientCreditsMessage(requiredCredits: number, balance?: number) {

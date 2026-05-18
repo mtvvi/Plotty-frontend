@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { chapterDetailsQueryOptions, chaptersViewedQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
-import type { StoryListItem } from "@/entities/story/model/types";
+import type { StoryListItem, StoryTag } from "@/entities/story/model/types";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
@@ -19,6 +19,7 @@ import { StoryRevealButtonLink } from "@/shared/ui/story-reveal-transition";
 
 import { StoryCoverPreview } from "./story-cover-preview";
 import { StoryCollectionControl } from "./story-collection-control";
+import { getStoryTagTone, StoryTagLinkChip } from "./story-tag-link";
 import { StoryShelfControl } from "./story-shelf-control";
 
 export function StoryCard({
@@ -121,7 +122,7 @@ export function StoryCard({
           />
         </Link>
 
-        <div className="relative min-w-0 space-y-3 p-4 md:space-y-4 md:p-5 lg:p-6">
+        <div className="relative min-w-0 space-y-3 p-4 md:space-y-3.5 md:p-5">
           <Link
             href={resolvedStoryHref}
             aria-label={`Перейти на страницу истории ${story.title}`}
@@ -130,7 +131,7 @@ export function StoryCard({
 
           <div className="pointer-events-none relative z-20 space-y-1.5 md:space-y-2">
             <div className="plotty-story-title-anchor">
-              <h2 className="plotty-card-title text-[1.28rem] leading-[1.05] md:text-[1.8rem] md:leading-none lg:text-[2.25rem]">
+              <h2 className="plotty-card-title text-[1.28rem] leading-[1.08] md:text-[1.75rem] md:leading-none lg:text-[2rem]">
                 <span className="plotty-story-title-text">{story.title}</span>
               </h2>
             </div>
@@ -172,6 +173,7 @@ export function StoryCard({
               rating={story.ratingLabel}
               status={story.statusLabel}
               size={story.sizeLabel}
+              tags={story.tags}
               genres={genres}
               warnings={warnings}
               extraTags={extraTags}
@@ -286,6 +288,7 @@ function CatalogStoryTags({
   rating,
   status,
   size,
+  tags,
   genres,
   warnings,
   extraTags,
@@ -294,18 +297,31 @@ function CatalogStoryTags({
   rating?: string;
   status?: string;
   size?: string;
-  genres: Array<{ id: string; name: string }>;
-  warnings: Array<{ id: string; name: string }>;
-  extraTags: Array<{ id: string; name: string }>;
+  tags: StoryTag[];
+  genres: StoryTag[];
+  warnings: StoryTag[];
+  extraTags: StoryTag[];
 }) {
+  const linkedTags = sortDisplayTags(tags).slice(0, 8);
+
+  if (linkedTags.length) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {linkedTags.map((tag) => (
+          <StoryTagLinkChip key={tag.id} tag={tag} />
+        ))}
+      </div>
+    );
+  }
+
   const chips = [
     fandom ? { id: "fandom", label: fandom, tone: "gold" as const } : null,
     rating ? { id: "rating", label: rating, tone: "default" as const } : null,
     status ? { id: "status", label: status, tone: "olive" as const } : null,
     size ? { id: "size", label: size, tone: "default" as const } : null,
-    ...genres.map((tag) => ({ id: tag.id, label: tag.name, tone: "default" as const })),
-    ...warnings.map((tag) => ({ id: tag.id, label: tag.name, tone: "gold" as const })),
-    ...extraTags.map((tag) => ({ id: tag.id, label: tag.name, tone: "default" as const })),
+    ...genres.map((tag) => ({ id: tag.id, label: tag.name, tone: getStoryTagTone(tag) })),
+    ...warnings.map((tag) => ({ id: tag.id, label: tag.name, tone: getStoryTagTone(tag) })),
+    ...extraTags.map((tag) => ({ id: tag.id, label: tag.name, tone: getStoryTagTone(tag) })),
   ].filter(Boolean) as Array<{ id: string; label: string; tone: "default" | "gold" | "olive" }>;
 
   if (!chips.length) {
@@ -321,6 +337,17 @@ function CatalogStoryTags({
       ))}
     </div>
   );
+}
+
+function sortDisplayTags(tags: StoryTag[]) {
+  const order = ["directionality", "rating", "completion", "size", "genre", "warning"];
+
+  return [...tags].sort((left, right) => {
+    const leftIndex = order.indexOf(left.category ?? "other");
+    const rightIndex = order.indexOf(right.category ?? "other");
+
+    return (leftIndex === -1 ? order.length : leftIndex) - (rightIndex === -1 ? order.length : rightIndex);
+  });
 }
 
 function formatCount(value?: number) {

@@ -19,15 +19,20 @@ import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
-import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
 import { StoryRevealButtonLink, StoryRevealLink } from "@/shared/ui/story-reveal-transition";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
+import {
+  ChapterSortButton,
+  sortChaptersForDisplay,
+  type ChapterSortDirection,
+} from "./chapter-list-sort";
 import { StoryCoverPreview } from "./story-cover-preview";
 import { StoryCollectionControl } from "./story-collection-control";
+import { StoryTagLinkChip } from "./story-tag-link";
 import { StoryShelfControl } from "./story-shelf-control";
 
 type MobileStorySection = "description" | "chapters" | "info";
@@ -52,11 +57,17 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   const [activeMobileSection, setActiveMobileSection] = useState<MobileStorySection>(() =>
     getInitialMobileSection(new URLSearchParams(searchParamsString)),
   );
+  const [chapterSortDirection, setChapterSortDirection] = useState<ChapterSortDirection>("asc");
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const readerChapters = useMemo(
     () => (storyQuery.data ? publicChaptersForReader(storyQuery.data.chapters) : []),
     [storyQuery.data],
   );
+  const sortedReaderChapters = useMemo(
+    () => sortChaptersForDisplay(readerChapters, chapterSortDirection),
+    [chapterSortDirection, readerChapters],
+  );
+  const chaptersScrollRef = useRef<HTMLDivElement | null>(null);
   const firstChapter = readerChapters[0] ?? null;
   const firstChapterQuery = useQuery({
     ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
@@ -140,6 +151,13 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
     setActiveMobileSection(section);
   }
 
+  function toggleChapterSortDirection() {
+    setChapterSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+    window.requestAnimationFrame(() => {
+      chaptersScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
   return (
     <PlottyPageShell suppressPageIntro showMobileBack mobileBackHref={mobileBackHref} menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
@@ -175,9 +193,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 {genericTags.length ? (
                   <div className="flex flex-wrap gap-2">
                     {genericTags.map((tag) => (
-                      <Chip key={tag.id} tone={tag.category === "warning" ? "gold" : "default"}>
-                        {tag.name}
-                      </Chip>
+                      <StoryTagLinkChip key={tag.id} tag={tag} />
                     ))}
                   </div>
                 ) : null}
@@ -259,14 +275,26 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
           <PlottySectionCard
             id="chapters"
-            title="Главы"
+            title={
+              <span className="flex items-center justify-between gap-3">
+                <span>Главы</span>
+                {readerChapters.length > 1 ? (
+                  <ChapterSortButton
+                    chapterCount={readerChapters.length}
+                    direction={chapterSortDirection}
+                    onToggle={toggleChapterSortDirection}
+                  />
+                ) : null}
+              </span>
+            }
             description={`${readerChapters.length} ${getChapterLabel(readerChapters.length)}`}
             className={cn(activeMobileSection === "chapters" && "plotty-motion-tab-panel", activeMobileSection === "chapters" ? undefined : "max-lg:hidden")}
           >
             {readerChapters.length ? (
               <AnimatedList
-                items={readerChapters}
+                items={sortedReaderChapters}
                 getKey={(chapter) => chapter.id}
+                listRef={chaptersScrollRef}
                 className="plotty-scroll-panel plotty-story-details-chapter-list divide-y divide-[var(--plotty-line)] rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.62)]"
                 renderItem={(chapter) => {
                   const viewed = viewedByChapterId.get(chapter.id);

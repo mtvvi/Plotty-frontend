@@ -92,6 +92,10 @@ describe("StoriesCatalogShell", () => {
 
     expect(screen.getByRole("option", { name: "Ведьмак" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Гарри Поттер" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Очистить поиск фандомов" }));
+
+    expect(screen.getByRole("option", { name: "Гарри Поттер" })).toBeInTheDocument();
   });
 
   it("clears selected genre and warning groups independently", async () => {
@@ -135,6 +139,14 @@ describe("StoriesCatalogShell", () => {
 
     expect(screen.getByRole("button", { name: "Сортировка" })).toHaveTextContent("Популярное");
     expect(replace).toHaveBeenLastCalledWith("/", { scroll: false });
+  });
+
+  it("does not render the duplicate small catalog search in page actions", async () => {
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сортировка" })).toBeInTheDocument());
+
+    expect(screen.queryByLabelText("Поиск в каталоге")).not.toBeInTheDocument();
   });
 
   it("keeps multi-select tag groups visible after selecting one fandom", async () => {

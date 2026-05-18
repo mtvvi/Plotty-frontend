@@ -39,6 +39,10 @@ describe("StoryCard", () => {
     expect(screen.getByRole("heading", { name: story.title })).toBeInTheDocument();
     expect(screen.getByText(story.aiHint!)).toBeInTheDocument();
     expect(screen.getByText(story.tags[0].name)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: `Фильтр: ${story.tags[0].name}` })).toHaveAttribute(
+      "href",
+      `/?tag=${story.tags[0].slug}`,
+    );
     expect(screen.getByText(`Автор ${story.author?.username}`)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: `Открыть историю ${story.title}` })).toBeInTheDocument();
     expect(screen.getByText(/Обложка появится, когда у первой главы будет иллюстрация/i)).toBeInTheDocument();

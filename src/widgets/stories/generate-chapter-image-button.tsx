@@ -121,6 +121,12 @@ export function GenerateChapterImageButton({
       : undefined);
   const shouldOfferTopUp =
     typeof balanceQuery.data?.balance === "number" && balanceQuery.data.balance < AI_CREDIT_COSTS.imageGeneration;
+  const buttonLabel =
+    imageStatus === "failed"
+      ? "Повторить генерацию"
+      : hasImage
+        ? "Обновить иллюстрацию"
+        : "Сгенерировать картинку";
 
   return (
     <div className="space-y-3">
@@ -155,7 +161,7 @@ export function GenerateChapterImageButton({
       </Field>
       <span className="relative inline-flex">
         <Button variant="secondary" onClick={handleGenerate} isLoading={isGenerating}>
-          {hasImage ? "Обновить иллюстрацию" : "Сгенерировать картинку"}
+          {buttonLabel}
         </Button>
         <CreditCostBadge cost={AI_CREDIT_COSTS.imageGeneration} />
       </span>

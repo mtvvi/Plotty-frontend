@@ -682,7 +682,7 @@ export function PlottyAppMenu({ onNavigate }: { onNavigate?: () => void }) {
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "rounded-[var(--plotty-radius-md)] border px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                "rounded-[var(--plotty-radius-md)] border px-4 py-3 text-sm font-semibold transition-[background-color,border-color,color,transform,box-shadow] duration-[var(--motion-base)] hover:-translate-y-0.5 hover:border-[rgba(195,79,50,0.22)] hover:bg-[var(--plotty-paper-strong)] hover:text-[var(--plotty-ink)] hover:shadow-[var(--plotty-shadow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
                 isActive
                   ? "border-transparent bg-[var(--plotty-accent)] !text-white visited:!text-white"
                   : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.8)] text-[var(--plotty-muted)]",
@@ -760,7 +760,7 @@ function PlottyBottomNav() {
               href={item.href}
               aria-current={item.active ? "page" : undefined}
               className={cn(
-                "relative z-10 flex min-h-[3.6rem] flex-col items-center justify-center gap-1 rounded-[16px] px-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+                "relative z-10 flex min-h-[3.6rem] flex-col items-center justify-center gap-1 rounded-[16px] px-1 text-[11px] font-semibold transition-[background-color,color,transform] duration-[var(--motion-base)] hover:-translate-y-0.5 hover:bg-[rgba(195,79,50,0.08)] hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
                 item.active
                   ? "text-[var(--plotty-accent)] [&_span]:text-[var(--plotty-accent)] [&_svg]:text-[var(--plotty-accent)]"
                   : "text-[var(--plotty-muted)]",

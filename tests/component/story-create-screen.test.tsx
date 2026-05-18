@@ -69,6 +69,22 @@ vi.mock("@/entities/story/api/stories-api", async () => {
       }),
       enabled: true,
     }),
+    storyDetailsQueryOptions: (slug: string) => ({
+      queryKey: ["test", "story-details", slug],
+      queryFn: async () => ({
+        id: slug === "silent-rain" ? "story-silent-rain" : "story-emerald-wolf",
+        slug,
+        title: slug === "silent-rain" ? "Тихий дождь" : "Изумрудная волчица",
+        tags: [],
+        chapters: [],
+        chaptersCount: 0,
+        status: "draft",
+        coverImageUrl: null,
+        createdAt: "2026-04-25T10:00:00.000Z",
+        updatedAt: "2026-04-25T10:00:00.000Z",
+      }),
+      enabled: Boolean(slug),
+    }),
   };
 });
 
@@ -150,5 +166,15 @@ describe("StoryCreateScreen sidebar", () => {
     renderStoryCreateScreen();
 
     expect(await screen.findByRole("status")).toHaveTextContent("История сохранена");
+  });
+
+  it("makes tag editing visible from the active workshop story", async () => {
+    renderStoryCreateScreen();
+
+    expect(await screen.findByText("Теги, жанры и предупреждения")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Редактировать теги" })[0]).toHaveAttribute(
+      "href",
+      "/write/stories/story-emerald-wolf/settings",
+    );
   });
 });

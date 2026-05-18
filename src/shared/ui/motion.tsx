@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -13,6 +13,7 @@ export function AnimatedList<TItem>({
   renderItem,
   className,
   itemClassName,
+  listRef,
   ariaLive,
 }: {
   items: TItem[];
@@ -20,12 +21,13 @@ export function AnimatedList<TItem>({
   renderItem: (item: TItem, index: number) => ReactNode;
   className?: string;
   itemClassName?: string;
+  listRef?: Ref<HTMLDivElement>;
   ariaLive?: "off" | "polite" | "assertive";
 }) {
   const listKey = useMemo(() => items.map(getKey).join("|"), [getKey, items]);
 
   return (
-    <div key={listKey} className={cn("plotty-motion-list", className)} aria-live={ariaLive}>
+    <div key={listKey} ref={listRef} className={cn("plotty-motion-list", className)} aria-live={ariaLive}>
       {items.map((item, index) => (
         <div
           key={getKey(item)}
