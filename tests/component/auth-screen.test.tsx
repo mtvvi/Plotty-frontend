@@ -80,4 +80,77 @@ describe("AuthScreen", () => {
       expect(screen.getByText("Email уже занят")).toBeInTheDocument();
     });
   });
+
+  it("lets users reveal and hide password fields", async () => {
+    const user = userEvent.setup();
+
+    renderAuthScreen();
+
+    await screen.findByRole("heading", { name: "Создать аккаунт" });
+    const password = screen.getByLabelText("Пароль");
+    const confirmPassword = screen.getByLabelText("Подтверждение пароля");
+
+    expect(password).toHaveAttribute("type", "password");
+    expect(confirmPassword).toHaveAttribute("type", "password");
+
+    await user.click(screen.getByRole("button", { name: "Показать пароль" }));
+    await user.click(screen.getByRole("button", { name: "Показать подтверждение пароля" }));
+
+    expect(password).toHaveAttribute("type", "text");
+    expect(confirmPassword).toHaveAttribute("type", "text");
+
+    await user.click(screen.getByRole("button", { name: "Скрыть пароль" }));
+
+    expect(password).toHaveAttribute("type", "password");
+  });
+
+  it("validates register password before submitting to the backend", async () => {
+    const user = userEvent.setup();
+    const registerHandler = vi.fn();
+    server.use(
+      http.post("*/register", () => {
+        registerHandler();
+
+        return HttpResponse.json({ user: null }, { status: 201 });
+      }),
+    );
+
+    renderAuthScreen();
+
+    await screen.findByRole("heading", { name: "Создать аккаунт" });
+    await user.type(screen.getByLabelText("Email"), "writer@plotty.test");
+    await user.type(screen.getByLabelText("Пароль"), "short");
+    await user.type(screen.getByLabelText("Подтверждение пароля"), "different");
+    await user.click(screen.getByRole("button", { name: "Зарегистрироваться" }));
+
+    expect(screen.getByText("Пароль должен быть не короче 8 символов.")).toBeInTheDocument();
+    expect(screen.getByText("Пароли не совпадают.")).toBeInTheDocument();
+    expect(registerHandler).not.toHaveBeenCalled();
+  });
+
+  it("maps backend detail arrays onto Russian auth field errors", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post("*/register", () =>
+        HttpResponse.json(
+          {
+            detail: [{ loc: ["body", "confirm_password"], msg: "Passwords do not match" }],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    renderAuthScreen();
+
+    await screen.findByRole("heading", { name: "Создать аккаунт" });
+    await user.type(screen.getByLabelText("Email"), "writer@plotty.test");
+    await user.type(screen.getByLabelText("Пароль"), "password123");
+    await user.type(screen.getByLabelText("Подтверждение пароля"), "password123");
+    await user.click(screen.getByRole("button", { name: "Зарегистрироваться" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Пароли не совпадают.")).toBeInTheDocument();
+    });
+  });
 });

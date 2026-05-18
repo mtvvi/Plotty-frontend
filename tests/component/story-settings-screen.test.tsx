@@ -83,7 +83,7 @@ describe("StorySettingsScreen", () => {
     await user.click(screen.getByRole("button", { name: "Сохранить изменения" }));
 
     await waitFor(() => {
-      expect(push).toHaveBeenCalledWith(`${routes.write}?story=${encodeURIComponent(story.slug)}`);
+      expect(push).toHaveBeenCalledWith(`${routes.write}?story=${encodeURIComponent(story.slug)}&saved=story`);
     });
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import Link from "next/link";
@@ -8,8 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { authKeys, logout, updateProfile, uploadAvatar } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
-import { myShelfQueryOptions, readerShelfLabels, readerShelfOptions } from "@/entities/library/api/library-api";
-import type { ReaderShelf } from "@/entities/library/model/types";
+import { myShelfQueryOptions } from "@/entities/library/api/library-api";
 import {
   publicProfileQueryOptions,
   publicUserCollectionsQueryOptions,
@@ -24,7 +23,7 @@ import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldHint, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
-import { TabButton } from "@/shared/ui/tabs";
+import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { Textarea } from "@/shared/ui/textarea";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
@@ -35,14 +34,12 @@ import {
   CreativityIcon,
   EditProfileIcon,
   LogoutProfileIcon,
-  OpenBookIcon,
   ProfileFileIcon,
   ProfileLibraryIcon,
   PublicCollectionsIcon,
 } from "./profile-icons";
 
-type ProfileTab = "works" | "collections" | "library";
-type LibraryTab = "all" | ReaderShelf;
+type ProfileTab = "works" | "collections";
 
 const ownStoriesQuery = {
   tags: [],
@@ -59,24 +56,22 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const normalizedUsername = username.trim();
   const isOwnProfile = Boolean(user?.username && user.username.toLowerCase() === normalizedUsername.toLowerCase());
   const initialTab = getInitialTab(searchParams.get("tab"));
-  const [activeTab, setActiveTab] = useState<ProfileTab>(
-    !isOwnProfile && initialTab === "library" ? "collections" : initialTab,
-  );
-  const [libraryTab, setLibraryTab] = useState<LibraryTab>("all");
+  const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [editOpen, setEditOpen] = useState(false);
   const [usernameDraft, setUsernameDraft] = useState("");
   const [bioDraft, setBioDraft] = useState("");
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarDraftFile, setAvatarDraftFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
+  const [avatarScale, setAvatarScale] = useState(1);
+  const [avatarOffsetX, setAvatarOffsetX] = useState(0);
+  const [avatarOffsetY, setAvatarOffsetY] = useState(0);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const profileQuery = useQuery(publicProfileQueryOptions(normalizedUsername));
   const publicStoriesQuery = useQuery(publicUserStoriesQueryOptions(normalizedUsername));
   const ownStories = useQuery(myStoriesQueryOptions(ownStoriesQuery, { userId: isOwnProfile ? user?.id : null }));
   const collectionsQuery = useQuery(publicUserCollectionsQueryOptions(normalizedUsername));
   const shelfQuery = useQuery(myShelfQueryOptions(null, { enabled: isOwnProfile }));
-  const visibleShelfEntries = useMemo(() => {
-    const entries = shelfQuery.data?.items ?? [];
-
-    return libraryTab === "all" ? entries : entries.filter((entry) => entry.shelf === libraryTab);
-  }, [libraryTab, shelfQuery.data?.items]);
 
   const updateProfileMutation = useMutation({
     mutationFn: updateProfile,
@@ -117,8 +112,8 @@ export function PublicProfileScreen({ username }: { username: string }) {
   useEffect(() => {
     const nextTab = getInitialTab(searchParams.get("tab"));
 
-    setActiveTab(!isOwnProfile && nextTab === "library" ? "collections" : nextTab);
-  }, [isOwnProfile, searchParams]);
+    setActiveTab(nextTab);
+  }, [searchParams]);
 
   useEffect(() => {
     const profile = profileQuery.data;
@@ -130,6 +125,14 @@ export function PublicProfileScreen({ username }: { username: string }) {
     setUsernameDraft(profile.username);
     setBioDraft(profile.bio ?? "");
   }, [editOpen, isOwnProfile, profileQuery.data]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+    };
+  }, [avatarPreviewUrl]);
 
   if (profileQuery.isLoading) {
     return (
@@ -185,7 +188,55 @@ export function PublicProfileScreen({ username }: { username: string }) {
 
   function handleAvatarChange(file: File | null) {
     if (file) {
-      avatarMutation.mutate(file);
+      setAvatarError(null);
+      setAvatarDraftFile(file);
+      setAvatarScale(1);
+      setAvatarOffsetX(0);
+      setAvatarOffsetY(0);
+      setAvatarPreviewUrl((current) => {
+        if (current) {
+          URL.revokeObjectURL(current);
+        }
+
+        return URL.createObjectURL(file);
+      });
+    }
+  }
+
+  function resetAvatarDraft() {
+    setAvatarDraftFile(null);
+    setAvatarScale(1);
+    setAvatarOffsetX(0);
+    setAvatarOffsetY(0);
+    setAvatarPreviewUrl((current) => {
+      if (current) {
+        URL.revokeObjectURL(current);
+      }
+
+      return "";
+    });
+
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = "";
+    }
+  }
+
+  async function handleConfirmAvatarCrop() {
+    if (!avatarDraftFile) {
+      return;
+    }
+
+    try {
+      const croppedFile = await cropAvatarFile(avatarDraftFile, {
+        offsetX: avatarOffsetX,
+        offsetY: avatarOffsetY,
+        scale: avatarScale,
+      });
+
+      avatarMutation.mutate(croppedFile);
+      resetAvatarDraft();
+    } catch {
+      setAvatarError("Не удалось подготовить аватар. Выберите другое изображение.");
     }
   }
 
@@ -202,7 +253,31 @@ export function PublicProfileScreen({ username }: { username: string }) {
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
             <div className="space-y-5 p-5 sm:p-6 lg:p-7">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
+                {isOwnProfile ? (
+                  <>
+                    <input
+                      ref={avatarInputRef}
+                      id="own-profile-avatar"
+                      className="plotty-avatar-upload-input sr-only"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      disabled={avatarMutation.isPending}
+                      onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
+                    />
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-[var(--plotty-radius-md)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={avatarMutation.isPending}
+                      aria-label="Загрузить аватар"
+                      title="Загрузить аватар"
+                    >
+                      <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
+                    </button>
+                  </>
+                ) : (
+                  <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
+                )}
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="plotty-kicker">{isOwnProfile ? "Мой профиль" : "Профиль"}</div>
                   <h1 className="plotty-page-title">{profile.username}</h1>
@@ -241,14 +316,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="own-profile-avatar">Аватар</FieldLabel>
-                      <input
-                        id="own-profile-avatar"
-                        className="plotty-avatar-upload-input sr-only"
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/gif"
-                        disabled={avatarMutation.isPending}
-                        onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
-                      />
                       <label className="plotty-avatar-upload" htmlFor="own-profile-avatar" aria-disabled={avatarMutation.isPending}>
                         <span className="plotty-avatar-upload-icon" aria-hidden="true">
                           <Plus className="size-5" strokeWidth={2.2} />
@@ -303,22 +370,16 @@ export function PublicProfileScreen({ username }: { username: string }) {
           </div>
         </PlottySectionCard>
 
-        <div className="plotty-segmented w-full !grid grid-cols-3 items-stretch sm:!inline-flex sm:w-auto sm:grid-cols-none">
-          <TabButton type="button" className="inline-flex min-w-0 items-center justify-center gap-1.5 !px-2 !py-2 !text-xs leading-tight sm:gap-2 sm:!px-4 sm:!py-2.5 sm:!text-sm" isActive={activeTab === "works"} onClick={() => setActiveTab("works")}>
+        <SegmentedControl className="w-full !grid grid-cols-2 items-stretch">
+          <TabButton type="button" className="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-1.5 !px-2 !py-2 !text-xs leading-tight sm:gap-2 sm:!px-4 sm:!py-2.5 sm:!text-sm" isActive={activeTab === "works"} onClick={() => setActiveTab("works")}>
             <CreativityIcon className="size-4 shrink-0 sm:size-5" />
             <span className="min-w-0 text-center">Творчество</span>
           </TabButton>
-          <TabButton type="button" className="inline-flex min-w-0 items-center justify-center gap-1.5 !px-2 !py-2 !text-xs leading-tight sm:gap-2 sm:!px-4 sm:!py-2.5 sm:!text-sm" isActive={activeTab === "collections"} onClick={() => setActiveTab("collections")}>
+          <TabButton type="button" className="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-1.5 !px-2 !py-2 !text-xs leading-tight sm:gap-2 sm:!px-4 sm:!py-2.5 sm:!text-sm" isActive={activeTab === "collections"} onClick={() => setActiveTab("collections")}>
             <PublicCollectionsIcon className="size-4 shrink-0 sm:size-5" />
             <span className="min-w-0 text-center">Публичные подборки</span>
           </TabButton>
-          {isOwnProfile ? (
-            <TabButton type="button" className="inline-flex min-w-0 items-center justify-center gap-1.5 !px-2 !py-2 !text-xs leading-tight sm:gap-2 sm:!px-4 sm:!py-2.5 sm:!text-sm" isActive={activeTab === "library"} onClick={() => setActiveTab("library")}>
-              <OpenBookIcon className="size-4 shrink-0 sm:size-5" />
-              <span className="min-w-0 text-center">Моя полка</span>
-            </TabButton>
-          ) : null}
-        </div>
+        </SegmentedControl>
 
         <AnimatedTabPanel activeKey={activeTab} panelKey="works">
           <PlottySectionCard
@@ -395,44 +456,21 @@ export function PublicProfileScreen({ username }: { username: string }) {
             </PlottySectionCard>
           )}
         </AnimatedTabPanel>
-
-        {isOwnProfile ? (
-          <AnimatedTabPanel activeKey={activeTab} panelKey="library">
-            <PlottySectionCard title={<ProfileTitle icon={<OpenBookIcon className="size-5" />}>{"Моя полка"}</ProfileTitle>}>
-              <div className="mb-4 flex flex-wrap gap-2">
-                <TabButton type="button" isActive={libraryTab === "all"} onClick={() => setLibraryTab("all")}>
-                  {"Все"}
-                </TabButton>
-                {readerShelfOptions.map((option) => (
-                  <TabButton key={option.value} type="button" isActive={libraryTab === option.value} onClick={() => setLibraryTab(option.value)}>
-                    {option.label}
-                  </TabButton>
-                ))}
-              </div>
-              {shelfQuery.isLoading ? (
-                <div className="space-y-3">
-                  <div className="h-44 rounded-[22px] bg-white/50" />
-                  <div className="h-44 rounded-[22px] bg-white/50" />
-                </div>
-              ) : visibleShelfEntries.length ? (
-                <AnimatedList
-                  items={visibleShelfEntries}
-                  getKey={(entry) => `${entry.storyId}-${entry.shelf}`}
-                  className="space-y-4"
-                  renderItem={(entry) => (
-                    <div className="space-y-2">
-                      <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]}`}</div>
-                      <StoryCard story={entry.story} showChapterActions={false} />
-                    </div>
-                  )}
-                />
-              ) : (
-                <EmptyState title="Здесь пока пусто" description="Добавьте статус чтения на странице истории или в каталоге." />
-              )}
-            </PlottySectionCard>
-          </AnimatedTabPanel>
-        ) : null}
       </div>
+      {avatarPreviewUrl && avatarDraftFile ? (
+        <AvatarCropDialog
+          imageUrl={avatarPreviewUrl}
+          isSaving={avatarMutation.isPending}
+          offsetX={avatarOffsetX}
+          offsetY={avatarOffsetY}
+          scale={avatarScale}
+          onCancel={resetAvatarDraft}
+          onConfirm={handleConfirmAvatarCrop}
+          onOffsetXChange={setAvatarOffsetX}
+          onOffsetYChange={setAvatarOffsetY}
+          onScaleChange={setAvatarScale}
+        />
+      ) : null}
     </PlottyPageShell>
   );
 }
@@ -466,6 +504,169 @@ export function ProfileAvatar({
   );
 }
 
+function AvatarCropDialog({
+  imageUrl,
+  isSaving,
+  offsetX,
+  offsetY,
+  onCancel,
+  onConfirm,
+  onOffsetXChange,
+  onOffsetYChange,
+  onScaleChange,
+  scale,
+}: {
+  imageUrl: string;
+  isSaving?: boolean;
+  offsetX: number;
+  offsetY: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onOffsetXChange: (value: number) => void;
+  onOffsetYChange: (value: number) => void;
+  onScaleChange: (value: number) => void;
+  scale: number;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <button
+        type="button"
+        aria-label="Закрыть обрезку аватара"
+        className="absolute inset-0 bg-[rgba(31,26,22,0.42)] backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Обрезка аватара"
+        className="relative w-full max-w-[30rem] rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] p-5 shadow-[var(--plotty-shadow)]"
+      >
+        <div className="space-y-4">
+          <div>
+            <h2 className="plotty-section-title">Аватар</h2>
+            <p className="plotty-meta">Отмасштабируйте и сдвиньте изображение перед загрузкой.</p>
+          </div>
+          <div className="mx-auto aspect-square w-full max-w-72 overflow-hidden rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt=""
+              className="size-full object-cover"
+              style={{
+                transform: `translate(${offsetX}%, ${offsetY}%) scale(${scale})`,
+                transformOrigin: "center",
+              }}
+            />
+          </div>
+          <div className="grid gap-4">
+            <AvatarRange label="Масштаб" max={2} min={1} step={0.05} value={scale} onChange={onScaleChange} />
+            <AvatarRange label="Сдвиг по горизонтали" max={40} min={-40} step={1} value={offsetX} onChange={onOffsetXChange} />
+            <AvatarRange label="Сдвиг по вертикали" max={40} min={-40} step={1} value={offsetY} onChange={onOffsetYChange} />
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>
+              Отмена
+            </Button>
+            <Button type="button" variant="primary" onClick={onConfirm} disabled={isSaving}>
+              {isSaving ? "Загружаем..." : "Загрузить"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AvatarRange({
+  label,
+  max,
+  min,
+  onChange,
+  step,
+  value,
+}: {
+  label: string;
+  max: number;
+  min: number;
+  onChange: (value: number) => void;
+  step: number;
+  value: number;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="plotty-label">{label}</span>
+      <Input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="px-0"
+      />
+    </label>
+  );
+}
+
+function loadAvatarImage(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = url;
+  });
+}
+
+async function cropAvatarFile(
+  file: File,
+  options: {
+    offsetX: number;
+    offsetY: number;
+    scale: number;
+  },
+) {
+  const url = URL.createObjectURL(file);
+
+  try {
+    const image = await loadAvatarImage(url);
+    const canvas = document.createElement("canvas");
+    const size = 512;
+
+    canvas.width = size;
+    canvas.height = size;
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Canvas is unavailable");
+    }
+
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, size, size);
+
+    const baseScale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+    const drawWidth = image.naturalWidth * baseScale * options.scale;
+    const drawHeight = image.naturalHeight * baseScale * options.scale;
+    const drawX = (size - drawWidth) / 2 + (options.offsetX / 100) * size;
+    const drawY = (size - drawHeight) / 2 + (options.offsetY / 100) * size;
+
+    context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+
+    if (!blob) {
+      throw new Error("Canvas export failed");
+    }
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "avatar";
+
+    return new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 function ProfileTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-2">
@@ -490,7 +691,7 @@ function ProfileStat({ label, value, icon }: { label: string; value: number; ico
 }
 
 function getInitialTab(value: string | null): ProfileTab {
-  if (value === "library" || value === "collections") {
+  if (value === "collections") {
     return value;
   }
 

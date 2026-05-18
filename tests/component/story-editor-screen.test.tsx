@@ -57,6 +57,7 @@ describe("StoryEditorScreen", () => {
 
       expect(data.title).toBe("Глава 1. Новый архив");
     });
+    expect(screen.getByRole("status")).toHaveTextContent("Черновик сохранён");
   });
 
   it("runs spellcheck and renders the returned issues", async () => {
@@ -71,6 +72,8 @@ describe("StoryEditorScreen", () => {
       timeout: 4_000,
     });
     expect(screen.getByText(/нечаянно/i)).toBeInTheDocument();
+    expect(screen.getByText("Было")).toBeInTheDocument();
+    expect(screen.getByText("Стало")).toBeInTheDocument();
   });
 
   it("dismisses a spellcheck issue without changing chapter text", async () => {
@@ -126,7 +129,20 @@ describe("StoryEditorScreen", () => {
     await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
 
     expect(screen.queryByLabelText("Стоимость: 1 кредит")).not.toBeInTheDocument();
-    expect(screen.getAllByLabelText("Стоимость: 2 кредита")).toHaveLength(2);
+    const costBadges = screen.getAllByLabelText("Стоимость: 2 кредита");
+
+    expect(costBadges).toHaveLength(2);
+    expect(costBadges[0]).toHaveAttribute("title", "Стоимость: 2 кредита");
+  });
+
+  it("lets writers edit the illustration prompt before generation", async () => {
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+
+    expect(screen.getByLabelText("Промпт для иллюстрации")).toHaveValue(
+      'Иллюстрация к главе "Глава 1. Архив под лестницей" истории "После полуночи снег не тает"',
+    );
   });
 
   it("runs logic check and renders the verdict", async () => {

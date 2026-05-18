@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { AuthProvider } from "@/entities/auth/model/auth-context";
+import { loginMockUser } from "@/mocks/data/auth";
 import { listStories } from "@/mocks/data/stories";
 import { StoryCard } from "@/widgets/stories/story-card";
 
@@ -13,15 +15,17 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-function renderStoryCard() {
-  const story = listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items[0];
+function renderStoryCard(index = 0) {
+  const story = listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items[index];
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
 
   render(
     <QueryClientProvider client={queryClient}>
-      <StoryCard story={story} />
+      <AuthProvider>
+        <StoryCard story={story} />
+      </AuthProvider>
     </QueryClientProvider>,
   );
 
@@ -46,6 +50,26 @@ describe("StoryCard", () => {
     const story = renderStoryCard();
     expect(screen.getByRole("link", { name: "Главы" })).toHaveAttribute("href", `/stories/${story.slug}?tab=chapters`);
     expect(screen.getByRole("link", { name: `Открыть историю ${story.title}` })).toHaveAttribute("href", `/stories/${story.slug}`);
+  });
+
+  it("uses explicit shelf and collection action labels", async () => {
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    renderStoryCard(1);
+
+    expect(await screen.findAllByRole("button", { name: "В планы" })).not.toHaveLength(0);
+    expect(screen.getAllByRole("button", { name: "В подборку" })).not.toHaveLength(0);
+  });
+
+  it("links authenticated readers to the first unread chapter", async () => {
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    renderStoryCard();
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("link", { name: "Читать" })[0]).toHaveAttribute(
+        "href",
+        "/stories/after-midnight-the-snow-does-not-melt/chapters/2",
+      ),
+    );
   });
 
   it("renders a placeholder cover from list data instead of fetching chapter imagery", () => {

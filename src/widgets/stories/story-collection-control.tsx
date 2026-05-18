@@ -143,7 +143,7 @@ export function StoryCollectionControl({
   }
 
   const busy = membershipMutation.isPending || createMutation.isPending || (isAuthenticated && collectionsQuery.isLoading);
-  const label = selectedCount ? `В ${selectedCount} подборк${selectedCount === 1 ? "е" : "ах"}` : "Добавить в подборку";
+  const label = selectedCount ? `В ${selectedCount} подборк${selectedCount === 1 ? "е" : "ах"}` : "В подборку";
 
   return (
     <div ref={popover.triggerRef} className={cn("relative w-full min-w-0", compact ? "" : "max-w-[18rem] space-y-1.5", className)}>
@@ -154,6 +154,7 @@ export function StoryCollectionControl({
           className="plotty-button-label flex min-h-[42px] min-w-0 items-center gap-2 overflow-hidden px-3 text-left text-[var(--plotty-ink)] disabled:opacity-60"
           onClick={handleToggleOpen}
           disabled={busy}
+          title={selectedCount ? "Открыть подборки" : "Добавить историю в подборку"}
         >
           {compact ? <Layers className="size-4 shrink-0" aria-hidden="true" /> : null}
           <span className="truncate">{label}</span>

@@ -146,7 +146,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
         await queryClient.invalidateQueries({ queryKey: storyKeys.details(storyQuery.data.slug) });
       }
 
-      router.push(`${routes.write}?story=${encodeURIComponent(updatedStory.slug)}`);
+      router.push(`${routes.write}?story=${encodeURIComponent(updatedStory.slug)}&saved=story`);
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.storySettings(storyId) }));

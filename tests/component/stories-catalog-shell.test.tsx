@@ -81,6 +81,62 @@ describe("StoriesCatalogShell", () => {
     expect(replace).toHaveBeenCalledWith("/?tag=witcher", { scroll: false });
   });
 
+  it("filters fandom options by text inside the fandom picker", async () => {
+    const user = userEvent.setup();
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Фандом" })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Фандом" }));
+    await user.type(screen.getByLabelText("Поиск по фандомам"), "ведь");
+
+    expect(screen.getByRole("option", { name: "Ведьмак" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Гарри Поттер" })).not.toBeInTheDocument();
+  });
+
+  it("clears selected genre and warning groups independently", async () => {
+    const user = userEvent.setup();
+    currentSearchParams = new URLSearchParams("tag=drama&tag=violence");
+
+    const firstView = renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Драма" })).toBeInTheDocument());
+
+    const genreGroup = screen.getByText("Жанры").closest("section");
+    const warningGroup = screen.getByText("Предупреждения").closest("section");
+
+    expect(genreGroup).not.toBeNull();
+    expect(warningGroup).not.toBeNull();
+
+    await user.click(within(genreGroup as HTMLElement).getByRole("button", { name: "Очистить" }));
+    expect(replace).toHaveBeenLastCalledWith("/?tag=violence", { scroll: false });
+
+    firstView.unmount();
+    currentSearchParams = new URLSearchParams("tag=drama&tag=violence");
+    replace.mockClear();
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Насилие" })).toBeInTheDocument());
+    const nextWarningGroup = screen.getByText("Предупреждения").closest("section");
+
+    expect(nextWarningGroup).not.toBeNull();
+    await user.click(within(nextWarningGroup as HTMLElement).getByRole("button", { name: "Очистить" }));
+    expect(replace).toHaveBeenLastCalledWith("/?tag=drama", { scroll: false });
+  });
+
+  it("offers a local popularity sort without sending an unsupported API sort", async () => {
+    const user = userEvent.setup();
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сортировка" })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Сортировка" }));
+    await user.click(screen.getByRole("option", { name: "Популярное" }));
+
+    expect(screen.getByRole("button", { name: "Сортировка" })).toHaveTextContent("Популярное");
+    expect(replace).toHaveBeenLastCalledWith("/", { scroll: false });
+  });
+
   it("keeps multi-select tag groups visible after selecting one fandom", async () => {
     const user = userEvent.setup();
     renderCatalogShell();

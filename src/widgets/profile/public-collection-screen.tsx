@@ -29,6 +29,7 @@ export function PublicCollectionScreen({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const profileCollectionsHref = `${routes.user(username)}?tab=collections`;
   const collectionQuery = useQuery(publicUserCollectionQueryOptions(username, collectionId));
   const [editOpen, setEditOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
@@ -52,7 +53,7 @@ export function PublicCollectionScreen({
         queryClient.invalidateQueries({ queryKey: libraryKeys.collections() }),
         queryClient.invalidateQueries({ queryKey: libraryKeys.collectionDetails() }),
       ]);
-      router.push(`${routes.user(username)}?tab=library`);
+      router.push(profileCollectionsHref);
     },
     onError: handleMutationError,
   });
@@ -81,7 +82,7 @@ export function PublicCollectionScreen({
         pageTitle="Подборка загружается"
         pageDescription="Собираем список историй."
         showMobileBack
-        mobileBackHref={routes.user(username)}
+        mobileBackHref={profileCollectionsHref}
         menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       >
         <div className="h-72 rounded-[24px] bg-white/40" />
@@ -95,7 +96,7 @@ export function PublicCollectionScreen({
         pageTitle="Подборка не найдена"
         pageDescription="Она могла быть удалена или принадлежит другому пользователю."
         showMobileBack
-        mobileBackHref={routes.user(username)}
+        mobileBackHref={profileCollectionsHref}
         menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       >
         <EmptyState title="Подборка не найдена" description="Вернитесь в профиль пользователя и выберите другую подборку." />
@@ -153,7 +154,7 @@ export function PublicCollectionScreen({
       pageDescription={collection.description ?? "Публичная подборка историй."}
       pageActions={
         <div className="flex flex-wrap items-center justify-end gap-3 lg:flex-nowrap">
-          <ButtonLink href={`${routes.user(username)}?tab=library`} variant="secondary" size="sm">
+          <ButtonLink href={profileCollectionsHref} variant="secondary" size="sm" className="whitespace-nowrap">
             К профилю
           </ButtonLink>
           <Button type="button" variant="secondary" size="sm" onClick={handleCopyLink}>
@@ -173,7 +174,7 @@ export function PublicCollectionScreen({
         </div>
       }
       showMobileBack
-      mobileBackHref={routes.user(username)}
+      mobileBackHref={profileCollectionsHref}
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       {isOwner && editOpen ? (

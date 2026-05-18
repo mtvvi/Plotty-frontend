@@ -87,6 +87,7 @@ export function StoryEditorScreen({
   const [dismissedSpellcheckIssueKeys, setDismissedSpellcheckIssueKeys] = useState<string[]>([]);
   const [storedSpellcheckState, setStoredSpellcheckState] = useState<StoredSpellcheckState | null>(null);
   const [spellcheckContentSnapshot, setSpellcheckContentSnapshot] = useState("");
+  const [saveStatusMessage, setSaveStatusMessage] = useState("");
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -290,6 +291,7 @@ export function StoryEditorScreen({
   async function handleSave() {
     try {
       await persistCurrentDraft();
+      setSaveStatusMessage("Черновик сохранён");
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
@@ -336,10 +338,17 @@ export function StoryEditorScreen({
     }
 
     if (chapterQuery.data?.storySlug) {
+      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
       router.push(routes.story(chapterQuery.data.storySlug));
       return;
     }
 
+    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+    await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
+    await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
     router.push(routes.write);
   }
 
@@ -673,6 +682,7 @@ export function StoryEditorScreen({
         canonStatusError={canonStatusError}
         creditBalance={creditBalanceQuery.data?.balance}
         creditError={aiCreditError}
+        saveStatusMessage={saveStatusMessage}
         isSaving={updateChapterMutation.isPending}
         isSpellchecking={isSpellcheckBusy}
         isLogicChecking={isLogicCheckBusy}
@@ -696,7 +706,10 @@ export function StoryEditorScreen({
             </div>
           </div>
         }
-        onChange={(next) => setValues({ ...next, chapterContent: normalizeEditorText(next.chapterContent) })}
+        onChange={(next) => {
+          setSaveStatusMessage("");
+          setValues({ ...next, chapterContent: normalizeEditorText(next.chapterContent) });
+        }}
         onSave={handleSave}
         onPublish={handlePublish}
         isPublishing={publishChapterMutation.isPending}

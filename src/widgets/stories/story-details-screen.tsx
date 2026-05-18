@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "reac
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, CalendarDays, Heart, List, MessageCircle, Tag, UserRound } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
 import {
@@ -46,8 +46,12 @@ type AdaptiveStoryTitleState = {
 
 export function StoryDetailsScreen({ slug }: { slug: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const { isAuthenticated } = useAuth();
-  const [activeMobileSection, setActiveMobileSection] = useState<MobileStorySection>("description");
+  const [activeMobileSection, setActiveMobileSection] = useState<MobileStorySection>(() =>
+    getInitialMobileSection(new URLSearchParams(searchParamsString)),
+  );
   const storyQuery = useQuery(storyDetailsQueryOptions(slug));
   const readerChapters = useMemo(
     () => (storyQuery.data ? publicChaptersForReader(storyQuery.data.chapters) : []),
@@ -69,11 +73,26 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
     return new Map(items.map((item) => [item.chapterId, item.viewed]));
   }, [chaptersViewedQuery.data?.items]);
+  const firstReadableChapter = useMemo(() => {
+    if (!readerChapters.length) {
+      return null;
+    }
+
+    if (!isAuthenticated || !chaptersViewedQuery.isSuccess) {
+      return readerChapters[0];
+    }
+
+    return readerChapters.find((chapter) => viewedByChapterId.get(chapter.id) !== true) ?? readerChapters[0];
+  }, [chaptersViewedQuery.isSuccess, isAuthenticated, readerChapters, viewedByChapterId]);
   const likeMutation = useStoryLikeMutation({
     storyId: storyQuery.data?.id ?? "",
     likesCount: storyQuery.data?.likesCount,
     viewerHasLiked: Boolean(storyQuery.data?.viewerHasLiked),
   });
+
+  useLayoutEffect(() => {
+    setActiveMobileSection(getInitialMobileSection(new URLSearchParams(searchParamsString)));
+  }, [searchParamsString]);
 
   if (storyQuery.isLoading) {
     return (
@@ -102,6 +121,8 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   const story = storyQuery.data;
   const storyDescription = story.aiHint?.trim() ? story.aiHint : STORY_ANNOTATION_PLACEHOLDER;
   const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
+  const readChapter = firstReadableChapter ?? firstChapter;
+  const mobileBackHref = getSafeInternalHref(searchParams.get("from"));
   const viewerHasLiked = Boolean(story.viewerHasLiked);
   const genericTags = story.tags.filter((tag) => !["completion", "rating", "size", "directionality"].includes(tag.category ?? ""));
 
@@ -120,7 +141,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   }
 
   return (
-    <PlottyPageShell suppressPageIntro showMobileBack mobileBackHref={routes.home} menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
+    <PlottyPageShell suppressPageIntro showMobileBack mobileBackHref={mobileBackHref} menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
         <main className="min-w-0 space-y-5">
           <PlottySectionCard className="plotty-panel-enter overflow-hidden p-0">
@@ -162,9 +183,9 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                  {firstChapter ? (
+                  {readChapter ? (
                     <StoryRevealButtonLink
-                      href={routes.chapter(story.slug, firstChapter.number ?? 1)}
+                      href={routes.chapter(story.slug, readChapter.number ?? 1)}
                       variant="primary"
                       size="lg"
                       className="max-sm:min-h-12 max-sm:px-3 max-sm:text-sm"
@@ -175,9 +196,9 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                       Читать
                     </StoryRevealButtonLink>
                   ) : null}
-                  {firstChapter ? (
+                  {readChapter ? (
                     <ButtonLink
-                      href={`${routes.chapter(story.slug, firstChapter.number ?? 1)}#comments`}
+                      href={`${routes.chapter(story.slug, readChapter.number ?? 1)}#comments`}
                       variant="secondary"
                       className="max-sm:min-h-12 max-sm:px-3 max-sm:text-sm"
                     >
@@ -412,6 +433,28 @@ function getChapterLabel(count: number) {
   }
 
   return "глав";
+}
+
+function getInitialMobileSection(searchParams: URLSearchParams): MobileStorySection {
+  const tab = searchParams.get("tab");
+
+  if (tab === "chapters") {
+    return "chapters";
+  }
+
+  if (tab === "info") {
+    return "info";
+  }
+
+  return "description";
+}
+
+function getSafeInternalHref(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return undefined;
+  }
+
+  return value;
 }
 
 function createDefaultTitleState(title: string): AdaptiveStoryTitleState {

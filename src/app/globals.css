@@ -716,7 +716,7 @@ button:active .plotty-chip-motion {
 
 .plotty-tab-indicator {
   position: absolute;
-  inset-block: 0.25rem;
+  top: 0;
   left: 0;
   border-radius: calc(var(--plotty-radius-md) - 4px);
   background: var(--plotty-accent);
@@ -724,6 +724,7 @@ button:active .plotty-chip-motion {
   opacity: 0;
   pointer-events: none;
   transition:
+    height var(--motion-slow) var(--ease-out-soft),
     opacity var(--motion-base) var(--ease-out-soft),
     transform var(--motion-slow) var(--ease-out-soft),
     width var(--motion-slow) var(--ease-out-soft);

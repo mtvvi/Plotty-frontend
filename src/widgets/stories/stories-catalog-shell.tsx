@@ -26,9 +26,12 @@ import { StoryTagChip } from "./story-tag-chip";
 const multiSelectCategories = new Set(["rating", "completion", "size"]);
 const singleSelectCategories = new Set(["directionality"]);
 const searchDebounceMs = 300;
-const sortOptions: Array<{ value: StoriesSort; label: string }> = [
+type CatalogSort = StoriesSort | "popular-desc";
+
+const sortOptions: Array<{ value: CatalogSort; label: string }> = [
   { value: "updated-desc", label: "Сначала новые" },
   { value: "updated-asc", label: "Сначала старые" },
+  { value: "popular-desc", label: "Популярное" },
   { value: "title-asc", label: "Название А-Я" },
   { value: "title-desc", label: "Название Я-А" },
 ];
@@ -48,7 +51,9 @@ export function StoriesCatalogShell() {
   const searchParamsString = searchParams.toString();
   const appliedQuery = useMemo(() => parseStoriesQuery(new URLSearchParams(searchParamsString)), [searchParamsString]);
   const [searchDraft, setSearchDraft] = useState(appliedQuery.q);
+  const [localSort, setLocalSort] = useState<CatalogSort>(appliedQuery.sort ?? defaultStoriesSort);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [, setIsMobileMenuOpen] = useState(false);
   const lastRequestedSearchRef = useRef(appliedQuery.q);
 
@@ -73,10 +78,11 @@ export function StoriesCatalogShell() {
 
   const normalizedSearchDraft = searchDraft.trim();
   const isSearchDirty = normalizedSearchDraft !== appliedQuery.q;
-  const currentSort = appliedQuery.sort ?? defaultStoriesSort;
+  const currentSort = localSort;
+  const apiQuery = currentSort === "popular-desc" ? { ...appliedQuery, sort: undefined } : appliedQuery;
 
   const storiesQuery = useQuery({
-    ...storiesQueryOptions(appliedQuery),
+    ...storiesQueryOptions(apiQuery),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
@@ -94,6 +100,10 @@ export function StoriesCatalogShell() {
   const pageHasOnlyDraftStories = (rawListItems?.length ?? 0) > 0 && catalogStories.length === 0;
   const hasInitialLoading = storiesQuery.isLoading && !storiesQuery.data;
   const appliedActiveTags = (tagsQuery.data?.items ?? []).filter((tag) => appliedQuery.tags.includes(tag.slug));
+
+  useEffect(() => {
+    setLocalSort((current) => (current === "popular-desc" ? current : appliedQuery.sort ?? defaultStoriesSort));
+  }, [appliedQuery.sort]);
 
   useEffect(() => {
     if (!isSearchDirty) {
@@ -140,10 +150,12 @@ export function StoriesCatalogShell() {
     navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
   }
 
-  function handleSortChange(sort: StoriesSort) {
+  function handleSortChange(sort: CatalogSort) {
+    setLocalSort(sort);
+
     navigateToQuery({
       ...appliedQuery,
-      sort: sort === defaultStoriesSort ? undefined : sort,
+      sort: sort === "popular-desc" || sort === defaultStoriesSort ? undefined : sort,
       page: 1,
     });
   }
@@ -186,8 +198,24 @@ export function StoriesCatalogShell() {
       onMenuOpenChange={setIsMobileMenuOpen}
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       pageActions={
-        <div className="hidden items-center gap-3 lg:mt-3 lg:flex">
-          <CatalogSortSelect value={currentSort} onChange={handleSortChange} />
+        <div className="hidden min-w-0 items-center gap-3 lg:mt-3 lg:flex">
+          <CatalogSearchField
+            value={searchDraft}
+            onChange={setSearchDraft}
+            ariaLabel="Поиск в каталоге"
+            className="min-w-[18rem] max-w-[28rem] flex-1"
+          />
+          <CatalogSortSelect value={currentSort} onChange={handleSortChange} ariaLabel="Сортировка каталога" />
+          <Button
+            type="button"
+            variant="secondary"
+            aria-pressed={filtersCollapsed}
+            className="whitespace-nowrap"
+            onClick={() => setFiltersCollapsed((current) => !current)}
+          >
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+            {filtersCollapsed ? "Показать фильтры" : "Скрыть фильтры"}
+          </Button>
         </div>
       }
       mobileToolbar={
@@ -212,8 +240,13 @@ export function StoriesCatalogShell() {
       }
       contentClassName="pt-5 lg:pt-10"
     >
-      <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-7 xl:grid-cols-[18rem_minmax(0,1fr)] xl:gap-8">
-        <aside className="hidden lg:block">
+      <div
+        className={cn(
+          "grid gap-5 lg:gap-7 xl:gap-8",
+          filtersCollapsed ? "lg:grid-cols-[minmax(0,1fr)]" : "lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)]",
+        )}
+      >
+        <aside className={cn("hidden lg:block", filtersCollapsed && "lg:hidden")}>
           <PlottySectionCard variant="sidebar" className="plotty-lift-panel sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
             {filters}
           </PlottySectionCard>
@@ -370,7 +403,12 @@ function CatalogFilters({
         }
 
         return (
-          <CatalogToggleGroup key={category} title={getStoryTagCategoryLabel(category)}>
+          <CatalogToggleGroup
+            key={category}
+            title={getStoryTagCategoryLabel(category)}
+            canClear={selectedSlugs.length > 0}
+            onClear={() => onTagsChange(replaceCategoryTags(selectedTags, tags, []))}
+          >
             {tags.map((tag) => (
               <StoryTagChip
                 key={tag.id}
@@ -387,22 +425,29 @@ function CatalogFilters({
 }
 
 function CatalogSearchField({
+  ariaLabel = "Поиск по названию истории",
+  className,
   value,
   onChange,
 }: {
+  ariaLabel?: string;
+  className?: string;
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
     <Surface
       variant="inset"
-      className="plotty-search-shell grid grid-cols-[auto_1fr] items-center gap-3 bg-[rgba(255,253,249,0.9)] px-4 py-1.5 shadow-[0_10px_24px_rgba(58,43,27,0.04)]"
+      className={cn(
+        "plotty-search-shell grid grid-cols-[auto_1fr] items-center gap-3 bg-[rgba(255,253,249,0.9)] px-4 py-1.5 shadow-[0_10px_24px_rgba(58,43,27,0.04)]",
+        className,
+      )}
     >
       <Search className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        aria-label="Поиск по названию истории"
+        aria-label={ariaLabel}
         placeholder="Поиск по названию истории"
         className="min-h-[42px] rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus:shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
@@ -411,12 +456,14 @@ function CatalogSearchField({
 }
 
 function CatalogSortSelect({
+  ariaLabel = "Сортировка",
   value,
   onChange,
   compact = false,
 }: {
-  value: StoriesSort;
-  onChange: (value: StoriesSort) => void;
+  ariaLabel?: string;
+  value: CatalogSort;
+  onChange: (value: CatalogSort) => void;
   compact?: boolean;
 }) {
   const popover = usePopover({ minWidth: 220 });
@@ -426,7 +473,7 @@ function CatalogSortSelect({
     <div ref={popover.triggerRef} className={cn("relative", compact ? "w-full" : "min-w-[11.5rem]")}>
       <button
         type="button"
-        aria-label="Сортировка"
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={popover.open}
         onClick={popover.toggle}
@@ -473,10 +520,16 @@ function CatalogSortSelect({
   );
 }
 
-function sortStoryListItems(stories: StoryListItem[], sort: StoriesSort) {
+function sortStoryListItems(stories: StoryListItem[], sort: CatalogSort) {
   return [...stories].sort((a, b) => {
     if (sort === "updated-asc") {
       return a.updatedAt.localeCompare(b.updatedAt);
+    }
+
+    if (sort === "popular-desc") {
+      const likesDelta = (b.likesCount ?? 0) - (a.likesCount ?? 0);
+
+      return likesDelta || b.updatedAt.localeCompare(a.updatedAt);
     }
 
     if (sort === "title-asc") {
@@ -495,6 +548,7 @@ function ActiveFilter({ label, onClear }: { label: string; onClear: () => void }
   return (
     <button
       type="button"
+      aria-label={`Убрать фильтр ${label}`}
       title={label}
       onClick={onClear}
       className="plotty-chip-motion inline-flex min-h-9 max-w-full min-w-0 items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[rgba(195,79,50,0.13)] bg-[var(--plotty-accent-wash)] px-3 text-sm font-semibold text-[var(--plotty-accent)] transition-colors hover:bg-[var(--plotty-accent-soft)] [&_svg]:transition-transform hover:[&_svg]:rotate-90"
@@ -632,7 +686,12 @@ function CatalogFandomDropdown({
   onSelect: (value: string) => void;
 }) {
   const popover = usePopover();
+  const [searchQuery, setSearchQuery] = useState("");
   const selectedOption = options.find((option) => option.slug === selectedSlug);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredOptions = normalizedSearchQuery
+    ? options.filter((option) => option.name.toLowerCase().includes(normalizedSearchQuery))
+    : options;
 
   return (
     <div ref={popover.triggerRef} className="grid gap-3">
@@ -656,10 +715,19 @@ function CatalogFandomDropdown({
           open={popover.open}
           contentRef={popover.contentRef}
           position={popover.position}
-          role="listbox"
+          role="dialog"
           aria-label={title}
-          className="rounded-[var(--plotty-radius-md)] p-2"
+          className="max-h-[min(32rem,calc(100vh-2rem))] overflow-y-auto rounded-[var(--plotty-radius-md)] p-2"
         >
+          <div className="sticky top-0 z-10 mb-2 bg-[rgba(251,247,242,0.98)] pb-2">
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              aria-label="Поиск по фандомам"
+              placeholder="Найти фандом"
+              className="min-h-10"
+            />
+          </div>
           <button
             type="button"
             role="option"
@@ -675,7 +743,7 @@ function CatalogFandomDropdown({
           >
             Любой фандом
           </button>
-          {options.map((option) => (
+          {filteredOptions.map((option) => (
             <button
               key={option.id}
               type="button"
@@ -693,6 +761,9 @@ function CatalogFandomDropdown({
               {option.name}
             </button>
           ))}
+          {!filteredOptions.length ? (
+            <div className="px-3 py-2 text-sm text-[var(--plotty-muted)]">Фандом не найден.</div>
+          ) : null}
         </PopoverContent>
       </div>
     </div>

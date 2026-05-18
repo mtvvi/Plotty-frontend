@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { creditBalanceQueryOptions, creditsKeys } from "@/entities/credits/api/credits-api";
@@ -16,7 +16,9 @@ import { isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Button, ButtonLink } from "@/shared/ui/button";
+import { Field, FieldLabel } from "@/shared/ui/field";
 import { AsyncJobStatus, type AsyncJobStatusValue } from "@/shared/ui/motion";
+import { Textarea } from "@/shared/ui/textarea";
 import { CreditCostBadge } from "@/widgets/credits/credit-cost-badge";
 
 export function GenerateChapterImageButton({
@@ -33,6 +35,12 @@ export function GenerateChapterImageButton({
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState("");
   const [creditError, setCreditError] = useState("");
+  const defaultPrompt = useMemo(
+    () => `Иллюстрация к главе "${chapterTitle}" истории "${storyTitle ?? storySlug}"`,
+    [chapterTitle, storySlug, storyTitle],
+  );
+  const [promptDraft, setPromptDraft] = useState(defaultPrompt);
+  const [promptTouched, setPromptTouched] = useState(false);
 
   const imageMutation = useMutation({
     mutationFn: startImageGeneration,
@@ -73,7 +81,7 @@ export function GenerateChapterImageButton({
       const accepted = await imageMutation.mutateAsync({
         chapterId,
         content: chapter.content,
-        prompt: `Иллюстрация к главе "${chapter.title || chapterTitle}" истории "${storyTitle ?? storySlug}"`,
+        prompt: promptDraft.trim() || defaultPrompt,
       });
 
       setJobId(accepted.jobId);
@@ -97,6 +105,12 @@ export function GenerateChapterImageButton({
     hasResult: Boolean(jobQuery.data?.result?.images[0]?.imageUrl),
     hasError: Boolean(creditError),
   });
+
+  useEffect(() => {
+    if (!promptTouched) {
+      setPromptDraft(defaultPrompt);
+    }
+  }, [defaultPrompt, promptTouched]);
   const imageStatusError =
     creditError ||
     (jobQuery.data?.status === "failed"
@@ -127,6 +141,18 @@ export function GenerateChapterImageButton({
           Пополнить
         </ButtonLink>
       ) : null}
+      <Field>
+        <FieldLabel htmlFor={`chapter-image-prompt-${chapterId}`}>Промпт для иллюстрации</FieldLabel>
+        <Textarea
+          id={`chapter-image-prompt-${chapterId}`}
+          value={promptDraft}
+          onChange={(event) => {
+            setPromptTouched(true);
+            setPromptDraft(event.target.value);
+          }}
+          className="min-h-24 text-sm leading-6"
+        />
+      </Field>
       <span className="relative inline-flex">
         <Button variant="secondary" onClick={handleGenerate} isLoading={isGenerating}>
           {hasImage ? "Обновить иллюстрацию" : "Сгенерировать картинку"}

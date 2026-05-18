@@ -351,7 +351,7 @@ export function ChapterReaderScreen({
                         </Button>
                       ) : null}
                     </div>
-                    <p className="mt-3 text-sm leading-7 text-[var(--plotty-ink)]">{comment.content}</p>
+                    <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--plotty-ink)]">{comment.content}</p>
                   </div>
                 ))}
               </div>

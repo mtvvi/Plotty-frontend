@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/entities/auth/model/auth-context";
@@ -52,8 +53,19 @@ vi.mock("@/entities/story/api/stories-api", async () => {
             createdAt: "2026-04-25T10:00:00.000Z",
             updatedAt: "2026-04-25T10:00:00.000Z",
           },
+          {
+            id: "story-silent-rain",
+            slug: "silent-rain",
+            title: "Тихий дождь",
+            tags: [],
+            chaptersCount: 1,
+            status: "draft",
+            coverImageUrl: null,
+            createdAt: "2026-04-24T10:00:00.000Z",
+            updatedAt: "2026-04-24T10:00:00.000Z",
+          },
         ],
-        pagination: { page: 1, pageSize: 50, total: 1 },
+        pagination: { page: 1, pageSize: 50, total: 2 },
       }),
       enabled: true,
     }),
@@ -118,5 +130,25 @@ describe("StoryCreateScreen sidebar", () => {
     const sidebarTitle = await waitFor(() => screen.getByText("Изумрудная волчица", { selector: ".plotty-card-title" }));
 
     expect(sidebarTitle).not.toHaveClass("truncate");
+  });
+
+  it("filters the workshop story list by local story title", async () => {
+    const user = userEvent.setup();
+    renderStoryCreateScreen();
+
+    await screen.findByText("Изумрудная волчица", { selector: ".plotty-card-title" });
+
+    await user.type(screen.getByLabelText("Поиск по моим историям"), "дождь");
+
+    expect(screen.getByText("Тихий дождь", { selector: ".plotty-card-title" })).toBeInTheDocument();
+    expect(screen.queryByText("Изумрудная волчица", { selector: ".plotty-card-title" })).not.toBeInTheDocument();
+  });
+
+  it("shows a story settings saved message from the redirect flag", async () => {
+    currentSearchParams = new URLSearchParams("saved=story");
+
+    renderStoryCreateScreen();
+
+    expect(await screen.findByRole("status")).toHaveTextContent("История сохранена");
   });
 });

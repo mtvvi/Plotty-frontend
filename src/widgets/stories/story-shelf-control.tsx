@@ -90,7 +90,7 @@ export function StoryShelfControl({
     popover.toggle();
   }
 
-  const label = currentShelf ? readerShelfLabels[currentShelf] : "Добавить в планы";
+  const label = currentShelf ? readerShelfLabels[currentShelf] : "В планы";
   const busy = shelfMutation.isPending || (isAuthenticated && shelfQuery.isLoading);
 
   return (
@@ -101,6 +101,7 @@ export function StoryShelfControl({
           type="button"
           onClick={handlePrimaryClick}
           disabled={busy}
+          title={currentShelf ? `Статус: ${label}` : "Добавить историю в планы"}
           className={cn(
             "plotty-button-label min-h-[42px] min-w-0 text-left text-[var(--plotty-ink)] disabled:opacity-60",
             compact ? "flex items-center gap-2 overflow-hidden px-3" : "truncate px-3 transition-colors hover:bg-white",

@@ -29,14 +29,18 @@ function renderLibraryScreen() {
 }
 
 describe("ReaderLibraryScreen", () => {
-  it("wraps shelf status filters instead of pushing them off mobile viewport", async () => {
+  it("stretches shelf status filters across the tile with an animated active indicator", async () => {
     renderLibraryScreen();
 
     const allTab = await screen.findByRole("button", { name: "Все" });
     const statusTabs = allTab.parentElement;
 
-    expect(statusTabs).toHaveClass("plotty-segmented-mobile-grid");
+    expect(statusTabs).toHaveClass("plotty-segmented");
+    expect(statusTabs).toHaveClass("grid-cols-3");
+    expect(statusTabs).toHaveClass("sm:grid-cols-6");
+    expect(statusTabs).not.toHaveClass("plotty-segmented-mobile-grid");
     expect(statusTabs).not.toHaveClass("overflow-x-auto");
+    expect(statusTabs?.querySelector(".plotty-tab-indicator")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Прочитано" })).toBeInTheDocument();
   });
 });

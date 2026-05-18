@@ -41,10 +41,10 @@ function ReaderLibraryContent() {
       menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       <div className="space-y-5">
-        <SegmentedControl layout="mobileGrid">
+        <SegmentedControl className="w-full !grid grid-cols-3 items-stretch sm:grid-cols-6">
           <TabButton
             type="button"
-            className="min-w-0 text-center leading-tight"
+            className="min-h-11 w-full min-w-0 px-2 text-center text-xs leading-tight sm:px-3 sm:text-sm"
             isActive={activeTab === "all"}
             onClick={() => setActiveTab("all")}
           >
@@ -54,7 +54,7 @@ function ReaderLibraryContent() {
             <TabButton
               key={option.value}
               type="button"
-              className="min-w-0 text-center leading-tight"
+              className="min-h-11 w-full min-w-0 px-2 text-center text-xs leading-tight sm:px-3 sm:text-sm"
               isActive={activeTab === option.value}
               onClick={() => setActiveTab(option.value)}
             >

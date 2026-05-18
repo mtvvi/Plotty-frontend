@@ -48,7 +48,8 @@ export function SegmentedControl({ children, className, layout = "inline", ...pr
 
       setIndicatorStyle({
         opacity: 1,
-        transform: `translate3d(${(activeRect.left - containerRect.left).toFixed(2)}px, 0, 0)`,
+        height: `${activeRect.height.toFixed(2)}px`,
+        transform: `translate3d(${(activeRect.left - containerRect.left).toFixed(2)}px, ${(activeRect.top - containerRect.top).toFixed(2)}px, 0)`,
         width: `${activeRect.width.toFixed(2)}px`,
       });
     }

@@ -57,6 +57,7 @@ export interface StoryEditorFormProps {
   canonStatusError?: string;
   creditBalance?: number;
   creditError?: string;
+  saveStatusMessage?: string;
   isSaving?: boolean;
   isSpellchecking?: boolean;
   isLogicChecking?: boolean;
@@ -100,6 +101,7 @@ export function StoryEditorForm({
   canonStatusError,
   creditBalance,
   creditError,
+  saveStatusMessage,
   isSaving,
   isSpellchecking,
   isLogicChecking,
@@ -400,6 +402,11 @@ export function StoryEditorForm({
                 Новая глава
               </Button>
             </div>
+            {saveStatusMessage ? (
+              <Surface role="status" variant="subtle" className="px-3 py-2 text-sm font-semibold text-[var(--plotty-olive)]">
+                {saveStatusMessage}
+              </Surface>
+            ) : null}
             <div className="space-y-3">
               {shouldOfferTopUp && !creditError ? (
                 <ButtonLink href={routes.credits} variant="ghost" size="sm">
@@ -472,7 +479,7 @@ export function StoryEditorForm({
                               <div className="min-w-0 space-y-1">
                                 <div className="truncate text-sm font-semibold">{issue.fragmentText}</div>
                                 <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
-                                <div className="break-words text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+                                <SpellcheckPreview issue={issue} />
                                 {isUnresolved ? (
                                   <div className="text-xs font-semibold text-[var(--plotty-danger)]">
                                     Фрагмент не найден в текущем тексте. Запустите проверку заново.
@@ -664,6 +671,21 @@ function getSpellcheckIssueKey(issue: SpellcheckIssue) {
   return `${issue.startOffset}-${issue.endOffset}-${issue.fragmentText}-${issue.suggestion}`;
 }
 
+function SpellcheckPreview({ issue }: { issue: SpellcheckIssue }) {
+  return (
+    <div className="grid gap-2 rounded-[14px] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.72)] p-2 text-sm sm:grid-cols-2">
+      <div className="min-w-0 space-y-1">
+        <div className="plotty-kicker">Было</div>
+        <p className="break-words text-[var(--plotty-ink)]">{issue.fragmentText}</p>
+      </div>
+      <div className="min-w-0 space-y-1">
+        <div className="plotty-kicker">Стало</div>
+        <p className="break-words font-semibold text-[var(--plotty-accent)]">{issue.suggestion}</p>
+      </div>
+    </div>
+  );
+}
+
 function SpellcheckIssueOverlay({
   contentRef,
   isMobile,
@@ -767,7 +789,7 @@ function SpellcheckIssueContent({
       <div className="min-w-0 space-y-1">
         <div className="break-words text-sm font-semibold">{issue.fragmentText}</div>
         <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
-        <div className="break-words text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+        <SpellcheckPreview issue={issue} />
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={() => onApply(issue)}>

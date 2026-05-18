@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, FileText, PenLine, Plus, Settings } from "lucide-react";
+import { BookOpen, FileText, PenLine, Plus, Search, Settings } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -22,6 +22,7 @@ import { getStoryTagCategoryLabel, groupStoryTags } from "@/shared/config/story-
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { Input } from "@/shared/ui/input";
 import { Surface } from "@/shared/ui/card";
 import { StoryRevealButtonLink } from "@/shared/ui/story-reveal-transition";
 import { CreditBalancePill } from "@/widgets/credits/credit-balance-pill";
@@ -53,7 +54,9 @@ export function StoryCreateScreen() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const requestedStorySlug = searchParams.get("story") ?? "";
+  const savedMessage = searchParams.get("saved") === "story" ? "История сохранена." : "";
   const [selectedStorySlug, setSelectedStorySlug] = useState("");
+  const [storySearchDraft, setStorySearchDraft] = useState("");
   const storiesQuery = useQuery(myStoriesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }, { userId: user?.id }));
   const selectedStoryQuery = useQuery({
     ...storyDetailsQueryOptions(selectedStorySlug),
@@ -102,6 +105,16 @@ export function StoryCreateScreen() {
   const selectedStoryDisplayCover = selectedStoryQuery.data?.coverImageUrl ?? selectedStoryFirstChapterQuery.data?.imageUrl;
   const selectedStoryDescription = selectedStoryQuery.data?.aiHint?.trim() ? selectedStoryQuery.data.aiHint : STORY_ANNOTATION_PLACEHOLDER;
   const selectedStoryLastChapter = selectedStoryQuery.data?.chapters.at(-1);
+  const visibleStories = useMemo(() => {
+    const stories = storiesQuery.data?.items ?? [];
+    const query = storySearchDraft.trim().toLowerCase();
+
+    if (!query) {
+      return stories;
+    }
+
+    return stories.filter((story) => story.title.toLowerCase().includes(query));
+  }, [storiesQuery.data?.items, storySearchDraft]);
 
   async function handleCreateNextChapter() {
     if (!selectedStoryQuery.data) {
@@ -135,6 +148,11 @@ export function StoryCreateScreen() {
       description="Создавайте, редактируйте и развивайте свои истории."
       showMobileBack={false}
     >
+      {savedMessage ? (
+        <Surface role="status" variant="subtle" className="mb-5 px-4 py-3 text-sm font-semibold text-[var(--plotty-olive)]">
+          {savedMessage}
+        </Surface>
+      ) : null}
       <div className="plotty-stagger grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)_18rem]">
         <ShellCard title="Мои истории" variant="sidebar" className="plotty-stagger-item plotty-lift-panel">
           {storiesQuery.isLoading ? (
@@ -144,8 +162,18 @@ export function StoryCreateScreen() {
             </div>
           ) : storiesQuery.data?.items.length ? (
             <div className="space-y-3">
+              <div className="grid grid-cols-[auto_1fr] items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.74)] px-3">
+                <Search className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
+                <Input
+                  value={storySearchDraft}
+                  onChange={(event) => setStorySearchDraft(event.target.value)}
+                  aria-label="Поиск по моим историям"
+                  placeholder="Поиск по моим историям"
+                  className="min-h-11 rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus:shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
               <div className="plotty-scroll-panel plotty-workshop-story-list space-y-3">
-                {storiesQuery.data.items.map((story) => {
+                {visibleStories.map((story) => {
                   const isSelected = selectedStorySlug === story.slug;
 
                   return (
@@ -159,6 +187,9 @@ export function StoryCreateScreen() {
                     />
                   );
                 })}
+                {!visibleStories.length ? (
+                  <EmptyState title="Историй не найдено" description="Очистите поиск или проверьте название." />
+                ) : null}
               </div>
 
               <ButtonLink href={routes.writeNew} variant="secondary" className="w-full border-dashed">

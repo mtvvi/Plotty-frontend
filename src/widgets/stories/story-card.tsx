@@ -6,10 +6,11 @@ import { BookOpen, Heart, List } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { chapterDetailsQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
+import { chapterDetailsQueryOptions, chaptersViewedQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
 import type { StoryListItem } from "@/entities/story/model/types";
+import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
@@ -40,7 +41,11 @@ export function StoryCard({
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
-  const firstChapter = storyDetailsQuery.data?.chapters[0];
+  const readerChapters = useMemo(
+    () => (storyDetailsQuery.data ? publicChaptersForReader(storyDetailsQuery.data.chapters) : []),
+    [storyDetailsQuery.data],
+  );
+  const firstChapter = readerChapters[0];
   const firstChapterQuery = useQuery({
     ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
     enabled: Boolean(firstChapter?.id && !story.coverImageUrl),
@@ -50,7 +55,27 @@ export function StoryCard({
   const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
   const isCoverLoading = Boolean(!story.coverImageUrl && (storyDetailsQuery.isLoading || firstChapterQuery.isLoading));
   const chaptersHref = `${routes.story(story.slug)}?tab=chapters`;
-  const readHref = firstChapter ? routes.chapter(story.slug, firstChapter.number ?? 1) : resolvedStoryHref;
+  const chaptersViewedQuery = useQuery({
+    ...chaptersViewedQueryOptions(story.slug),
+    enabled: Boolean(isAuthenticated && storyDetailsQuery.data && readerChapters.length),
+  });
+  const viewedByChapterId = useMemo(() => {
+    const items = chaptersViewedQuery.data?.items ?? [];
+
+    return new Map(items.map((item) => [item.chapterId, item.viewed]));
+  }, [chaptersViewedQuery.data?.items]);
+  const firstReadableChapter = useMemo(() => {
+    if (!readerChapters.length) {
+      return null;
+    }
+
+    if (!isAuthenticated || !chaptersViewedQuery.isSuccess) {
+      return readerChapters[0];
+    }
+
+    return readerChapters.find((chapter) => viewedByChapterId.get(chapter.id) !== true) ?? readerChapters[0];
+  }, [chaptersViewedQuery.isSuccess, isAuthenticated, readerChapters, viewedByChapterId]);
+  const readHref = firstReadableChapter ? routes.chapter(story.slug, firstReadableChapter.number ?? 1) : resolvedStoryHref;
   const viewerHasLiked = Boolean(storyDetailsQuery.data?.viewerHasLiked ?? story.viewerHasLiked);
   const likesCount = storyDetailsQuery.data?.likesCount ?? story.likesCount;
   const likeMutation = useStoryLikeMutation({
