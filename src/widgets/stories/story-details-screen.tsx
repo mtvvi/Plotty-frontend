@@ -21,7 +21,7 @@ import { cn } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
-import { StoryRevealButtonLink } from "@/shared/ui/story-reveal-transition";
+import { StoryRevealButtonLink, StoryRevealLink } from "@/shared/ui/story-reveal-transition";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
@@ -248,12 +248,14 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                     <div key={chapter.id} className="plotty-stagger-item plotty-lift-panel grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
                       <span className="plotty-card-title text-[1.35rem]">{chapter.number ?? "—"}.</span>
                       <div className="min-w-0">
-                        <Link
+                        <StoryRevealLink
                           href={routes.chapter(story.slug, chapter.number ?? 1)}
                           className="plotty-story-title-anchor plotty-card-title text-[1.18rem] hover:text-[var(--plotty-accent)]"
+                          revealTitle={chapter.title}
+                          revealCoverUrl={displayCoverImage}
                         >
                           <span className="plotty-story-title-text">{chapter.title}</span>
-                        </Link>
+                        </StoryRevealLink>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-[var(--plotty-muted)]">
                           <span>{new Date(chapter.updatedAt).toLocaleDateString("ru-RU")}</span>
                           {isAuthenticated ? (

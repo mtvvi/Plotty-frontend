@@ -35,7 +35,11 @@ export function Chip({
   className?: string;
   tone?: ChipTone;
 }) {
-  const content = <span className={chipClassName(selected, className, tone)}>{children}</span>;
+  const content = (
+    <span className={chipClassName(selected, className, tone)} data-selected={selected ? "true" : undefined}>
+      {children}
+    </span>
+  );
 
   if (!onClick) {
     return content;

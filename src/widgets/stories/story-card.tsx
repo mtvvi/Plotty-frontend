@@ -94,16 +94,25 @@ export function StoryCard({
           />
         </Link>
 
-        <div className="min-w-0 space-y-3 p-4 md:space-y-4 md:p-5 lg:p-6">
-          <div className="space-y-1.5 md:space-y-2">
-            <Link href={resolvedStoryHref} className="plotty-story-title-anchor">
+        <div className="relative min-w-0 space-y-3 p-4 md:space-y-4 md:p-5 lg:p-6">
+          <Link
+            href={resolvedStoryHref}
+            aria-label={`Перейти на страницу истории ${story.title}`}
+            className="plotty-story-card-body-link"
+          />
+
+          <div className="pointer-events-none relative z-20 space-y-1.5 md:space-y-2">
+            <div className="plotty-story-title-anchor">
               <h2 className="plotty-card-title text-[1.28rem] leading-[1.05] md:text-[1.8rem] md:leading-none lg:text-[2.25rem]">
                 <span className="plotty-story-title-text">{story.title}</span>
               </h2>
-            </Link>
+            </div>
             <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs leading-5 text-[var(--plotty-muted)] md:gap-x-2.5 md:gap-y-1 md:text-sm">
               {story.author?.username ? (
-                <Link href={routes.user(story.author.username)} className="font-semibold hover:text-[var(--plotty-accent)]">
+                <Link
+                  href={routes.user(story.author.username)}
+                  className="pointer-events-auto relative z-30 font-semibold transition-colors hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                >
                   Автор {story.author.username}
                 </Link>
               ) : null}
@@ -118,7 +127,7 @@ export function StoryCard({
 
           {story.aiHint ? (
             <p
-              className="plotty-body text-[13px] leading-5 text-[var(--plotty-ink-soft)] md:text-[14px] md:leading-6 lg:text-[15px]"
+              className="pointer-events-none relative z-20 plotty-body text-[13px] leading-5 text-[var(--plotty-ink-soft)] md:text-[14px] md:leading-6 lg:text-[15px]"
               style={{
                 display: "-webkit-box",
                 WebkitLineClamp: 2,
@@ -130,16 +139,18 @@ export function StoryCard({
             </p>
           ) : null}
 
-          <CatalogStoryTags
-            fandom={story.fandom}
-            rating={story.ratingLabel}
-            status={story.statusLabel}
-            size={story.sizeLabel}
-            genres={genres}
-            warnings={warnings}
-            extraTags={extraTags}
-          />
-          <div className="grid gap-2 pt-1 md:hidden">
+          <div className="pointer-events-none relative z-20">
+            <CatalogStoryTags
+              fandom={story.fandom}
+              rating={story.ratingLabel}
+              status={story.statusLabel}
+              size={story.sizeLabel}
+              genres={genres}
+              warnings={warnings}
+              extraTags={extraTags}
+            />
+          </div>
+          <div className="pointer-events-auto relative z-30 grid gap-2 pt-1 md:hidden">
             <div className={showChapterActions ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
               <StoryRevealButtonLink
                 href={readHref}

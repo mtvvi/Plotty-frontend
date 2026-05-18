@@ -28,7 +28,7 @@ const surfaceClasses: Record<SurfaceVariant, string> = {
   media:
     "overflow-hidden rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[linear-gradient(135deg,var(--plotty-panel),var(--plotty-paper))]",
   interactive:
-    "plotty-lift-panel rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] shadow-[var(--plotty-shadow-card)] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-[rgba(195,79,50,0.2)] hover:shadow-[0_22px_52px_rgba(58,43,27,0.1)]",
+    "plotty-lift-panel rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] shadow-[var(--plotty-shadow-card)] hover:border-[rgba(195,79,50,0.2)] hover:shadow-[0_22px_52px_rgba(58,43,27,0.1)]",
 };
 
 export interface SurfaceProps extends HTMLAttributes<HTMLDivElement> {

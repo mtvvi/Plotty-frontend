@@ -175,6 +175,8 @@ export const StoryRevealButtonLink = forwardRef<HTMLAnchorElement, StoryRevealBu
         ref={ref}
         href={href}
         target={target}
+        data-plotty-button="true"
+        data-variant={variant}
         className={buttonClassName({ variant, size, fullWidth, className })}
         onClick={handleClick}
         {...props}
@@ -182,5 +184,46 @@ export const StoryRevealButtonLink = forwardRef<HTMLAnchorElement, StoryRevealBu
         {children}
       </Link>
     );
+  },
+);
+
+type StoryRevealLinkProps = LinkProps &
+  Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof LinkProps> & {
+    revealCoverUrl?: string | null;
+    revealTitle?: string;
+  };
+
+export const StoryRevealLink = forwardRef<HTMLAnchorElement, StoryRevealLinkProps>(
+  function StoryRevealLink({ href, onClick, revealCoverUrl, revealTitle, target, ...props }, ref) {
+    const revealContext = useContext(StoryRevealContext);
+    const hrefString = typeof href === "string" ? href : "";
+
+    function handleClick(event: MouseEvent<HTMLAnchorElement>) {
+      onClick?.(event);
+
+      if (
+        event.defaultPrevented ||
+        !revealContext ||
+        !hrefString ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey ||
+        target === "_blank" ||
+        props.download
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      revealContext.startReveal({
+        coverUrl: revealCoverUrl ?? undefined,
+        href: hrefString,
+        title: revealTitle,
+      });
+    }
+
+    return <Link ref={ref} href={href} target={target} onClick={handleClick} {...props} />;
   },
 );
