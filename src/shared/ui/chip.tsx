@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
-type ChipTone = "default" | "accent" | "olive" | "gold" | "blue";
+export type ChipTone = "default" | "accent" | "olive" | "gold" | "blue";
 
 const toneClasses: Record<ChipTone, string> = {
   default: "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.76)] text-[var(--plotty-muted)]",
@@ -14,7 +14,7 @@ const toneClasses: Record<ChipTone, string> = {
 
 export function chipClassName(selected = false, className?: string, tone: ChipTone = "default") {
   return cn(
-    "inline-flex min-h-[32px] items-center justify-center rounded-[var(--plotty-radius-sm)] border px-3 py-1.5 text-xs font-semibold leading-none",
+    "plotty-chip-motion inline-flex min-h-[32px] items-center justify-center rounded-[var(--plotty-radius-sm)] border px-3 py-1.5 text-xs font-semibold leading-none",
     selected
       ? "border-transparent bg-[var(--plotty-accent)] !text-white shadow-[0_8px_18px_rgba(195,79,50,0.14)] visited:!text-white"
       : toneClasses[tone],
@@ -35,7 +35,11 @@ export function Chip({
   className?: string;
   tone?: ChipTone;
 }) {
-  const content = <span className={chipClassName(selected, className, tone)}>{children}</span>;
+  const content = (
+    <span className={chipClassName(selected, className, tone)} data-selected={selected ? "true" : undefined}>
+      {children}
+    </span>
+  );
 
   if (!onClick) {
     return content;

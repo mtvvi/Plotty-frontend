@@ -2,6 +2,22 @@ function stripTrailingSlash(value: string) {
   return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
+function withoutIncompatibleAbortSignal(init: RequestInit): RequestInit {
+  if (!init.signal) {
+    return init;
+  }
+
+  try {
+    new Request("http://localhost", { signal: init.signal });
+
+    return init;
+  } catch {
+    const { signal: _signal, ...compatibleInit } = init;
+
+    return compatibleInit;
+  }
+}
+
 export interface ApiFieldError {
   field: string;
   message: string;
@@ -9,6 +25,8 @@ export interface ApiFieldError {
 
 export interface ApiErrorPayload {
   error?: string;
+  message?: string;
+  detail?: unknown;
   code?: string;
   errors?: ApiFieldError[];
 }
@@ -66,21 +84,58 @@ async function readErrorPayload(response: Response) {
 }
 
 function getErrorMessage(status: number, payload?: ApiErrorPayload | string) {
-  if (typeof payload === "string" && payload.trim()) {
-    return payload;
-  }
+  const payloadMessage = getPayloadMessage(payload);
 
-  if (payload && typeof payload === "object" && "error" in payload && payload.error) {
-    return payload.error;
+  if (payloadMessage) {
+    return payloadMessage;
   }
 
   return `Request failed: ${status}`;
 }
 
+function getPayloadMessage(value: unknown, depth = 0): string | undefined {
+  if (depth > 3) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    return trimmed || undefined;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const message = getPayloadMessage(item, depth + 1);
+
+      if (message) {
+        return message;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const payload = value as Record<string, unknown>;
+
+  for (const key of ["error", "message", "detail", "msg"]) {
+    const message = getPayloadMessage(payload[key], depth + 1);
+
+    if (message) {
+      return message;
+    }
+  }
+
+  return undefined;
+}
+
 export async function fetchJson<T>(input: string, init?: RequestInit) {
   const url = resolveApiInput(input);
-
-  const response = await fetch(url, {
+  const requestInit = withoutIncompatibleAbortSignal({
     cache: "no-store",
     credentials: "include",
     ...init,
@@ -89,6 +144,8 @@ export async function fetchJson<T>(input: string, init?: RequestInit) {
       ...(init?.headers ?? {}),
     },
   });
+
+  const response = await fetch(url, requestInit);
 
   if (!response.ok) {
     const payload = await readErrorPayload(response);

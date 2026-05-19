@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/entities/auth/model/auth-context";
@@ -8,6 +9,29 @@ import { StoryCreateScreen } from "@/widgets/stories/story-create-screen";
 
 const push = vi.fn();
 let currentSearchParams = new URLSearchParams();
+const emeraldWolfChapters = [
+  {
+    id: "chapter-1",
+    number: 1,
+    title: "Глава первая",
+    updatedAt: "2026-04-25T10:00:00.000Z",
+    status: "published",
+  },
+  {
+    id: "chapter-2",
+    number: 2,
+    title: "Глава вторая",
+    updatedAt: "2026-04-25T11:00:00.000Z",
+    status: "published",
+  },
+  {
+    id: "chapter-3",
+    number: 3,
+    title: "Глава третья",
+    updatedAt: "2026-04-25T12:00:00.000Z",
+    status: "draft",
+  },
+];
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
@@ -46,16 +70,43 @@ vi.mock("@/entities/story/api/stories-api", async () => {
             slug: "emerald-wolf",
             title: "Изумрудная волчица",
             tags: [],
-            chaptersCount: 1,
+            chaptersCount: emeraldWolfChapters.length,
             status: "draft",
             coverImageUrl: null,
             createdAt: "2026-04-25T10:00:00.000Z",
             updatedAt: "2026-04-25T10:00:00.000Z",
           },
+          {
+            id: "story-silent-rain",
+            slug: "silent-rain",
+            title: "Тихий дождь",
+            tags: [],
+            chaptersCount: 1,
+            status: "draft",
+            coverImageUrl: null,
+            createdAt: "2026-04-24T10:00:00.000Z",
+            updatedAt: "2026-04-24T10:00:00.000Z",
+          },
         ],
-        pagination: { page: 1, pageSize: 50, total: 1 },
+        pagination: { page: 1, pageSize: 50, total: 2 },
       }),
       enabled: true,
+    }),
+    storyDetailsQueryOptions: (slug: string) => ({
+      queryKey: ["test", "story-details", slug],
+      queryFn: async () => ({
+        id: slug === "silent-rain" ? "story-silent-rain" : "story-emerald-wolf",
+        slug,
+        title: slug === "silent-rain" ? "Тихий дождь" : "Изумрудная волчица",
+        tags: [],
+        chapters: slug === "silent-rain" ? [] : emeraldWolfChapters,
+        chaptersCount: slug === "silent-rain" ? 0 : emeraldWolfChapters.length,
+        status: "draft",
+        coverImageUrl: slug === "silent-rain" ? null : "/cover.png",
+        createdAt: "2026-04-25T10:00:00.000Z",
+        updatedAt: "2026-04-25T10:00:00.000Z",
+      }),
+      enabled: Boolean(slug),
     }),
   };
 });
@@ -118,5 +169,53 @@ describe("StoryCreateScreen sidebar", () => {
     const sidebarTitle = await waitFor(() => screen.getByText("Изумрудная волчица", { selector: ".plotty-card-title" }));
 
     expect(sidebarTitle).not.toHaveClass("truncate");
+  });
+
+  it("filters the workshop story list by local story title", async () => {
+    const user = userEvent.setup();
+    renderStoryCreateScreen();
+
+    await screen.findByText("Изумрудная волчица", { selector: ".plotty-card-title" });
+
+    await user.type(screen.getByLabelText("Поиск по моим историям"), "дождь");
+
+    expect(screen.getByText("Тихий дождь", { selector: ".plotty-card-title" })).toBeInTheDocument();
+    expect(screen.queryByText("Изумрудная волчица", { selector: ".plotty-card-title" })).not.toBeInTheDocument();
+  });
+
+  it("shows a story settings saved message from the redirect flag", async () => {
+    currentSearchParams = new URLSearchParams("saved=story");
+
+    renderStoryCreateScreen();
+
+    expect(await screen.findByRole("status")).toHaveTextContent("История сохранена");
+  });
+
+  it("makes tag editing visible from the active workshop story", async () => {
+    renderStoryCreateScreen();
+
+    expect(await screen.findByText("Теги, жанры и предупреждения")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Редактировать теги" })[0]).toHaveAttribute(
+      "href",
+      "/write/stories/story-emerald-wolf/settings",
+    );
+  });
+
+  it("sorts chapters from the workshop chapter list", async () => {
+    const user = userEvent.setup();
+    const { container } = renderStoryCreateScreen();
+
+    await screen.findByText("Главы истории");
+    const chapterList = container.querySelector(".plotty-workshop-chapter-list");
+
+    expect(chapterList?.textContent?.indexOf("1. Глава первая")).toBeLessThan(
+      chapterList?.textContent?.indexOf("3. Глава третья") ?? -1,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Порядок глав/ }));
+
+    expect(chapterList?.textContent?.indexOf("3. Глава третья")).toBeLessThan(
+      chapterList?.textContent?.indexOf("1. Глава первая") ?? -1,
+    );
   });
 });

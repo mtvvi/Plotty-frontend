@@ -1,6 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -18,13 +20,15 @@ import {
   storyKeys,
   updateChapter,
 } from "@/entities/story/api/stories-api";
-import type { CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult } from "@/entities/story/model/types";
+import type { AiJobStatus, CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult, StoryTag } from "@/entities/story/model/types";
 import { isApiError, isAuthError, isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { diffWords } from "@/shared/lib/text-diff";
 import { resolveTextRangeByOffsets, type ResolvedTextRange } from "@/shared/lib/text-ranges";
+import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { EmptyState } from "@/shared/ui/empty-state";
 import type { HighlightRange } from "@/shared/ui/highlighted-textarea";
+import type { AsyncJobStatusValue } from "@/shared/ui/motion";
 
 import { ChapterImageFrame } from "./chapter-image-frame";
 import { GenerateChapterImageButton } from "./generate-chapter-image-button";
@@ -48,13 +52,14 @@ type AppliedSpellcheckFix = {
 type StoredSpellcheckState = {
   appliedFixes: AppliedSpellcheckFix[];
   contentHash: string;
+  dismissedIssueKeys: string[];
   result: SpellcheckResult;
   savedAt: number;
-  version: 1;
+  version: 1 | 2;
 };
 
 const SPELLCHECK_STORAGE_PREFIX = "plotty:chapter-spellcheck:";
-const SPELLCHECK_STORAGE_VERSION = 1;
+const SPELLCHECK_STORAGE_VERSION = 2;
 
 function getSpellcheckIssueKey(issue: SpellcheckIssue) {
   return `${issue.startOffset}-${issue.endOffset}-${issue.fragmentText}-${issue.suggestion}`;
@@ -79,8 +84,10 @@ export function StoryEditorScreen({
   const [aiCreditError, setAiCreditError] = useState("");
   const [isPreparingCanonCheck, setIsPreparingCanonCheck] = useState(false);
   const [appliedSpellcheckFixes, setAppliedSpellcheckFixes] = useState<AppliedSpellcheckFix[]>([]);
+  const [dismissedSpellcheckIssueKeys, setDismissedSpellcheckIssueKeys] = useState<string[]>([]);
   const [storedSpellcheckState, setStoredSpellcheckState] = useState<StoredSpellcheckState | null>(null);
   const [spellcheckContentSnapshot, setSpellcheckContentSnapshot] = useState("");
+  const [saveStatusMessage, setSaveStatusMessage] = useState("");
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -101,6 +108,7 @@ export function StoryEditorScreen({
     setAiCreditError("");
     setIsPreparingCanonCheck(false);
     setAppliedSpellcheckFixes([]);
+    setDismissedSpellcheckIssueKeys([]);
     setStoredSpellcheckState(null);
     setSpellcheckContentSnapshot("");
   }, [chapterId]);
@@ -111,6 +119,7 @@ export function StoryEditorScreen({
 
     setStoredSpellcheckState(stored);
     setAppliedSpellcheckFixes(getStoredAppliedFixesForContent(stored, content));
+    setDismissedSpellcheckIssueKeys(getStoredDismissedIssueKeysForContent(stored, content));
   }, [chapterId, chapterQuery.data]);
 
   useEffect(() => {
@@ -119,6 +128,7 @@ export function StoryEditorScreen({
 
       setStoredSpellcheckState(stored);
       setAppliedSpellcheckFixes(getStoredAppliedFixesForContent(stored, values.chapterContent));
+      setDismissedSpellcheckIssueKeys(getStoredDismissedIssueKeysForContent(stored, values.chapterContent));
     }
 
     function handleStorage(event: StorageEvent) {
@@ -212,11 +222,13 @@ export function StoryEditorScreen({
       appliedFixes: [],
       chapterId,
       content: spellcheckContentSnapshot || values.chapterContent,
+      dismissedIssueKeys: [],
       result: latestSpellcheckResult,
     });
 
     setStoredSpellcheckState(stored);
     setAppliedSpellcheckFixes([]);
+    setDismissedSpellcheckIssueKeys([]);
   }, [chapterId, latestSpellcheckResult, spellcheckContentSnapshot, values.chapterContent]);
 
   const spellcheckHighlights = useMemo(
@@ -225,12 +237,13 @@ export function StoryEditorScreen({
         values.chapterContent,
         activeSpellcheckResult?.items ?? [],
         appliedSpellcheckFixes,
+        dismissedSpellcheckIssueKeys,
       ),
-    [activeSpellcheckResult?.items, appliedSpellcheckFixes, values.chapterContent],
+    [activeSpellcheckResult?.items, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys, values.chapterContent],
   );
   const visibleSpellcheckResult = useMemo(
-    () => getVisibleSpellcheckResult(activeSpellcheckResult, appliedSpellcheckFixes),
-    [activeSpellcheckResult, appliedSpellcheckFixes],
+    () => getVisibleSpellcheckResult(activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys),
+    [activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys],
   );
   const publishedTitle =
     chapterQuery.data?.publishedTitle ??
@@ -259,6 +272,12 @@ export function StoryEditorScreen({
         : undefined,
     [hasPublishedVersion, publishedContent, publishedTitle, values.chapterContent, values.chapterTitle],
   );
+  const storyFandomTag = chapterQuery.data?.storyTags?.find((tag) => tag.category === "directionality");
+  const logicDisabledReason =
+    (chapterQuery.data?.number ?? 1) <= 1
+      ? "Проверка логики доступна со второй главы: для первой главы нет предыдущего контекста."
+      : undefined;
+  const canonDisabledReason = getCanonCheckDisabledReason(storyFandomTag);
 
   async function persistCurrentDraft() {
     await updateChapterMutation.mutateAsync({
@@ -278,6 +297,7 @@ export function StoryEditorScreen({
   async function handleSave() {
     try {
       await persistCurrentDraft();
+      setSaveStatusMessage("Черновик сохранён");
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
@@ -324,10 +344,17 @@ export function StoryEditorScreen({
     }
 
     if (chapterQuery.data?.storySlug) {
-      router.push(routes.story(chapterQuery.data.storySlug));
+      await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
+      await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
+      router.push(`${routes.write}?story=${encodeURIComponent(chapterQuery.data.storySlug)}#active-story`);
       return;
     }
 
+    await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+    await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
+    await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
     router.push(routes.write);
   }
 
@@ -342,6 +369,7 @@ export function StoryEditorScreen({
       });
 
       setAppliedSpellcheckFixes([]);
+      setDismissedSpellcheckIssueKeys([]);
       setSpellcheckContentSnapshot(contentSnapshot);
       setSpellcheckJobId(accepted.jobId);
       await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
@@ -404,6 +432,7 @@ export function StoryEditorScreen({
           appliedFixes: nextFixes,
           chapterId,
           content: nextContent,
+          dismissedIssueKeys: dismissedSpellcheckIssueKeys,
           result: activeSpellcheckResult,
         });
 
@@ -416,7 +445,41 @@ export function StoryEditorScreen({
     return true;
   }
 
+  function handleDismissSpellcheckIssue(issue: SpellcheckIssue) {
+    const issueKey = getSpellcheckIssueKey(issue);
+
+    if (appliedSpellcheckFixes.some((fix) => fix.key === issueKey)) {
+      return;
+    }
+
+    setDismissedSpellcheckIssueKeys((current) => {
+      if (current.includes(issueKey)) {
+        return current;
+      }
+
+      const nextIssueKeys = [...current, issueKey];
+
+      if (activeSpellcheckResult) {
+        const stored = writeStoredSpellcheckState({
+          appliedFixes: appliedSpellcheckFixes,
+          chapterId,
+          content: values.chapterContent,
+          dismissedIssueKeys: nextIssueKeys,
+          result: activeSpellcheckResult,
+        });
+
+        setStoredSpellcheckState(stored);
+      }
+
+      return nextIssueKeys;
+    });
+  }
+
   async function handleLogicCheck() {
+    if (logicDisabledReason) {
+      return;
+    }
+
     setAiCreditError("");
 
     try {
@@ -443,6 +506,11 @@ export function StoryEditorScreen({
   }
 
   async function handleCanonCheck() {
+    if (canonDisabledReason) {
+      setCanonCheckError(canonDisabledReason);
+      return;
+    }
+
     setCanonCheckError("");
     setCanonCheckJobId("");
     setAiCreditError("");
@@ -521,7 +589,10 @@ export function StoryEditorScreen({
   const canonStatusLabel = canonCheckError
     ? canonCheckError
     : canonCheckJobQuery.data?.status === "failed"
-      ? canonCheckJobQuery.data.errorMessage ?? "Проверка канона завершилась с ошибкой."
+      ? sanitizeUserFacingMessage(
+          canonCheckJobQuery.data.errorMessage ?? canonCheckJobQuery.data.error,
+          "Проверка канона завершилась с ошибкой.",
+        )
       : isPreparingCanonCheck
         ? "Сохраняем черновик перед проверкой канона..."
         : canonCheckJobQuery.data?.status === "processing" || canonCheckJobQuery.data?.status === "queued"
@@ -543,10 +614,65 @@ export function StoryEditorScreen({
     canonCheckMutation.isPending ||
     canonCheckJobQuery.data?.status === "queued" ||
     canonCheckJobQuery.data?.status === "processing";
+  const spellcheckStatus = getEditorAsyncStatus({
+    isPending: spellcheckMutation.isPending,
+    status: spellcheckJobQuery.data?.status,
+    hasResult: Boolean(latestSpellcheckResult),
+  });
+  const logicCheckStatus = getEditorAsyncStatus({
+    isPending: logicCheckMutation.isPending,
+    status: logicCheckJobQuery.data?.status,
+    hasResult: Boolean(logicCheckJobQuery.data?.result),
+  });
+  const canonCheckStatus = getEditorAsyncStatus({
+    isPending: isPreparingCanonCheck || canonCheckMutation.isPending,
+    status: canonCheckJobQuery.data?.status,
+    hasResult: Boolean(canonCheckJobQuery.data?.result),
+    hasError: Boolean(canonCheckError),
+  });
+  const spellcheckStatusError =
+    spellcheckJobQuery.data?.status === "failed"
+      ? sanitizeUserFacingMessage(
+          spellcheckJobQuery.data.errorMessage ?? spellcheckJobQuery.data.error,
+          "Проверка орфографии завершилась с ошибкой.",
+        )
+      : undefined;
+  const logicStatusError =
+    logicCheckJobQuery.data?.status === "failed"
+      ? sanitizeUserFacingMessage(
+          logicCheckJobQuery.data.errorMessage ?? logicCheckJobQuery.data.error,
+          "Проверка логики завершилась с ошибкой.",
+        )
+      : undefined;
+  const canonStatusError =
+    canonCheckError ||
+    (canonCheckJobQuery.data?.status === "failed"
+      ? sanitizeUserFacingMessage(
+          canonCheckJobQuery.data.errorMessage ?? canonCheckJobQuery.data.error,
+          "Проверка канона завершилась с ошибкой.",
+        )
+      : undefined);
 
   return (
     <PlottyShell
-      title={values.chapterTitle || chapterQuery.data.title}
+      title={
+        chapterQuery.data.storySlug ? (
+          <span className="plotty-page-title-row">
+            <Link
+              href={`${routes.write}?story=${encodeURIComponent(chapterQuery.data.storySlug)}#active-story`}
+              className="plotty-story-title-anchor plotty-story-title-inline-anchor group text-[var(--plotty-ink)] transition-colors hover:text-[var(--plotty-accent)] focus-visible:text-[var(--plotty-accent)]"
+            >
+              <ArrowLeft className="plotty-page-title-back-icon size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
+              <span className="plotty-story-title-text text-[2rem]">
+                {chapterQuery.data.storyTitle ?? "История"}
+              </span>
+            </Link>
+            <span className="plotty-page-title-part text-[2rem]">{`• Глава ${chapterQuery.data.number ?? "—"}`}</span>
+          </span>
+        ) : (
+          values.chapterTitle || chapterQuery.data.title
+        )
+      }
       description={`Глава ${chapterQuery.data.number ?? "—"} истории ${chapterQuery.data.storyTitle ?? "без названия"}`}
     >
       <StoryEditorForm
@@ -559,19 +685,28 @@ export function StoryEditorScreen({
         spellcheckResult={visibleSpellcheckResult}
         spellcheckHighlights={spellcheckHighlights}
         aiStatusLabel={aiStatusLabel}
+        spellcheckStatus={spellcheckStatus}
+        spellcheckStatusError={spellcheckStatusError}
         logicCheckResult={logicCheckJobQuery.data?.result}
         logicStatusLabel={logicStatusLabel}
+        logicCheckStatus={logicCheckStatus}
+        logicStatusError={logicStatusError}
+        logicDisabledReason={logicDisabledReason}
         canonCheckResult={canonCheckJobQuery.data?.result}
         canonStatusLabel={canonStatusLabel}
+        canonCheckStatus={canonCheckStatus}
+        canonStatusError={canonStatusError}
+        canonDisabledReason={canonDisabledReason}
         creditBalance={creditBalanceQuery.data?.balance}
         creditError={aiCreditError}
+        saveStatusMessage={saveStatusMessage}
         isSaving={updateChapterMutation.isPending}
         isSpellchecking={isSpellcheckBusy}
         isLogicChecking={isLogicCheckBusy}
         isCanonChecking={isCanonCheckBusy}
         imagePanel={
           <div className="space-y-5">
-            <div className="rounded-[26px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.8)] p-4 shadow-[var(--plotty-shadow-card)]">
+            <div className="plotty-lift-panel rounded-[26px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.8)] p-4 shadow-[var(--plotty-shadow-card)]">
               <div className="space-y-3">
                 <div>
                   <div className="plotty-section-title">Иллюстрация главы</div>
@@ -588,7 +723,10 @@ export function StoryEditorScreen({
             </div>
           </div>
         }
-        onChange={(next) => setValues({ ...next, chapterContent: normalizeEditorText(next.chapterContent) })}
+        onChange={(next) => {
+          setSaveStatusMessage("");
+          setValues({ ...next, chapterContent: normalizeEditorText(next.chapterContent) });
+        }}
         onSave={handleSave}
         onPublish={handlePublish}
         isPublishing={publishChapterMutation.isPending}
@@ -601,6 +739,7 @@ export function StoryEditorScreen({
         onLogicCheck={handleLogicCheck}
         onCanonCheck={handleCanonCheck}
         onApplySpellcheckIssue={handleApplySpellcheckIssue}
+        onDismissSpellcheckIssue={handleDismissSpellcheckIssue}
       />
     </PlottyShell>
   );
@@ -608,6 +747,36 @@ export function StoryEditorScreen({
 
 function getEditableChapterTitle(chapter: ChapterDetails) {
   return chapter.draftTitle ?? chapter.title;
+}
+
+function getEditorAsyncStatus({
+  isPending,
+  status,
+  hasResult,
+  hasError = false,
+}: {
+  isPending: boolean;
+  status?: AiJobStatus;
+  hasResult: boolean;
+  hasError?: boolean;
+}): AsyncJobStatusValue {
+  if (hasError || status === "failed") {
+    return "failed";
+  }
+
+  if (isPending) {
+    return "queued";
+  }
+
+  if (status === "queued" || status === "processing") {
+    return status;
+  }
+
+  if (status === "completed" && hasResult) {
+    return "completed";
+  }
+
+  return "idle";
 }
 
 function getEditableChapterContent(chapter: ChapterDetails) {
@@ -618,13 +787,15 @@ function buildSpellcheckHighlights(
   content: string,
   issues: SpellcheckIssue[],
   appliedFixes: AppliedSpellcheckFix[],
+  dismissedIssueKeys: string[] = [],
 ): HighlightRange<SpellcheckIssue>[] {
   const appliedIssueKeys = new Set(appliedFixes.map((fix) => fix.key));
+  const dismissedIssueKeySet = new Set(dismissedIssueKeys);
 
   return issues.flatMap((issue) => {
     const issueKey = getSpellcheckIssueKey(issue);
 
-    if (appliedIssueKeys.has(issueKey)) {
+    if (appliedIssueKeys.has(issueKey) || dismissedIssueKeySet.has(issueKey)) {
       return [];
     }
 
@@ -697,13 +868,14 @@ function getAdjustedSpellcheckOffsets(
 function getVisibleSpellcheckResult(
   result: SpellcheckResult | undefined,
   appliedFixes: AppliedSpellcheckFix[],
+  dismissedIssueKeys: string[] = [],
 ): SpellcheckResult | undefined {
   if (!result) {
     return undefined;
   }
 
-  const appliedIssueKeys = new Set(appliedFixes.map((fix) => fix.key));
-  const items = result.items.filter((issue) => !appliedIssueKeys.has(getSpellcheckIssueKey(issue)));
+  const hiddenIssueKeys = new Set([...appliedFixes.map((fix) => fix.key), ...dismissedIssueKeys]);
+  const items = result.items.filter((issue) => !hiddenIssueKeys.has(getSpellcheckIssueKey(issue)));
 
   if (items.length === result.items.length) {
     return result;
@@ -712,7 +884,11 @@ function getVisibleSpellcheckResult(
   return {
     ...result,
     items,
-    summary: items.length ? result.summary : "Все найденные замечания исправлены.",
+    summary: items.length
+      ? result.summary
+      : dismissedIssueKeys.length
+        ? "Все найденные замечания обработаны."
+        : "Все найденные замечания исправлены.",
   };
 }
 
@@ -742,7 +918,12 @@ function readStoredSpellcheckState(chapterId: string): StoredSpellcheckState | n
       return null;
     }
 
-    return parsed;
+    return {
+      ...parsed,
+      dismissedIssueKeys: Array.isArray(parsed.dismissedIssueKeys)
+        ? parsed.dismissedIssueKeys.filter((item): item is string => typeof item === "string")
+        : [],
+    };
   } catch {
     return null;
   }
@@ -752,16 +933,19 @@ function writeStoredSpellcheckState({
   appliedFixes,
   chapterId,
   content,
+  dismissedIssueKeys,
   result,
 }: {
   appliedFixes: AppliedSpellcheckFix[];
   chapterId: string;
   content: string;
+  dismissedIssueKeys: string[];
   result: SpellcheckResult;
 }) {
   const stored: StoredSpellcheckState = {
     appliedFixes,
     contentHash: hashText(normalizeEditorText(content)),
+    dismissedIssueKeys,
     result,
     savedAt: Date.now(),
     version: SPELLCHECK_STORAGE_VERSION,
@@ -788,14 +972,23 @@ function getStoredAppliedFixesForContent(stored: StoredSpellcheckState | null, c
   return stored.appliedFixes;
 }
 
+function getStoredDismissedIssueKeysForContent(stored: StoredSpellcheckState | null, content: string) {
+  if (!stored || stored.contentHash !== hashText(normalizeEditorText(content))) {
+    return [];
+  }
+
+  return stored.dismissedIssueKeys;
+}
+
 function isStoredSpellcheckState(value: Partial<StoredSpellcheckState>): value is StoredSpellcheckState {
   return (
-    value.version === SPELLCHECK_STORAGE_VERSION &&
+    (value.version === 1 || value.version === SPELLCHECK_STORAGE_VERSION) &&
     typeof value.savedAt === "number" &&
     typeof value.contentHash === "string" &&
     Boolean(value.result) &&
     Array.isArray(value.result?.items) &&
-    Array.isArray(value.appliedFixes)
+    Array.isArray(value.appliedFixes) &&
+    (value.version === 1 || Array.isArray(value.dismissedIssueKeys))
   );
 }
 
@@ -828,7 +1021,19 @@ function getCanonCheckErrorMessage(error: unknown) {
     return "Маршрут проверки канона не найден на бэке.";
   }
 
-  return rawMessage || "Не удалось запустить проверку канона. Попробуйте ещё раз.";
+  return sanitizeUserFacingMessage(rawMessage, "Не удалось запустить проверку канона. Попробуйте ещё раз.");
+}
+
+function getCanonCheckDisabledReason(fandomTag?: StoryTag) {
+  if (!fandomTag) {
+    return "Проверка канона доступна только для историй с выбранным фандомом. Добавьте фандом в настройках истории, чтобы запустить проверку.";
+  }
+
+  if (fandomTag.slug === "originals") {
+    return "Проверка канона отключена для ориджиналов: у оригинальной истории нет внешнего фандома для сверки.";
+  }
+
+  return undefined;
 }
 
 function getInsufficientCreditsMessage(requiredCredits: number, balance?: number) {

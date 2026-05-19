@@ -2,11 +2,16 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { listStories } from "@/mocks/data/stories";
 import { loginMockUser, resetMockAuthDb } from "@/mocks/data/auth";
+import { server } from "@/mocks/server";
+import { storyKeys } from "@/entities/story/api/stories-api";
+import type { StoryDetails } from "@/entities/story/model/types";
 import { StorySettingsScreen } from "@/widgets/stories/story-settings-screen";
+import { routes } from "@/shared/config/routes";
 
 const push = vi.fn();
 
@@ -31,10 +36,14 @@ function renderStorySettings() {
     </QueryClientProvider>,
   );
 
-  return story;
+  return { story, queryClient };
 }
 
 describe("StorySettingsScreen", () => {
+  beforeEach(() => {
+    push.mockReset();
+  });
+
   it("uses the same staged edit flow pattern without chapter creation", async () => {
     const user = userEvent.setup();
     renderStorySettings();
@@ -57,5 +66,71 @@ describe("StorySettingsScreen", () => {
 
     expect(screen.getByRole("button", { name: "Удалить историю" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Название главы")).not.toBeInTheDocument();
+  });
+
+  it("returns to the workshop story after saving", async () => {
+    const user = userEvent.setup();
+    const { story } = renderStorySettings();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Название/i })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /Теги и категории/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "DC" })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "DC" }));
+    await user.click(screen.getByRole("button", { name: "NC-17" }));
+    await user.click(screen.getByRole("button", { name: "В процессе" }));
+    await user.click(screen.getByRole("button", { name: "Макси" }));
+
+    await user.click(screen.getByRole("button", { name: /Проверка и сохранение/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сохранить изменения" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Сохранить изменения" }));
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(`${routes.write}?story=${encodeURIComponent(story.slug)}&saved=story`);
+    });
+  });
+
+  it("optimistically updates the scoped story details cache while saving", async () => {
+    const user = userEvent.setup();
+    let releasePatch: () => void = () => {};
+    let patchStarted: () => void = () => {};
+    const patchStartedPromise = new Promise<void>((resolve) => {
+      patchStarted = resolve;
+    });
+    const releasePatchPromise = new Promise<void>((resolve) => {
+      releasePatch = resolve;
+    });
+    const { story, queryClient } = renderStorySettings();
+    const nextTitle = "Название обновлено оптимистично";
+
+    server.use(
+      http.patch("*/stories/:storyId", async () => {
+        patchStarted();
+        await releasePatchPromise;
+
+        return HttpResponse.json({ slug: story.slug });
+      }),
+    );
+
+    await waitFor(() => expect(screen.getByLabelText("Название истории")).toBeInTheDocument());
+
+    await user.clear(screen.getByLabelText("Название истории"));
+    await user.type(screen.getByLabelText("Название истории"), nextTitle);
+    await user.click(screen.getByRole("button", { name: /Теги и категории/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "DC" })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "DC" }));
+    await user.click(screen.getByRole("button", { name: "NC-17" }));
+    await user.click(screen.getByRole("button", { name: "В процессе" }));
+    await user.click(screen.getByRole("button", { name: "Макси" }));
+    await user.click(screen.getByRole("button", { name: /Проверка и сохранение/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сохранить изменения" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Сохранить изменения" }));
+    await patchStartedPromise;
+
+    expect(queryClient.getQueryData<StoryDetails>([...storyKeys.detailsById(story.id), "mine"])?.title).toBe(nextTitle);
+
+    releasePatch();
   });
 });

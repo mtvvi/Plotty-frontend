@@ -53,4 +53,19 @@ describe("fetchJson URL resolution", () => {
       }),
     );
   });
+
+  it("uses common backend message fields for failed requests", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: "invalid payload" }), { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail: "email already exists" }), { status: 422 }));
+
+    await expect(fetchJson("/register")).rejects.toMatchObject({
+      message: "invalid payload",
+      status: 400,
+    });
+    await expect(fetchJson("/register")).rejects.toMatchObject({
+      message: "email already exists",
+      status: 422,
+    });
+  });
 });

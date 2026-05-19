@@ -7,15 +7,17 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { deleteCollection, libraryKeys, removeStoryFromCollection, updateCollection } from "@/entities/library/api/library-api";
 import { profileKeys, publicUserCollectionQueryOptions } from "@/entities/profile/api/profile-api";
-import { ApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
-import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
+import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
+
+import { CollectionLinkIcon } from "./profile-icons";
 
 export function PublicCollectionScreen({
   username,
@@ -27,6 +29,7 @@ export function PublicCollectionScreen({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const profileCollectionsHref = `${routes.user(username)}?tab=collections`;
   const collectionQuery = useQuery(publicUserCollectionQueryOptions(username, collectionId));
   const [editOpen, setEditOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
@@ -50,7 +53,7 @@ export function PublicCollectionScreen({
         queryClient.invalidateQueries({ queryKey: libraryKeys.collections() }),
         queryClient.invalidateQueries({ queryKey: libraryKeys.collectionDetails() }),
       ]);
-      router.push(`${routes.user(username)}?tab=library`);
+      router.push(profileCollectionsHref);
     },
     onError: handleMutationError,
   });
@@ -70,7 +73,7 @@ export function PublicCollectionScreen({
   }
 
   function handleMutationError(error: unknown) {
-    setLocalError(error instanceof ApiError ? error.message : "Не удалось обновить подборку");
+    setLocalError(toUserFacingErrorMessage(error, "Не удалось обновить подборку"));
   }
 
   if (collectionQuery.isLoading) {
@@ -78,9 +81,6 @@ export function PublicCollectionScreen({
       <PlottyPageShell
         pageTitle="Подборка загружается"
         pageDescription="Собираем список историй."
-        showMobileBack
-        mobileBackHref={routes.user(username)}
-        menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       >
         <div className="h-72 rounded-[24px] bg-white/40" />
       </PlottyPageShell>
@@ -92,9 +92,6 @@ export function PublicCollectionScreen({
       <PlottyPageShell
         pageTitle="Подборка не найдена"
         pageDescription="Она могла быть удалена или принадлежит другому пользователю."
-        showMobileBack
-        mobileBackHref={routes.user(username)}
-        menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       >
         <EmptyState title="Подборка не найдена" description="Вернитесь в профиль пользователя и выберите другую подборку." />
       </PlottyPageShell>
@@ -136,13 +133,27 @@ export function PublicCollectionScreen({
   }
 
   async function handleCopyLink() {
-    if (typeof window === "undefined" || !navigator.clipboard) {
+    if (typeof window === "undefined" || typeof navigator === "undefined" || !navigator.clipboard) {
+      setLocalError("Не удалось скопировать ссылку");
       return;
     }
 
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLocalError(null);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setLocalError("Не удалось скопировать ссылку");
+    }
+  }
+
+  function handleDeleteCollection() {
+    if (!window.confirm("Удалить подборку?")) {
+      return;
+    }
+
+    deleteMutation.mutate();
   }
 
   return (
@@ -150,28 +161,26 @@ export function PublicCollectionScreen({
       pageTitle={collection.title}
       pageDescription={collection.description ?? "Публичная подборка историй."}
       pageActions={
-        <>
-          <ButtonLink href={`${routes.user(username)}?tab=library`} variant="secondary">
+        <div className="flex flex-wrap items-center justify-end gap-3 lg:flex-nowrap">
+          <ButtonLink href={profileCollectionsHref} variant="secondary" size="sm" className="whitespace-nowrap">
             К профилю
           </ButtonLink>
-          <Button type="button" variant="secondary" onClick={handleCopyLink}>
+          <Button type="button" variant="secondary" size="sm" onClick={handleCopyLink}>
+            <CollectionLinkIcon className="size-4" />
             {copied ? "Скопировано" : "Ссылка"}
           </Button>
           {isOwner ? (
             <>
-              <Button type="button" variant="secondary" onClick={handleStartEdit}>
+              <Button type="button" variant="secondary" size="sm" onClick={handleStartEdit}>
                 Изменить
               </Button>
-              <Button type="button" variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
+              <Button type="button" variant="destructive" size="sm" onClick={handleDeleteCollection} disabled={deleteMutation.isPending}>
                 Удалить
               </Button>
             </>
           ) : null}
-        </>
+        </div>
       }
-      showMobileBack
-      mobileBackHref={routes.user(username)}
-      menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       {isOwner && editOpen ? (
         <PlottySectionCard className="mb-4">

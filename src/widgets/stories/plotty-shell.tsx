@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 import {
-  PlottyAppMenu,
   PlottyMobileSheet,
   PlottyPageShell,
   PlottySectionCard,
@@ -11,15 +10,11 @@ export function PlottyShell({
   title,
   description,
   actions,
-  showMobileBack = true,
-  mobileBackHref,
   children,
 }: {
   title: ReactNode;
   description: string;
   actions?: ReactNode;
-  showMobileBack?: boolean;
-  mobileBackHref?: string;
   children: ReactNode;
 }) {
   return (
@@ -27,9 +22,6 @@ export function PlottyShell({
       pageTitle={title}
       pageDescription={description}
       pageActions={actions}
-      showMobileBack={showMobileBack}
-      mobileBackHref={mobileBackHref}
-      menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       {children}
     </PlottyPageShell>
@@ -37,4 +29,4 @@ export function PlottyShell({
 }
 
 export const ShellCard = PlottySectionCard;
-export { PlottyAppMenu, PlottyMobileSheet };
+export { PlottyMobileSheet };

@@ -3,22 +3,30 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { login, register } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import type { LoginPayload, RegisterPayload } from "@/entities/auth/model/types";
-import type { ApiFieldError } from "@/shared/api/fetch-json";
+import type { ApiErrorPayload, ApiFieldError } from "@/shared/api/fetch-json";
 import { isApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Button } from "@/shared/ui/button";
-import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
+import { Field, FieldError, FieldHint, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { resetViewerSessionCache } from "./viewer-session-cache";
 
 type AuthMode = "login" | "register";
+
+const authFallbackMessages: Record<AuthMode, string> = {
+  login: "Не удалось войти. Проверьте email и пароль и попробуйте ещё раз.",
+  register: "Не удалось создать аккаунт. Проверьте данные и попробуйте ещё раз.",
+};
+const passwordRulesText = "Минимум 8 символов. Подтверждение должно совпадать с паролем.";
 
 function getMode(searchParams: URLSearchParams): AuthMode {
   return searchParams.get("mode") === "register" ? "register" : "login";
@@ -38,6 +46,8 @@ export function AuthScreen() {
   });
   const [generalError, setGeneralError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const authMutation = useMutation({
     mutationFn: async () => {
       const payload: LoginPayload = {
@@ -62,13 +72,10 @@ export function AuthScreen() {
       }
 
       const payload = typeof error.data === "object" && error.data ? error.data : undefined;
-      const validationMap = (payload?.errors ?? []).reduce<Record<string, string>>((acc, item: ApiFieldError) => {
-        acc[item.field] = item.message;
-        return acc;
-      }, {});
+      const validationMap = extractAuthFieldErrors(payload);
 
       setFieldErrors(validationMap);
-      setGeneralError(payload?.error ?? error.message);
+      setGeneralError(Object.keys(validationMap).length ? "" : getAuthErrorMessage(error, mode));
     },
   });
 
@@ -77,7 +84,7 @@ export function AuthScreen() {
       mode === "register"
         ? {
             title: "Создать аккаунт",
-            description: "После регистрации вы сразу попадёте в авторскую зону и сможете продолжить работу.",
+            description: "Создайте аккаунт, чтобы сохранять понравившиеся истории и работать над своими сюжетами.",
             submitLabel: "Зарегистрироваться",
             switchLabel: "Уже есть аккаунт?",
             switchHref: routes.auth({ next: nextUrl }),
@@ -85,7 +92,7 @@ export function AuthScreen() {
           }
         : {
             title: "Войти в Plotty",
-            description: "Авторские сценарии доступны только после входа в аккаунт.",
+            description: "Войдите, чтобы сохранять понравившиеся истории и работать над своими сюжетами.",
             submitLabel: "Войти",
             switchLabel: "Нет аккаунта?",
             switchHref: routes.auth({ mode: "register", next: nextUrl }),
@@ -107,6 +114,20 @@ export function AuthScreen() {
     }
 
     router.push(routes.home);
+  }
+
+  function handleSubmit() {
+    const validationMap = validateAuthValues(values, mode);
+
+    if (Object.keys(validationMap).length) {
+      setFieldErrors(validationMap);
+      setGeneralError("");
+      return;
+    }
+
+    setFieldErrors({});
+    setGeneralError("");
+    authMutation.mutate();
   }
 
   if (!isLoading && isAuthenticated) {
@@ -143,29 +164,33 @@ export function AuthScreen() {
             {fieldErrors.Email ? <FieldError>{fieldErrors.Email}</FieldError> : null}
           </Field>
 
-          <Field>
-            <FieldLabel htmlFor="auth-password">Пароль</FieldLabel>
-            <Input
-              id="auth-password"
-              type="password"
-              value={values.password}
-              onChange={(event) => setValues((current) => ({ ...current, password: event.target.value }))}
-              placeholder="Минимум 8 символов"
-            />
-            {fieldErrors.Password ? <FieldError>{fieldErrors.Password}</FieldError> : null}
-          </Field>
+          <PasswordField
+            id="auth-password"
+            label="Пароль"
+            value={values.password}
+            onChange={(value) => setValues((current) => ({ ...current, password: value }))}
+            placeholder="Минимум 8 символов"
+            error={fieldErrors.Password}
+            showPassword={showPassword}
+            onTogglePassword={() => setShowPassword((current) => !current)}
+            showLabel="Показать пароль"
+            hideLabel="Скрыть пароль"
+            hint={mode === "register" ? passwordRulesText : undefined}
+          />
 
           {mode === "register" ? (
-            <Field>
-              <FieldLabel htmlFor="auth-confirm-password">Подтверждение пароля</FieldLabel>
-              <Input
-                id="auth-confirm-password"
-                type="password"
-                value={values.confirm_password}
-                onChange={(event) => setValues((current) => ({ ...current, confirm_password: event.target.value }))}
-                placeholder="Повторите пароль"
-              />
-            </Field>
+            <PasswordField
+              id="auth-confirm-password"
+              label="Подтверждение пароля"
+              value={values.confirm_password}
+              onChange={(value) => setValues((current) => ({ ...current, confirm_password: value }))}
+              placeholder="Повторите пароль"
+              error={fieldErrors.ConfirmPassword}
+              showPassword={showConfirmPassword}
+              onTogglePassword={() => setShowConfirmPassword((current) => !current)}
+              showLabel="Показать подтверждение пароля"
+              hideLabel="Скрыть подтверждение пароля"
+            />
           ) : null}
 
           {generalError ? (
@@ -175,7 +200,7 @@ export function AuthScreen() {
           ) : null}
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="primary" disabled={authMutation.isPending} onClick={() => authMutation.mutate()}>
+            <Button variant="primary" disabled={authMutation.isPending} onClick={handleSubmit}>
               {authMutation.isPending ? "Отправляем..." : pageCopy.submitLabel}
             </Button>
           </div>
@@ -190,4 +215,177 @@ export function AuthScreen() {
       </PlottySectionCard>
     </PlottyPageShell>
   );
+}
+
+function PasswordField({
+  error,
+  hideLabel,
+  hint,
+  id,
+  label,
+  onChange,
+  onTogglePassword,
+  placeholder,
+  showLabel,
+  showPassword,
+  value,
+}: {
+  error?: string;
+  hideLabel: string;
+  hint?: string;
+  id: string;
+  label: string;
+  onChange: (value: string) => void;
+  onTogglePassword: () => void;
+  placeholder: string;
+  showLabel: string;
+  showPassword: boolean;
+  value: string;
+}) {
+  const toggleLabel = showPassword ? hideLabel : showLabel;
+
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <div className="relative">
+        <Input
+          id={id}
+          type={showPassword ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="pr-12"
+        />
+        <button
+          type="button"
+          aria-label={toggleLabel}
+          title={toggleLabel}
+          onClick={onTogglePassword}
+          className="absolute right-2 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-[var(--plotty-radius-sm)] text-[var(--plotty-muted)] transition-[background-color,color,transform] hover:bg-black/5 hover:text-[var(--plotty-ink)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+        >
+          {showPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+        </button>
+      </div>
+      {hint ? <FieldHint>{hint}</FieldHint> : null}
+      {error ? <FieldError>{error}</FieldError> : null}
+    </Field>
+  );
+}
+
+function validateAuthValues(values: RegisterPayload, mode: AuthMode) {
+  const errors: Record<string, string> = {};
+
+  if (!values.email.trim()) {
+    errors.Email = "Введите email.";
+  }
+
+  if (!values.password) {
+    errors.Password = "Введите пароль.";
+  }
+
+  if (mode === "register" && values.password && values.password.length < 8) {
+    errors.Password = "Пароль должен быть не короче 8 символов.";
+  }
+
+  if (mode === "register" && values.password !== values.confirm_password) {
+    errors.ConfirmPassword = "Пароли не совпадают.";
+  }
+
+  return errors;
+}
+
+function extractAuthFieldErrors(payload?: ApiErrorPayload) {
+  const rawErrors = [...(payload?.errors ?? []), ...extractDetailFieldErrors(payload?.detail)];
+
+  return rawErrors.reduce<Record<string, string>>((acc, item: ApiFieldError) => {
+    const fieldKey = normalizeAuthFieldKey(item.field);
+
+    if (fieldKey) {
+      acc[fieldKey] = translateAuthValidationMessage(item.message, fieldKey);
+    }
+
+    return acc;
+  }, {});
+}
+
+function extractDetailFieldErrors(detail: unknown): ApiFieldError[] {
+  if (!Array.isArray(detail)) {
+    return [];
+  }
+
+  return detail.flatMap((item) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+
+    const record = item as Record<string, unknown>;
+    const loc = Array.isArray(record.loc) ? record.loc : [];
+    const field = [...loc].reverse().find((part) => typeof part === "string");
+    const message = typeof record.msg === "string" ? record.msg : typeof record.message === "string" ? record.message : "";
+
+    return typeof field === "string" && message ? [{ field, message }] : [];
+  });
+}
+
+function normalizeAuthFieldKey(field: string) {
+  const normalized = field.replace(/[\s_-]/g, "").toLowerCase();
+
+  if (normalized === "email") {
+    return "Email";
+  }
+
+  if (normalized === "password") {
+    return "Password";
+  }
+
+  if (normalized === "confirmpassword" || normalized === "passwordconfirmation") {
+    return "ConfirmPassword";
+  }
+
+  return field;
+}
+
+function translateAuthValidationMessage(message: string, fieldKey?: string) {
+  const normalized = message.trim().toLowerCase();
+
+  if (normalized.includes("password") && normalized.includes("match")) {
+    return "Пароли не совпадают.";
+  }
+
+  if (normalized.includes("at least") || normalized.includes("minimum") || normalized.includes("8")) {
+    return fieldKey === "Password" ? "Пароль должен быть не короче 8 символов." : message;
+  }
+
+  if (normalized.includes("already") && normalized.includes("exist")) {
+    return fieldKey === "Email" ? "Email уже занят" : "Пользователь уже существует.";
+  }
+
+  if (normalized.includes("invalid") && normalized.includes("email")) {
+    return "Введите корректный email.";
+  }
+
+  return sanitizeUserFacingMessage(message, message);
+}
+
+function getAuthErrorMessage(error: { message: string; status: number }, mode: AuthMode) {
+  const message = error.message.trim();
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("invalid email") || normalized.includes("invalid password")) {
+    return "Неверный email или пароль.";
+  }
+
+  if (normalized.includes("already") && normalized.includes("exist")) {
+    return "Пользователь с таким email уже зарегистрирован.";
+  }
+
+  if (normalized.includes("password") && normalized.includes("match")) {
+    return "Пароли не совпадают.";
+  }
+
+  if (/^request failed:/i.test(message) || [400, 409, 422].includes(error.status)) {
+    return authFallbackMessages[mode];
+  }
+
+  return sanitizeUserFacingMessage(message, authFallbackMessages[mode]);
 }

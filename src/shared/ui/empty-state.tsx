@@ -10,7 +10,7 @@ interface EmptyStateProps {
 
 export function EmptyState({ title, description, actionLabel, onAction }: EmptyStateProps) {
   return (
-    <Card className="p-6 text-center sm:p-8">
+    <Card className="plotty-panel-enter p-6 text-center sm:p-8">
       <div className="mx-auto max-w-md space-y-3.5">
         <h3 className="plotty-section-title text-[1.35rem]">{title}</h3>
         {description ? <p className="plotty-body text-[var(--plotty-muted)]">{description}</p> : null}

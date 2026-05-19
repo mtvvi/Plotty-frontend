@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, FileText, PenLine, Plus, Settings } from "lucide-react";
+import { BookOpen, FileText, PenLine, Plus, Search, Settings } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -22,11 +22,18 @@ import { getStoryTagCategoryLabel, groupStoryTags } from "@/shared/config/story-
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { Input } from "@/shared/ui/input";
 import { Surface } from "@/shared/ui/card";
+import { StoryRevealButtonLink } from "@/shared/ui/story-reveal-transition";
 import { CreditBalancePill } from "@/widgets/credits/credit-balance-pill";
 
 import { PlottyShell, ShellCard } from "./plotty-shell";
 import { StoryCoverPreview } from "./story-cover-preview";
+import {
+  ChapterSortButton,
+  sortChaptersForDisplay,
+  type ChapterSortDirection,
+} from "./chapter-list-sort";
 
 const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
 
@@ -52,7 +59,11 @@ export function StoryCreateScreen() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const requestedStorySlug = searchParams.get("story") ?? "";
+  const savedMessage = searchParams.get("saved") === "story" ? "История сохранена." : "";
   const [selectedStorySlug, setSelectedStorySlug] = useState("");
+  const [storySearchDraft, setStorySearchDraft] = useState("");
+  const [chapterSortDirection, setChapterSortDirection] = useState<ChapterSortDirection>("asc");
+  const workshopChaptersScrollRef = useRef<HTMLDivElement | null>(null);
   const storiesQuery = useQuery(myStoriesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }, { userId: user?.id }));
   const selectedStoryQuery = useQuery({
     ...storyDetailsQueryOptions(selectedStorySlug),
@@ -90,9 +101,32 @@ export function StoryCreateScreen() {
     }
   }, [requestedStorySlug, selectedStorySlug, storiesQuery.data?.items]);
 
+  useEffect(() => {
+    if (!selectedStoryQuery.data || window.location.hash !== "#active-story") {
+      return;
+    }
+
+    document.getElementById("active-story")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedStoryQuery.data]);
+
   const selectedStoryDisplayCover = selectedStoryQuery.data?.coverImageUrl ?? selectedStoryFirstChapterQuery.data?.imageUrl;
   const selectedStoryDescription = selectedStoryQuery.data?.aiHint?.trim() ? selectedStoryQuery.data.aiHint : STORY_ANNOTATION_PLACEHOLDER;
   const selectedStoryLastChapter = selectedStoryQuery.data?.chapters.at(-1);
+  const selectedStoryChapters = useMemo(() => selectedStoryQuery.data?.chapters ?? [], [selectedStoryQuery.data?.chapters]);
+  const sortedSelectedStoryChapters = useMemo(
+    () => sortChaptersForDisplay(selectedStoryChapters, chapterSortDirection),
+    [chapterSortDirection, selectedStoryChapters],
+  );
+  const visibleStories = useMemo(() => {
+    const stories = storiesQuery.data?.items ?? [];
+    const query = storySearchDraft.trim().toLowerCase();
+
+    if (!query) {
+      return stories;
+    }
+
+    return stories.filter((story) => story.title.toLowerCase().includes(query));
+  }, [storiesQuery.data?.items, storySearchDraft]);
 
   async function handleCreateNextChapter() {
     if (!selectedStoryQuery.data) {
@@ -115,6 +149,21 @@ export function StoryCreateScreen() {
     }
   }
 
+  function toggleChapterSortDirection() {
+    setChapterSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+    const chapterList = workshopChaptersScrollRef.current;
+
+    if (!chapterList) {
+      return;
+    }
+
+    if (typeof chapterList.scrollTo === "function") {
+      chapterList.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      chapterList.scrollTop = 0;
+    }
+  }
+
   return (
     <PlottyShell
       title={
@@ -124,10 +173,14 @@ export function StoryCreateScreen() {
         </span>
       }
       description="Создавайте, редактируйте и развивайте свои истории."
-      showMobileBack={false}
     >
-      <div className="grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)_18rem]">
-        <ShellCard title="Мои истории" variant="sidebar">
+      {savedMessage ? (
+        <Surface role="status" variant="subtle" className="mb-5 px-4 py-3 text-sm font-semibold text-[var(--plotty-olive)]">
+          {savedMessage}
+        </Surface>
+      ) : null}
+      <div className="plotty-stagger grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)_18rem]">
+        <ShellCard title="Мои истории" variant="sidebar" className="plotty-stagger-item plotty-lift-panel">
           {storiesQuery.isLoading ? (
             <div className="space-y-3">
               <div className="h-24 rounded-[var(--plotty-radius-md)] bg-white/40" />
@@ -135,20 +188,35 @@ export function StoryCreateScreen() {
             </div>
           ) : storiesQuery.data?.items.length ? (
             <div className="space-y-3">
-              {storiesQuery.data.items.map((story) => {
-                const isSelected = selectedStorySlug === story.slug;
+              <div className="grid grid-cols-[auto_1fr] items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.74)] px-3">
+                <Search className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
+                <Input
+                  value={storySearchDraft}
+                  onChange={(event) => setStorySearchDraft(event.target.value)}
+                  aria-label="Поиск по моим историям"
+                  placeholder="Поиск по моим историям"
+                  className="min-h-11 rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus:shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+              <div className="plotty-scroll-panel plotty-workshop-story-list space-y-3">
+                {visibleStories.map((story) => {
+                  const isSelected = selectedStorySlug === story.slug;
 
-                return (
-                  <StorySidebarItem
-                    key={story.id}
-                    story={story}
-                    isSelected={isSelected}
-                    selectedStorySlug={selectedStorySlug}
-                    selectedStoryDisplayCover={selectedStoryDisplayCover}
-                    onSelect={setSelectedStorySlug}
-                  />
-                );
-              })}
+                  return (
+                    <StorySidebarItem
+                      key={story.id}
+                      story={story}
+                      isSelected={isSelected}
+                      selectedStorySlug={selectedStorySlug}
+                      selectedStoryDisplayCover={selectedStoryDisplayCover}
+                      onSelect={setSelectedStorySlug}
+                    />
+                  );
+                })}
+                {!visibleStories.length ? (
+                  <EmptyState title="Историй не найдено" description="Очистите поиск или проверьте название." />
+                ) : null}
+              </div>
 
               <ButtonLink href={routes.writeNew} variant="secondary" className="w-full border-dashed">
                 <Plus className="size-4" aria-hidden="true" />
@@ -165,7 +233,7 @@ export function StoryCreateScreen() {
           )}
         </ShellCard>
 
-        <ShellCard title={selectedStoryQuery.data?.title ?? "Выберите историю"}>
+        <ShellCard id="active-story" className="plotty-stagger-item plotty-lift-panel scroll-mt-28" title={selectedStoryQuery.data?.title ?? "Выберите историю"}>
           {selectedStoryQuery.isLoading ? (
             <div className="space-y-3">
               <div className="h-24 rounded-[var(--plotty-radius-md)] bg-white/40" />
@@ -173,14 +241,13 @@ export function StoryCreateScreen() {
             </div>
           ) : selectedStoryQuery.data ? (
             <div className="space-y-5">
-              <div className="grid gap-5 lg:grid-cols-[clamp(18rem,46%,30rem)_minmax(0,1fr)]">
+              <div className="grid gap-5">
                 <StoryCoverPreview
                   title={selectedStoryQuery.data.title}
                   imageUrl={selectedStoryDisplayCover}
                   compact
-                  className="h-full min-h-[18rem]"
-                  imageClassName="h-full"
-                  fullHeight
+                  enableLightbox
+                  className="lg:aspect-square"
                 />
                 <div className="space-y-4">
                   <div className="space-y-1.5">
@@ -190,7 +257,19 @@ export function StoryCreateScreen() {
                     </p>
                   </div>
 
-                  <StoryTagsByCategory tags={selectedStoryQuery.data.tags} />
+                  <Surface variant="subtle" className="space-y-3 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="plotty-label">Теги, жанры и предупреждения</div>
+                        <p className="plotty-meta">Здесь настраиваются фандом, рейтинг, статус, жанры и предупреждения.</p>
+                      </div>
+                      <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary" size="sm">
+                        <Settings className="size-4" aria-hidden="true" />
+                        Редактировать теги
+                      </ButtonLink>
+                    </div>
+                    <StoryTagsByCategory tags={selectedStoryQuery.data.tags} />
+                  </Surface>
 
                   <div className="flex flex-wrap gap-3">
                     <Button variant="primary" onClick={handleCreateNextChapter} disabled={createChapterMutation.isPending}>
@@ -203,24 +282,33 @@ export function StoryCreateScreen() {
                     </ButtonLink>
                     <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary">
                       <Settings className="size-4" aria-hidden="true" />
-                      Настройки истории
+                      Редактировать теги
                     </ButtonLink>
                   </div>
                 </div>
               </div>
 
               <Surface variant="panel" className="space-y-3 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="plotty-section-title">Главы истории</h2>
-                  <span className="plotty-meta">{selectedStoryQuery.data.chapters.length} {formatChapterCount(selectedStoryQuery.data.chapters.length)}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <h2 className="plotty-section-title">Главы истории</h2>
+                    <p className="plotty-meta">{selectedStoryChapters.length} {formatChapterCount(selectedStoryChapters.length)}</p>
+                  </div>
+                  {selectedStoryChapters.length > 1 ? (
+                    <ChapterSortButton
+                      chapterCount={selectedStoryChapters.length}
+                      direction={chapterSortDirection}
+                      onToggle={toggleChapterSortDirection}
+                    />
+                  ) : null}
                 </div>
 
-                {selectedStoryQuery.data.chapters.length ? (
-                  <div className="divide-y divide-[var(--plotty-line)] overflow-hidden rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.7)]">
-                    {selectedStoryQuery.data.chapters.map((chapter) => (
+                {selectedStoryChapters.length ? (
+                  <div ref={workshopChaptersScrollRef} className="plotty-scroll-panel plotty-workshop-chapter-list plotty-stagger divide-y divide-[var(--plotty-line)] rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.7)]">
+                    {sortedSelectedStoryChapters.map((chapter) => (
                       <div
                         key={chapter.id}
-                        className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_8rem_13rem] lg:items-center"
+                        className="plotty-stagger-item plotty-lift-panel grid gap-3 px-4 py-3"
                       >
                         <div className="min-w-0">
                           <div className="font-semibold text-[var(--plotty-ink)]">
@@ -233,8 +321,8 @@ export function StoryCreateScreen() {
                         <span className={chapter.status === "draft" ? "plotty-meta" : "text-sm font-semibold text-[var(--plotty-olive)]"}>
                           {chapter.status === "draft" ? "Черновик" : "Опубликована"}
                         </span>
-                        <div className="flex flex-wrap gap-2 lg:justify-end">
-                          <ButtonLink
+                        <div className="flex flex-wrap gap-2">
+                          <StoryRevealButtonLink
                             href={
                               (chapter.status ?? "published") === "draft"
                                 ? routes.chapterPreview(selectedStoryQuery.data.slug, chapter.id)
@@ -247,9 +335,11 @@ export function StoryCreateScreen() {
                             }
                             variant="secondary"
                             size="sm"
+                            revealTitle={chapter.title}
+                            revealCoverUrl={selectedStoryDisplayCover}
                           >
                             Читать
-                          </ButtonLink>
+                          </StoryRevealButtonLink>
                           <ButtonLink href={routes.chapterEditor(selectedStoryQuery.data.id, chapter.id)} variant="primary" size="sm">
                             Редактировать
                           </ButtonLink>
@@ -272,7 +362,7 @@ export function StoryCreateScreen() {
           )}
         </ShellCard>
 
-        <ShellCard title="Действия автора" variant="sidebar">
+        <ShellCard title="Действия автора" variant="sidebar" className="plotty-stagger-item plotty-lift-panel">
           <div className="space-y-3">
             <CreditBalancePill variant="menu" />
             <ButtonLink href={routes.writeNew} variant="primary" className="w-full justify-start">
@@ -301,7 +391,7 @@ export function StoryCreateScreen() {
                 ) : null}
                 <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary" className="w-full justify-start">
                   <Settings className="size-4" aria-hidden="true" />
-                  Настройки истории
+                  Редактировать теги
                 </ButtonLink>
               </>
             ) : null}
@@ -347,7 +437,7 @@ function StorySidebarItem({
 
   return (
     <article
-      className={`grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-[var(--plotty-radius-md)] border p-2.5 transition-[background-color,border-color,box-shadow,transform] duration-150 ${
+      className={`plotty-lift-panel grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-[var(--plotty-radius-md)] border p-2.5 transition-[background-color,border-color,box-shadow,transform] duration-150 ${
         isSelected
           ? "border-[rgba(195,79,50,0.22)] bg-[var(--plotty-accent-wash)] shadow-[0_12px_28px_rgba(195,79,50,0.08)]"
           : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.68)] hover:-translate-y-[1px] hover:bg-[var(--plotty-paper-strong)]"

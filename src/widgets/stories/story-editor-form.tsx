@@ -19,6 +19,7 @@ import { Surface } from "@/shared/ui/card";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { HighlightedTextarea, type HighlightRange } from "@/shared/ui/highlighted-textarea";
 import { Input } from "@/shared/ui/input";
+import { AnimatedList, AsyncJobStatus, type AsyncJobStatusValue } from "@/shared/ui/motion";
 import { PopoverContent, type PopoverPosition } from "@/shared/ui/popover";
 import { CreditCostBadge } from "@/widgets/credits/credit-cost-badge";
 
@@ -44,12 +45,21 @@ export interface StoryEditorFormProps {
   spellcheckResult?: SpellcheckResult;
   spellcheckHighlights?: HighlightRange<SpellcheckIssue>[];
   aiStatusLabel?: string;
+  spellcheckStatus?: AsyncJobStatusValue;
+  spellcheckStatusError?: string;
   logicCheckResult?: LogicCheckResult;
   logicStatusLabel?: string;
+  logicCheckStatus?: AsyncJobStatusValue;
+  logicStatusError?: string;
+  logicDisabledReason?: string;
   canonCheckResult?: CanonCheckResult;
   canonStatusLabel?: string;
+  canonCheckStatus?: AsyncJobStatusValue;
+  canonStatusError?: string;
+  canonDisabledReason?: string;
   creditBalance?: number;
   creditError?: string;
+  saveStatusMessage?: string;
   isSaving?: boolean;
   isSpellchecking?: boolean;
   isLogicChecking?: boolean;
@@ -68,6 +78,7 @@ export interface StoryEditorFormProps {
   onLogicCheck: () => void;
   onCanonCheck: () => void;
   onApplySpellcheckIssue: (issue: SpellcheckIssue) => boolean;
+  onDismissSpellcheckIssue: (issue: SpellcheckIssue) => void;
 }
 
 export function StoryEditorForm({
@@ -80,12 +91,21 @@ export function StoryEditorForm({
   spellcheckResult,
   spellcheckHighlights = [],
   aiStatusLabel,
+  spellcheckStatus = "idle",
+  spellcheckStatusError,
   logicCheckResult,
   logicStatusLabel,
+  logicCheckStatus = "idle",
+  logicStatusError,
+  logicDisabledReason,
   canonCheckResult,
   canonStatusLabel,
+  canonCheckStatus = "idle",
+  canonStatusError,
+  canonDisabledReason,
   creditBalance,
   creditError,
+  saveStatusMessage,
   isSaving,
   isSpellchecking,
   isLogicChecking,
@@ -104,21 +124,27 @@ export function StoryEditorForm({
   onLogicCheck,
   onCanonCheck,
   onApplySpellcheckIssue,
+  onDismissSpellcheckIssue,
 }: StoryEditorFormProps) {
   const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
   const previousChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : undefined;
   const nextChapter =
     currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1 ? chapters[currentChapterIndex + 1] : undefined;
   const popoverContentRef = useRef<HTMLDivElement | null>(null);
+  const suppressedSpellcheckIssueIdRef = useRef("");
   const [activeSpellcheckIssueId, setActiveSpellcheckIssueId] = useState("");
   const [highlightScrollKey, setHighlightScrollKey] = useState(0);
   const [unresolvedSpellcheckIssueId, setUnresolvedSpellcheckIssueId] = useState("");
+  const [suppressedSpellcheckIssueId, setSuppressedSpellcheckIssueId] = useState("");
   const [spellcheckPopover, setSpellcheckPopover] = useState<{
     issue: SpellcheckIssue;
     position: PopoverPosition;
   } | null>(null);
   const isMobileCorrectionOverlay = useCorrectionOverlayMode();
   const shouldOfferTopUp = typeof creditBalance === "number" && creditBalance < AI_CREDIT_COSTS.imageGeneration;
+  const isSpellcheckFailed = spellcheckStatus === "failed";
+  const isLogicCheckFailed = logicCheckStatus === "failed";
+  const isCanonCheckFailed = canonCheckStatus === "failed";
   const spellcheckHighlightById = useMemo(() => {
     const map = new Map<string, HighlightRange<SpellcheckIssue>>();
 
@@ -131,7 +157,23 @@ export function StoryEditorForm({
     return map;
   }, [spellcheckHighlights]);
 
-  const handleActiveHighlightAnchorChange = useCallback(
+  const suppressSpellcheckIssue = useCallback((issueId: string) => {
+    suppressedSpellcheckIssueIdRef.current = issueId;
+    setSuppressedSpellcheckIssueId(issueId);
+  }, []);
+
+  const closeSpellcheckPopover = useCallback((issueId?: string) => {
+    const nextSuppressedIssueId = issueId ?? activeSpellcheckIssueId;
+
+    if (nextSuppressedIssueId) {
+      suppressSpellcheckIssue(nextSuppressedIssueId);
+    }
+
+    setSpellcheckPopover(null);
+    setActiveSpellcheckIssueId("");
+  }, [activeSpellcheckIssueId, suppressSpellcheckIssue]);
+
+  const showSpellcheckPopover = useCallback(
     (range: HighlightRange<SpellcheckIssue>, anchorRect: DOMRect) => {
       if (!range.id || !range.data) {
         return;
@@ -147,10 +189,27 @@ export function StoryEditorForm({
     [],
   );
 
-  const handleActiveHighlightHidden = useCallback(() => {
-    setSpellcheckPopover(null);
-    setActiveSpellcheckIssueId("");
-  }, []);
+  const handleActiveHighlightAnchorChange = useCallback(
+    (range: HighlightRange<SpellcheckIssue>, anchorRect: DOMRect) => {
+      if (range.id && (range.id === suppressedSpellcheckIssueId || range.id === suppressedSpellcheckIssueIdRef.current)) {
+        return;
+      }
+
+      showSpellcheckPopover(range, anchorRect);
+    },
+    [showSpellcheckPopover, suppressedSpellcheckIssueId],
+  );
+
+  const handleHighlightClick = useCallback(
+    (range: HighlightRange<SpellcheckIssue>, anchorRect: DOMRect) => {
+      suppressedSpellcheckIssueIdRef.current = "";
+      setSuppressedSpellcheckIssueId("");
+      showSpellcheckPopover(range, anchorRect);
+    },
+    [showSpellcheckPopover],
+  );
+
+  const handleActiveHighlightHidden = closeSpellcheckPopover;
 
   function update<K extends keyof StoryEditorValues>(key: K, value: StoryEditorValues[K]) {
     onChange({
@@ -170,6 +229,8 @@ export function StoryEditorForm({
       return;
     }
 
+    suppressedSpellcheckIssueIdRef.current = "";
+    setSuppressedSpellcheckIssueId("");
     setActiveSpellcheckIssueId(issueId);
     setUnresolvedSpellcheckIssueId("");
     setHighlightScrollKey((current) => current + 1);
@@ -184,8 +245,13 @@ export function StoryEditorForm({
       return;
     }
 
-    setSpellcheckPopover(null);
-    setActiveSpellcheckIssueId("");
+    closeSpellcheckPopover();
+    setUnresolvedSpellcheckIssueId("");
+  }
+
+  function dismissSpellcheckIssue(issue: SpellcheckIssue) {
+    onDismissSpellcheckIssue(issue);
+    closeSpellcheckPopover();
     setUnresolvedSpellcheckIssueId("");
   }
 
@@ -201,17 +267,19 @@ export function StoryEditorForm({
       return;
     }
 
+    const spellcheckIssueId = getSpellcheckIssueKey(spellcheckPopover.issue);
+
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
 
       if (!popoverContentRef.current?.contains(target)) {
-        setSpellcheckPopover(null);
+        closeSpellcheckPopover(spellcheckIssueId);
       }
     }
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setSpellcheckPopover(null);
+        closeSpellcheckPopover(spellcheckIssueId);
       }
     }
 
@@ -222,11 +290,11 @@ export function StoryEditorForm({
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [spellcheckPopover]);
+  }, [closeSpellcheckPopover, spellcheckPopover]);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="space-y-5">
+    <div className="plotty-stagger grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="plotty-stagger-item min-w-0 space-y-5">
         <ShellCard
           title={`Глава ${chapterNumber ?? "—"}`}
           description="Редактируйте только текущую главу: текст, название, иллюстрацию и AI-инструменты."
@@ -254,7 +322,7 @@ export function StoryEditorForm({
 
             <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.58)] p-4">
               {hasUnpublishedChanges ? (
-                <div className="rounded-[18px] border border-[rgba(195,79,50,0.18)] bg-[var(--plotty-accent-wash)] px-4 py-3 text-sm leading-6 text-[var(--plotty-ink)]">
+                <div className="plotty-panel-enter rounded-[18px] border border-[rgba(195,79,50,0.18)] bg-[var(--plotty-accent-wash)] px-4 py-3 text-sm leading-6 text-[var(--plotty-ink)]">
                   <span className="font-semibold">Есть неопубликованные изменения.</span>{" "}
                   Сохраненный черновик отличается от опубликованной версии главы.
                 </div>
@@ -283,14 +351,14 @@ export function StoryEditorForm({
                   highlightRanges={spellcheckHighlights}
                   onActiveHighlightAnchorChange={handleActiveHighlightAnchorChange}
                   onActiveHighlightHidden={handleActiveHighlightHidden}
-                  onHighlightClick={handleActiveHighlightAnchorChange}
+                  onHighlightClick={handleHighlightClick}
                 />
               </Field>
             </div>
 
             <div className="flex flex-wrap gap-3 border-t border-[var(--plotty-line)] pt-4">
               <Button variant="primary" onClick={onSave} disabled={isSaving}>
-                {isSaving ? "Сохраняем..." : "Сохранить"}
+                {isSaving ? "Сохраняем..." : "Сохранить черновик"}
               </Button>
               {typeof onPublish === "function" ? (
                 <Button
@@ -314,33 +382,47 @@ export function StoryEditorForm({
               ) : null}
               <CreditCostButton
                 cost={AI_CREDIT_COSTS.spellcheck}
+                showCostBadge={false}
                 variant="secondary"
                 onClick={onSpellcheck}
                 disabled={!chapterId || isSpellchecking || !values.chapterContent.trim()}
               >
-                {isSpellchecking ? "Проверяем..." : "Проверить орфографию"}
+                {isSpellchecking ? "Проверяем..." : isSpellcheckFailed ? "Повторить орфографию" : "Проверить орфографию"}
               </CreditCostButton>
               <CreditCostButton
                 cost={AI_CREDIT_COSTS.logicCheck}
                 variant="secondary"
                 onClick={onLogicCheck}
-                disabled={!chapterId || isLogicChecking || !values.chapterContent.trim()}
+                disabled={!chapterId || isLogicChecking || !values.chapterContent.trim() || Boolean(logicDisabledReason)}
+                title={logicDisabledReason}
               >
-                {isLogicChecking ? "Проверяем логику..." : "Проверить логику"}
+                {isLogicChecking ? "Проверяем логику..." : isLogicCheckFailed ? "Повторить логику" : "Проверить логику"}
               </CreditCostButton>
               <CreditCostButton
                 cost={AI_CREDIT_COSTS.canonCheck}
                 variant="secondary"
                 onClick={onCanonCheck}
-                disabled={!chapterId || isCanonChecking || !values.chapterContent.trim()}
+                disabled={!chapterId || isCanonChecking || !values.chapterContent.trim() || Boolean(canonDisabledReason)}
+                title={canonDisabledReason}
               >
-                {isCanonChecking ? "Проверяем канон..." : "Проверить канон"}
+                {isCanonChecking ? "Проверяем канон..." : isCanonCheckFailed ? "Повторить канон" : "Проверить канон"}
               </CreditCostButton>
               <Button variant="ghost" onClick={onCreateNextChapter} disabled={isSaving || typeof onCreateNextChapter !== "function"}>
                 Новая глава
               </Button>
             </div>
+            {saveStatusMessage ? (
+              <Surface role="status" variant="subtle" className="px-3 py-2 text-sm font-semibold text-[var(--plotty-olive)]">
+                {saveStatusMessage}
+              </Surface>
+            ) : null}
             <div className="space-y-3">
+              {logicDisabledReason || canonDisabledReason ? (
+                <Surface variant="subtle" className="space-y-1 px-3 py-2 text-sm leading-5 text-[var(--plotty-muted)]">
+                  {logicDisabledReason ? <p>{logicDisabledReason}</p> : null}
+                  {canonDisabledReason ? <p>{canonDisabledReason}</p> : null}
+                </Surface>
+              ) : null}
               {shouldOfferTopUp && !creditError ? (
                 <ButtonLink href={routes.credits} variant="ghost" size="sm">
                   Пополнить баланс
@@ -368,60 +450,83 @@ export function StoryEditorForm({
         ) : null}
       </div>
 
-      <div className="space-y-5">
+      <div className="plotty-stagger-item min-w-0 space-y-5">
         {imagePanel}
 
         <div className="space-y-5">
           <ShellCard title="Орфография" description={aiStatusLabel ?? "Проверка запускается вручную после сохранения текста."}>
+            <AsyncJobStatus
+              compact
+              status={spellcheckStatus}
+              label={spellcheckStatus === "completed" ? "Проверка орфографии готова" : "Проверяем орфографию"}
+              description="Ищем спорные фрагменты и готовим подсказки."
+              error={spellcheckStatusError}
+              className="mb-3"
+            />
             {spellcheckResult ? (
               <div className="space-y-3">
                 <p className="text-sm leading-6 text-[var(--plotty-muted)]">{spellcheckResult.summary}</p>
-                <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+                <div className="min-w-0 max-h-[32rem] space-y-2 overflow-y-auto pr-1">
                   {spellcheckResult.items.length ? (
-                    spellcheckResult.items.map((issue) => {
-                      const issueId = getSpellcheckIssueKey(issue);
-                      const isUnresolved = unresolvedSpellcheckIssueId === issueId;
-                      const isActive = activeSpellcheckIssueId === issueId;
+                    <AnimatedList
+                      items={spellcheckResult.items}
+                      getKey={getSpellcheckIssueKey}
+                      className="space-y-2"
+                      renderItem={(issue) => {
+                        const issueId = getSpellcheckIssueKey(issue);
+                        const isUnresolved = unresolvedSpellcheckIssueId === issueId;
+                        const isActive = activeSpellcheckIssueId === issueId;
 
-                      return (
-                        <Surface
-                          key={issueId}
-                          variant="listItem"
-                          className={`p-3 transition-[border-color,background-color] duration-150 ${
-                            isActive
-                              ? "border-[rgba(195,79,50,0.28)] bg-[var(--plotty-accent-wash)]"
-                              : ""
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            className="block w-full text-left"
-                            onClick={() => openSpellcheckIssue(issue)}
+                        return (
+                          <Surface
+                            variant="listItem"
+                            className={`plotty-lift-panel min-w-0 p-3 transition-[border-color,background-color] duration-150 ${
+                              isActive
+                                ? "border-[rgba(195,79,50,0.28)] bg-[var(--plotty-accent-wash)]"
+                                : ""
+                            }`}
                           >
-                            <div className="space-y-1">
-                              <div className="truncate text-sm font-semibold">{issue.fragmentText}</div>
-                              <div className="text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
-                              <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
-                              {isUnresolved ? (
-                                <div className="text-xs font-semibold text-[var(--plotty-danger)]">
-                                  Фрагмент не найден в текущем тексте. Запустите проверку заново.
-                                </div>
-                              ) : null}
-                            </div>
-                          </button>
-                          <div className="pt-2">
-                            <Button
+                            <button
                               type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => applySpellcheckIssue(issue)}
+                              className="block min-w-0 w-full text-left"
+                              onClick={() => openSpellcheckIssue(issue)}
                             >
-                              Исправить
-                            </Button>
-                          </div>
-                        </Surface>
-                      );
-                    })
+                              <div className="min-w-0 space-y-1">
+                                <div className="truncate text-sm font-semibold">{issue.fragmentText}</div>
+                                <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
+                                <SpellcheckPreview issue={issue} />
+                                {isUnresolved ? (
+                                  <div className="text-xs font-semibold text-[var(--plotty-danger)]">
+                                    Фрагмент не найден в текущем тексте. Запустите проверку заново.
+                                  </div>
+                                ) : null}
+                              </div>
+                            </button>
+                            <div className="pt-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => applySpellcheckIssue(issue)}
+                                >
+                                  Исправить
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Оставить как есть"
+                                  onClick={() => dismissSpellcheckIssue(issue)}
+                                >
+                                  Как есть
+                                </Button>
+                              </div>
+                            </div>
+                          </Surface>
+                        );
+                      }}
+                    />
                   ) : (
                     <Surface variant="listItem" className="p-3 text-sm text-[var(--plotty-muted)]">
                       Ошибок не найдено.
@@ -432,7 +537,8 @@ export function StoryEditorForm({
                   contentRef={popoverContentRef}
                   isMobile={isMobileCorrectionOverlay}
                   onApply={applySpellcheckIssue}
-                  onClose={() => setSpellcheckPopover(null)}
+                  onDismiss={dismissSpellcheckIssue}
+                  onClose={closeSpellcheckPopover}
                   popover={spellcheckPopover}
                 />
               </div>
@@ -450,8 +556,16 @@ export function StoryEditorForm({
               "ИИ проверяет причинно-следственные связи, мотивацию персонажей и внутренние нестыковки сцены."
             }
           >
+            <AsyncJobStatus
+              compact
+              status={logicCheckStatus}
+              label={logicCheckStatus === "completed" ? "Проверка логики готова" : "Проверяем логику"}
+              description="Сверяем причинность, мотивацию и внутренние противоречия."
+              error={logicStatusError}
+              className="mb-3"
+            />
             {logicCheckResult ? (
-              <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
+              <p className="plotty-motion-tab-panel whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
                 Отправьте главу на проверку, и здесь появится список замечаний.
@@ -466,8 +580,16 @@ export function StoryEditorForm({
               "ИИ сверяет текст с каноном и правилами мира."
             }
           >
+            <AsyncJobStatus
+              compact
+              status={canonCheckStatus}
+              label={canonCheckStatus === "completed" ? "Проверка канона готова" : "Проверяем канон"}
+              description="Сравниваем сцену с правилами мира и уже опубликованным каноном."
+              error={canonStatusError}
+              className="mb-3"
+            />
             {canonCheckResult ? (
-              <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{canonCheckResult.message}</p>
+              <p className="plotty-motion-tab-panel whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{canonCheckResult.message}</p>
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
                 Отправьте главу на проверку, и здесь появится список замечаний.
@@ -479,12 +601,12 @@ export function StoryEditorForm({
         <ShellCard title="Навигация по главам" description="Быстрый переход между главами и действия над текущей главой.">
           <div className="space-y-3">
             {storySlug && chapters.length ? (
-              <div className="space-y-2">
+              <div className="plotty-scroll-panel plotty-editor-chapter-nav-list space-y-2">
                 {chapters.map((chapter) => (
                   <Link
                     key={chapter.id}
                     href={routes.chapterEditor(storyId ?? "", chapter.id)}
-                    className={`block rounded-[18px] border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,color] duration-150 ${
+                    className={`block rounded-[18px] border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,color,transform] duration-150 hover:translate-x-0.5 ${
                       chapter.id === chapterId
                         ? "border-[rgba(188,95,61,0.16)] bg-[rgba(188,95,61,0.08)] text-[var(--plotty-ink)]"
                         : "border-[var(--plotty-line)] bg-white/70 text-[var(--plotty-muted)] hover:bg-white hover:text-[var(--plotty-ink)]"
@@ -512,13 +634,19 @@ export function StoryEditorForm({
   );
 }
 
-function CreditCostButton({ cost, children, className, ...props }: ButtonProps & { cost: number }) {
+function CreditCostButton({
+  cost,
+  children,
+  className,
+  showCostBadge = true,
+  ...props
+}: ButtonProps & { cost: number; showCostBadge?: boolean }) {
   return (
-    <span className="relative inline-flex pt-2">
+    <span className="relative inline-flex">
       <Button className={className} {...props}>
         {children}
       </Button>
-      <CreditCostBadge cost={cost} />
+      {showCostBadge ? <CreditCostBadge cost={cost} /> : null}
     </span>
   );
 }
@@ -558,16 +686,33 @@ function getSpellcheckIssueKey(issue: SpellcheckIssue) {
   return `${issue.startOffset}-${issue.endOffset}-${issue.fragmentText}-${issue.suggestion}`;
 }
 
+function SpellcheckPreview({ issue }: { issue: SpellcheckIssue }) {
+  return (
+    <div className="grid gap-2 rounded-[14px] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.72)] p-2 text-sm sm:grid-cols-2">
+      <div className="min-w-0 space-y-1">
+        <div className="plotty-kicker">Было</div>
+        <p className="break-words text-[var(--plotty-ink)]">{issue.fragmentText}</p>
+      </div>
+      <div className="min-w-0 space-y-1">
+        <div className="plotty-kicker">Стало</div>
+        <p className="break-words font-semibold text-[var(--plotty-accent)]">{issue.suggestion}</p>
+      </div>
+    </div>
+  );
+}
+
 function SpellcheckIssueOverlay({
   contentRef,
   isMobile,
   onApply,
+  onDismiss,
   onClose,
   popover,
 }: {
   contentRef: RefObject<HTMLDivElement | null>;
   isMobile: boolean;
   onApply: (issue: SpellcheckIssue) => void;
+  onDismiss: (issue: SpellcheckIssue) => void;
   onClose: () => void;
   popover: { issue: SpellcheckIssue; position: PopoverPosition } | null;
 }) {
@@ -576,7 +721,15 @@ function SpellcheckIssueOverlay({
   }
 
   if (isMobile) {
-    return <SpellcheckIssueBottomSheet contentRef={contentRef} issue={popover.issue} onApply={onApply} onClose={onClose} />;
+    return (
+      <SpellcheckIssueBottomSheet
+        contentRef={contentRef}
+        issue={popover.issue}
+        onApply={onApply}
+        onDismiss={onDismiss}
+        onClose={onClose}
+      />
+    );
   }
 
   return (
@@ -586,7 +739,7 @@ function SpellcheckIssueOverlay({
       position={popover.position}
       className="rounded-[var(--plotty-radius-lg)] p-4"
     >
-      <SpellcheckIssueContent issue={popover.issue} onApply={onApply} />
+      <SpellcheckIssueContent issue={popover.issue} onApply={onApply} onDismiss={onDismiss} />
     </PopoverContent>
   );
 }
@@ -595,11 +748,13 @@ function SpellcheckIssueBottomSheet({
   contentRef,
   issue,
   onApply,
+  onDismiss,
   onClose,
 }: {
   contentRef: RefObject<HTMLDivElement | null>;
   issue: SpellcheckIssue;
   onApply: (issue: SpellcheckIssue) => void;
+  onDismiss: (issue: SpellcheckIssue) => void;
   onClose: () => void;
 }) {
   if (typeof document === "undefined") {
@@ -619,7 +774,7 @@ function SpellcheckIssueBottomSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Исправление ошибки"
-        className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] px-5 pt-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
+        className="absolute inset-x-0 bottom-0 min-w-0 max-h-[82vh] overflow-y-auto overflow-x-hidden rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] px-5 pt-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.25rem)" }}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -628,7 +783,7 @@ function SpellcheckIssueBottomSheet({
             Закрыть
           </Button>
         </div>
-        <SpellcheckIssueContent issue={issue} onApply={onApply} />
+        <SpellcheckIssueContent issue={issue} onApply={onApply} onDismiss={onDismiss} />
       </div>
     </div>,
     document.body,
@@ -638,20 +793,27 @@ function SpellcheckIssueBottomSheet({
 function SpellcheckIssueContent({
   issue,
   onApply,
+  onDismiss,
 }: {
   issue: SpellcheckIssue;
   onApply: (issue: SpellcheckIssue) => void;
+  onDismiss: (issue: SpellcheckIssue) => void;
 }) {
   return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <div className="text-sm font-semibold">{issue.fragmentText}</div>
-        <div className="text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
-        <div className="text-sm text-[var(--plotty-accent)]">Предложение: {issue.suggestion}</div>
+    <div className="min-w-0 space-y-3">
+      <div className="min-w-0 space-y-1">
+        <div className="break-words text-sm font-semibold">{issue.fragmentText}</div>
+        <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
+        <SpellcheckPreview issue={issue} />
       </div>
-      <Button type="button" variant="secondary" size="sm" onClick={() => onApply(issue)}>
-        Исправить
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" size="sm" onClick={() => onApply(issue)}>
+          Исправить
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => onDismiss(issue)}>
+          Оставить как есть
+        </Button>
+      </div>
     </div>
   );
 }

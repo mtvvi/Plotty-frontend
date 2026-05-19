@@ -1,6 +1,6 @@
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,14 +15,14 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-function renderEditor() {
+function renderEditor(storyId = "story-1", chapterId = "chapter-1") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <StoryEditorScreen storyId="story-1" chapterId="chapter-1" />
+      <StoryEditorScreen storyId={storyId} chapterId={chapterId} />
     </QueryClientProvider>,
   );
 }
@@ -30,6 +30,7 @@ function renderEditor() {
 describe("StoryEditorScreen", () => {
   beforeEach(() => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
+    window.localStorage.clear();
     resetMockAuthDb();
     loginMockUser({ email: "writer@plotty.test", password: "password123" });
   });
@@ -48,7 +49,7 @@ describe("StoryEditorScreen", () => {
     const chapterTitle = screen.getByDisplayValue("Глава 1. Архив под лестницей");
     await user.clear(chapterTitle);
     await user.type(chapterTitle, "Глава 1. Новый архив");
-    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    await user.click(screen.getByRole("button", { name: "Сохранить черновик" }));
 
     await waitFor(async () => {
       const response = await fetch("http://localhost/chapters/chapter-1");
@@ -56,6 +57,7 @@ describe("StoryEditorScreen", () => {
 
       expect(data.title).toBe("Глава 1. Новый архив");
     });
+    expect(screen.getByRole("status")).toHaveTextContent("Черновик сохранён");
   });
 
   it("runs spellcheck and renders the returned issues", async () => {
@@ -70,14 +72,85 @@ describe("StoryEditorScreen", () => {
       timeout: 4_000,
     });
     expect(screen.getByText(/нечаянно/i)).toBeInTheDocument();
+    expect(screen.getByText("Было")).toBeInTheDocument();
+    expect(screen.getByText("Стало")).toBeInTheDocument();
   });
 
-  it("runs logic check and renders the verdict", async () => {
+  it("dismisses a spellcheck issue without changing chapter text", async () => {
     const user = userEvent.setup();
 
     renderEditor();
 
     await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+    const chapterContent = screen.getByLabelText("Текст главы");
+    const originalContent = (chapterContent as HTMLTextAreaElement).value;
+
+    await user.click(screen.getByRole("button", { name: "Проверить орфографию" }));
+    await waitFor(() => expect(screen.getByText(/нечаянно/i)).toBeInTheDocument(), {
+      timeout: 4_000,
+    });
+    await user.click(screen.getByRole("button", { name: "Оставить как есть" }));
+
+    await waitFor(() => expect(screen.queryByText(/нечаянно/i)).not.toBeInTheDocument());
+    expect(chapterContent).toHaveValue(originalContent);
+  });
+
+  it("does not reopen the spellcheck popover after it is closed", async () => {
+    const user = userEvent.setup();
+    const view = renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Проверить орфографию" }));
+    await waitFor(() => expect(screen.getByText(/нечаянно/i)).toBeInTheDocument(), {
+      timeout: 4_000,
+    });
+
+    const mark = view.container.querySelector("mark[data-error-id]") as HTMLElement;
+    const layer = view.container.querySelector(".plotty-highlighted-textarea-layer") as HTMLElement;
+    const visibleRect = DOMRect.fromRect({ x: 40, y: 80, width: 120, height: 24 });
+    const viewportRect = DOMRect.fromRect({ x: 0, y: 0, width: 640, height: 420 });
+
+    vi.spyOn(mark, "getBoundingClientRect").mockReturnValue(visibleRect);
+    vi.spyOn(layer, "getBoundingClientRect").mockReturnValue(viewportRect);
+
+    fireEvent.pointerDown(mark);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Исправить" })).toHaveLength(2));
+
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Исправить" })).toHaveLength(1));
+
+    fireEvent(window, new Event("resize"));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Исправить" })).toHaveLength(1));
+  });
+
+  it("does not show a credit badge on the spellcheck button", async () => {
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+
+    expect(screen.queryByLabelText("Стоимость: 1 кредит")).not.toBeInTheDocument();
+    const costBadges = screen.getAllByLabelText("Стоимость: 2 кредита");
+
+    expect(costBadges).toHaveLength(2);
+    expect(costBadges[0]).toHaveAttribute("title", "Стоимость: 2 кредита");
+  });
+
+  it("lets writers edit the illustration prompt before generation", async () => {
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+
+    expect(screen.getByLabelText("Промпт для иллюстрации")).toHaveValue(
+      'Иллюстрация к главе "Глава 1. Архив под лестницей" истории "После полуночи снег не тает"',
+    );
+  });
+
+  it("runs logic check and renders the verdict", async () => {
+    const user = userEvent.setup();
+
+    renderEditor("story-1", "chapter-2");
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 2. Сухой снег")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Проверить логику" }));
 
     await waitFor(() => expect(screen.getByText(/Логических нестыковок не найдено/i)).toBeInTheDocument(), {
@@ -85,7 +158,19 @@ describe("StoryEditorScreen", () => {
     });
   });
 
-  it("deletes the current chapter and navigates back to the story page", async () => {
+  it("does not allow paid logic or canon checks when they would not run meaningfully", async () => {
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: "Проверить логику" })).toBeDisabled();
+    expect(screen.getByText(/Проверка логики доступна со второй главы/i)).toBeInTheDocument();
+    expect(screen.queryByText(/кредиты не списываются/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Проверить канон" })).toBeDisabled();
+    expect(screen.getByText(/доступна только для историй с выбранным фандомом/i)).toBeInTheDocument();
+  });
+
+  it("deletes the current chapter and navigates back to the selected workshop story", async () => {
     const user = userEvent.setup();
 
     renderEditor();
@@ -93,7 +178,7 @@ describe("StoryEditorScreen", () => {
     await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Удалить главу" }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/stories/after-midnight-the-snow-does-not-melt"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/write?story=after-midnight-the-snow-does-not-melt#active-story"));
     const response = await fetch("http://localhost/chapters/chapter-1");
     expect(response.status).toBe(404);
   });

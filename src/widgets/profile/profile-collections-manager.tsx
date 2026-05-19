@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Ellipsis } from "lucide-react";
 
 import {
   createCollection,
@@ -12,15 +13,16 @@ import {
 } from "@/entities/library/api/library-api";
 import { profileKeys } from "@/entities/profile/api/profile-api";
 import type { UserCollectionSummary } from "@/entities/profile/model/types";
-import { ApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { AnimatedList } from "@/shared/ui/motion";
 import { Textarea } from "@/shared/ui/textarea";
 
-import { PublicCollectionsIcon } from "./profile-icons";
+import { CollectionLinkIcon, PublicCollectionsIcon } from "./profile-icons";
 
 export function ProfileCollectionsManager({ username }: { username: string }) {
   const queryClient = useQueryClient();
@@ -69,7 +71,7 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
   }
 
   function handleMutationError(error: unknown) {
-    setLocalError(error instanceof ApiError ? error.message : "Не удалось обновить подборку");
+    setLocalError(toUserFacingErrorMessage(error, "Не удалось обновить подборку"));
   }
 
   function validate(title: string, description: string) {
@@ -141,6 +143,14 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
     window.setTimeout(() => setCopiedId((current) => (current === collectionId ? null : current)), 1800);
   }
 
+  function handleDeleteCollection(collectionId: string) {
+    if (!window.confirm("Удалить подборку?")) {
+      return;
+    }
+
+    deleteMutation.mutate(collectionId);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -198,12 +208,16 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
           <div className="h-36 rounded-[20px] bg-white/50" />
         </div>
       ) : collections.length ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          {collections.map((collection) => {
+        <AnimatedList
+          items={collections}
+          getKey={(collection) => collection.id}
+          className="grid gap-3 md:grid-cols-2"
+          itemClassName="h-full"
+          renderItem={(collection) => {
             const isEditing = editingCollection?.id === collection.id;
 
             return (
-              <div key={collection.id} className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4">
+              <div className="plotty-collection-tile h-full rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4">
                 {isEditing ? (
                   <form className="space-y-3" onSubmit={handleUpdate}>
                     <Field>
@@ -243,7 +257,38 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
                     </div>
                   </form>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 pr-9">
+                    <details className="absolute right-3 top-3 z-10">
+                      <summary
+                        className="plotty-collection-actions-summary inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.9)] text-[var(--plotty-muted)] shadow-[0_4px_12px_rgba(58,43,27,0.05)] transition-colors hover:text-[var(--plotty-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                        aria-label="Действия с подборкой"
+                      >
+                        <Ellipsis className="size-5" aria-hidden="true" />
+                      </summary>
+                      <div className="plotty-collection-actions-menu absolute right-0 top-full mt-2 grid min-w-36 gap-1 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[var(--plotty-panel)] p-1 shadow-[var(--plotty-shadow-card)]">
+                        <button
+                          type="button"
+                          className="rounded-[var(--plotty-radius-sm)] px-3 py-2 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-colors hover:bg-[var(--plotty-panel-muted)]"
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            handleStartEdit(collection);
+                          }}
+                        >
+                          Изменить
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-[var(--plotty-radius-sm)] px-3 py-2 text-left text-sm font-semibold text-[var(--plotty-danger)] transition-colors hover:bg-[var(--plotty-danger-soft)]"
+                          onClick={(event) => {
+                            event.currentTarget.closest("details")?.removeAttribute("open");
+                            handleDeleteCollection(collection.id);
+                          }}
+                          disabled={deleteMutation.isPending}
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    </details>
                     <div className="space-y-1.5">
                       <div className="plotty-card-title text-[1.15rem]">{collection.title}</div>
                       {collection.description ? (
@@ -260,27 +305,16 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
                         Открыть
                       </ButtonLink>
                       <Button type="button" variant="secondary" className="min-h-10 px-3 text-sm" onClick={() => handleCopyLink(collection.id)}>
+                        <CollectionLinkIcon className="size-4" />
                         {copiedId === collection.id ? "Скопировано" : "Ссылка"}
-                      </Button>
-                      <Button type="button" variant="ghost" className="min-h-10 px-3 text-sm" onClick={() => handleStartEdit(collection)}>
-                        Изменить
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        className="min-h-10 px-3 text-sm"
-                        onClick={() => deleteMutation.mutate(collection.id)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        Удалить
                       </Button>
                     </div>
                   </div>
                 )}
               </div>
             );
-          })}
-        </div>
+          }}
+        />
       ) : (
         <EmptyState title="Подборок пока нет" description="Создайте первую подборку и добавляйте туда фанфики из каталога или страницы истории." />
       )}

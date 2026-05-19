@@ -27,6 +27,7 @@ import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { AnimatedTabPanel } from "@/shared/ui/motion";
 import { PlottyShell, ShellCard } from "./plotty-shell";
 
 type StoryEditStage = "details" | "taxonomy" | "review";
@@ -93,7 +94,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
 
   async function handleSave() {
     try {
-      queryClient.setQueryData<StoryDetails | undefined>(storyKeys.detailsById(storyId), (current) =>
+      queryClient.setQueriesData<StoryDetails | undefined>({ queryKey: storyKeys.detailsById(storyId) }, (current) =>
         current
           ? {
               ...current,
@@ -145,7 +146,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
         await queryClient.invalidateQueries({ queryKey: storyKeys.details(storyQuery.data.slug) });
       }
 
-      router.push(routes.story(updatedStory.slug));
+      router.push(`${routes.write}?story=${encodeURIComponent(updatedStory.slug)}&saved=story`);
     } catch (error) {
       if (isAuthError(error)) {
         router.push(routes.auth({ next: routes.storySettings(storyId) }));
@@ -171,7 +172,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
 
   if (storyQuery.isLoading) {
     return (
-      <PlottyShell title="Редактирование истории" description="" mobileBackHref={routes.write}>
+      <PlottyShell title="Редактирование истории" description="">
         <div className="h-72 rounded-[24px] bg-white/40" />
       </PlottyShell>
     );
@@ -179,14 +180,14 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
 
   if (storyQuery.isError || !storyQuery.data) {
     return (
-      <PlottyShell title="История не найдена" description="" mobileBackHref={routes.write}>
+      <PlottyShell title="История не найдена" description="">
         <EmptyState title="История не найдена" description="Вернитесь в мастерскую и выберите другую историю." />
       </PlottyShell>
     );
   }
 
   return (
-    <PlottyShell title="Редактирование истории" description="" mobileBackHref={routes.write}>
+    <PlottyShell title="Редактирование истории" description="">
       <div className="space-y-4 lg:space-y-5">
         <ShellCard className="space-y-4">
           <div className="grid gap-2 sm:grid-cols-3">
@@ -223,7 +224,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
           </div>
         </ShellCard>
 
-        {stage === "details" ? (
+        <AnimatedTabPanel activeKey={stage} panelKey="details">
           <ShellCard title="Название">
             <div className="grid gap-5">
               <Field>
@@ -252,9 +253,9 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
               </div>
             </div>
           </ShellCard>
-        ) : null}
+        </AnimatedTabPanel>
 
-        {stage === "taxonomy" ? (
+        <AnimatedTabPanel activeKey={stage} panelKey="taxonomy">
           <ShellCard title="Теги и категории">
             <div className="space-y-5">
               <div className="grid gap-4 md:grid-cols-2">
@@ -279,9 +280,9 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
               </div>
             </div>
           </ShellCard>
-        ) : null}
+        </AnimatedTabPanel>
 
-        {stage === "review" ? (
+        <AnimatedTabPanel activeKey={stage} panelKey="review">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
             <ShellCard title="Проверьте историю перед сохранением">
               <div className="space-y-5">
@@ -356,7 +357,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
               </div>
             </ShellCard>
           </div>
-        ) : null}
+        </AnimatedTabPanel>
       </div>
     </PlottyShell>
   );
@@ -382,7 +383,8 @@ function FlowStepButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-[20px] border px-4 py-3 text-left transition-colors ${
+      data-active={active ? "true" : "false"}
+      className={`plotty-flow-step-button rounded-[20px] border px-4 py-3 text-left transition-colors ${
         active
           ? "border-transparent bg-[var(--plotty-accent-soft)] text-[var(--plotty-accent)]"
           : complete

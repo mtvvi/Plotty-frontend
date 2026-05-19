@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { AppShellSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
+import { PageContentSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
 import { PublicProfileScreen } from "@/widgets/profile/public-profile-screen";
 
 export default async function UserProfilePage({
@@ -11,7 +11,7 @@ export default async function UserProfilePage({
   const { username } = await params;
 
   return (
-    <Suspense fallback={<AppShellSkeleton />}>
+    <Suspense fallback={<PageContentSkeleton />}>
       <PublicProfileScreen username={decodeURIComponent(username)} />
     </Suspense>
   );
