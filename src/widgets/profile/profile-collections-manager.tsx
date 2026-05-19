@@ -143,6 +143,14 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
     window.setTimeout(() => setCopiedId((current) => (current === collectionId ? null : current)), 1800);
   }
 
+  function handleDeleteCollection(collectionId: string) {
+    if (!window.confirm("Удалить подборку?")) {
+      return;
+    }
+
+    deleteMutation.mutate(collectionId);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -273,7 +281,7 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
                           className="rounded-[var(--plotty-radius-sm)] px-3 py-2 text-left text-sm font-semibold text-[var(--plotty-danger)] transition-colors hover:bg-[var(--plotty-danger-soft)]"
                           onClick={(event) => {
                             event.currentTarget.closest("details")?.removeAttribute("open");
-                            deleteMutation.mutate(collection.id);
+                            handleDeleteCollection(collection.id);
                           }}
                           disabled={deleteMutation.isPending}
                         >

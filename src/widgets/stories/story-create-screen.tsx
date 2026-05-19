@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, FileText, PenLine, Plus, Search, Settings } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -29,6 +29,11 @@ import { CreditBalancePill } from "@/widgets/credits/credit-balance-pill";
 
 import { PlottyShell, ShellCard } from "./plotty-shell";
 import { StoryCoverPreview } from "./story-cover-preview";
+import {
+  ChapterSortButton,
+  sortChaptersForDisplay,
+  type ChapterSortDirection,
+} from "./chapter-list-sort";
 
 const emptyChapterDraft = "Черновик новой главы. Откройте редактор и продолжайте писать.";
 
@@ -57,6 +62,8 @@ export function StoryCreateScreen() {
   const savedMessage = searchParams.get("saved") === "story" ? "История сохранена." : "";
   const [selectedStorySlug, setSelectedStorySlug] = useState("");
   const [storySearchDraft, setStorySearchDraft] = useState("");
+  const [chapterSortDirection, setChapterSortDirection] = useState<ChapterSortDirection>("asc");
+  const workshopChaptersScrollRef = useRef<HTMLDivElement | null>(null);
   const storiesQuery = useQuery(myStoriesQueryOptions({ ...defaultStoriesQuery, pageSize: 50 }, { userId: user?.id }));
   const selectedStoryQuery = useQuery({
     ...storyDetailsQueryOptions(selectedStorySlug),
@@ -105,6 +112,11 @@ export function StoryCreateScreen() {
   const selectedStoryDisplayCover = selectedStoryQuery.data?.coverImageUrl ?? selectedStoryFirstChapterQuery.data?.imageUrl;
   const selectedStoryDescription = selectedStoryQuery.data?.aiHint?.trim() ? selectedStoryQuery.data.aiHint : STORY_ANNOTATION_PLACEHOLDER;
   const selectedStoryLastChapter = selectedStoryQuery.data?.chapters.at(-1);
+  const selectedStoryChapters = useMemo(() => selectedStoryQuery.data?.chapters ?? [], [selectedStoryQuery.data?.chapters]);
+  const sortedSelectedStoryChapters = useMemo(
+    () => sortChaptersForDisplay(selectedStoryChapters, chapterSortDirection),
+    [chapterSortDirection, selectedStoryChapters],
+  );
   const visibleStories = useMemo(() => {
     const stories = storiesQuery.data?.items ?? [];
     const query = storySearchDraft.trim().toLowerCase();
@@ -137,6 +149,21 @@ export function StoryCreateScreen() {
     }
   }
 
+  function toggleChapterSortDirection() {
+    setChapterSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+    const chapterList = workshopChaptersScrollRef.current;
+
+    if (!chapterList) {
+      return;
+    }
+
+    if (typeof chapterList.scrollTo === "function") {
+      chapterList.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      chapterList.scrollTop = 0;
+    }
+  }
+
   return (
     <PlottyShell
       title={
@@ -146,7 +173,6 @@ export function StoryCreateScreen() {
         </span>
       }
       description="Создавайте, редактируйте и развивайте свои истории."
-      showMobileBack={false}
     >
       {savedMessage ? (
         <Surface role="status" variant="subtle" className="mb-5 px-4 py-3 text-sm font-semibold text-[var(--plotty-olive)]">
@@ -263,14 +289,23 @@ export function StoryCreateScreen() {
               </div>
 
               <Surface variant="panel" className="space-y-3 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="plotty-section-title">Главы истории</h2>
-                  <span className="plotty-meta">{selectedStoryQuery.data.chapters.length} {formatChapterCount(selectedStoryQuery.data.chapters.length)}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <h2 className="plotty-section-title">Главы истории</h2>
+                    <p className="plotty-meta">{selectedStoryChapters.length} {formatChapterCount(selectedStoryChapters.length)}</p>
+                  </div>
+                  {selectedStoryChapters.length > 1 ? (
+                    <ChapterSortButton
+                      chapterCount={selectedStoryChapters.length}
+                      direction={chapterSortDirection}
+                      onToggle={toggleChapterSortDirection}
+                    />
+                  ) : null}
                 </div>
 
-                {selectedStoryQuery.data.chapters.length ? (
-                  <div className="plotty-scroll-panel plotty-workshop-chapter-list plotty-stagger divide-y divide-[var(--plotty-line)] rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.7)]">
-                    {selectedStoryQuery.data.chapters.map((chapter) => (
+                {selectedStoryChapters.length ? (
+                  <div ref={workshopChaptersScrollRef} className="plotty-scroll-panel plotty-workshop-chapter-list plotty-stagger divide-y divide-[var(--plotty-line)] rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.7)]">
+                    {sortedSelectedStoryChapters.map((chapter) => (
                       <div
                         key={chapter.id}
                         className="plotty-stagger-item plotty-lift-panel grid gap-3 px-4 py-3"

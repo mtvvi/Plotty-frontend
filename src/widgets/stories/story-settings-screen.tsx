@@ -94,7 +94,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
 
   async function handleSave() {
     try {
-      queryClient.setQueryData<StoryDetails | undefined>(storyKeys.detailsById(storyId), (current) =>
+      queryClient.setQueriesData<StoryDetails | undefined>({ queryKey: storyKeys.detailsById(storyId) }, (current) =>
         current
           ? {
               ...current,
@@ -172,7 +172,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
 
   if (storyQuery.isLoading) {
     return (
-      <PlottyShell title="Редактирование истории" description="" mobileBackHref={routes.write}>
+      <PlottyShell title="Редактирование истории" description="">
         <div className="h-72 rounded-[24px] bg-white/40" />
       </PlottyShell>
     );
@@ -180,14 +180,14 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
 
   if (storyQuery.isError || !storyQuery.data) {
     return (
-      <PlottyShell title="История не найдена" description="" mobileBackHref={routes.write}>
+      <PlottyShell title="История не найдена" description="">
         <EmptyState title="История не найдена" description="Вернитесь в мастерскую и выберите другую историю." />
       </PlottyShell>
     );
   }
 
   return (
-    <PlottyShell title="Редактирование истории" description="" mobileBackHref={routes.write}>
+    <PlottyShell title="Редактирование истории" description="">
       <div className="space-y-4 lg:space-y-5">
         <ShellCard className="space-y-4">
           <div className="grid gap-2 sm:grid-cols-3">

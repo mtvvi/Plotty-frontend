@@ -348,7 +348,7 @@ export function StoryEditorScreen({
       await queryClient.invalidateQueries({ queryKey: storyKeys.details(chapterQuery.data.storySlug) });
       await queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) });
       await queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) });
-      router.push(routes.story(chapterQuery.data.storySlug));
+      router.push(`${routes.write}?story=${encodeURIComponent(chapterQuery.data.storySlug)}#active-story`);
       return;
     }
 

@@ -61,17 +61,19 @@ export function GenerateChapterImageButton({
     },
   });
 
+  const generatedImageUrl = jobQuery.data?.result?.images[0]?.imageUrl;
+
   useEffect(() => {
-    if (!jobQuery.data?.result?.images[0]?.imageUrl) {
+    if (!generatedImageUrl) {
       return;
     }
 
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) }),
       queryClient.invalidateQueries({ queryKey: storyKeys.details(storySlug) }),
-      queryClient.invalidateQueries({ queryKey: storyKeys.all }),
+      queryClient.invalidateQueries({ queryKey: ["stories", "list"] }),
     ]);
-  }, [chapterId, jobQuery.data?.result?.images, queryClient, storySlug]);
+  }, [chapterId, generatedImageUrl, queryClient, storySlug]);
 
   async function handleGenerate() {
     setCreditError("");

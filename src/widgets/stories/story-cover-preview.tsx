@@ -6,12 +6,13 @@ import Image from "next/image";
 import { cn } from "@/shared/lib/utils";
 import { ImageLightbox, lightboxTriggerClassName } from "@/shared/ui/image-lightbox";
 
+export const storyCoverPlaceholderSrc = "/story-cover-placeholder.png";
+
 export function StoryCoverPreview({
   title,
   imageUrl,
   className,
   imageClassName,
-  compact = false,
   extendSurface = false,
   fullHeight = false,
   enableLightbox = false,
@@ -123,27 +124,21 @@ export function StoryCoverPreview({
         <div
           data-cover-frame="true"
           className={cn(
-            "flex w-full items-end",
+            "relative w-full overflow-hidden bg-[var(--plotty-paper)]",
             fullHeight ? "h-full min-h-[18rem]" : "",
             imageClassName,
-            compact ? "p-4" : "p-5 sm:p-6",
           )}
           style={fullHeight ? undefined : { aspectRatio: fallbackAspectRatio }}
         >
-          <div className={cn("max-w-[17rem] space-y-2.5", compact ? "max-md:space-y-0" : "")}>
-            <div className="plotty-kicker">Plotty story</div>
-            <div
-              className={cn(
-                "plotty-section-title text-[var(--plotty-ink)]",
-                compact ? "max-w-[13rem] text-[1.05rem] max-md:hidden" : "max-w-[18rem]",
-              )}
-            >
-              {title}
-            </div>
-            <p className={cn("text-sm leading-6 text-[var(--plotty-muted)]", compact ? "max-w-[13rem] max-md:hidden" : "max-w-[16rem]")}>
-              Обложка появится, когда у первой главы будет иллюстрация.
-            </p>
-          </div>
+          <Image
+            src={storyCoverPlaceholderSrc}
+            alt={`Обложка появится позже для истории «${title}»`}
+            fill
+            sizes="100vw"
+            unoptimized
+            priority
+            className="object-cover"
+          />
           {isLoading ? <CoverLoadingIndicator /> : null}
         </div>
       )}

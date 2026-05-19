@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, FormEvent, HTMLAttributes, ReactNode } from "react";
+import type { CSSProperties, FormEvent, HTMLAttributes, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { createContext, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
@@ -17,7 +17,6 @@ import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
 import { Card, type SurfaceVariant } from "@/shared/ui/card";
-import { iconButtonClassName, IconButton } from "@/shared/ui/icon-button";
 import { Input } from "@/shared/ui/input";
 import { Sheet } from "@/shared/ui/sheet";
 import { AuthStatus } from "@/widgets/auth/auth-status";
@@ -27,6 +26,18 @@ export const plottyPrimaryNavItems = [
   { href: routes.write, label: "Мастерская" },
   { href: routes.library, label: "Моя полка" },
 ] as const;
+
+type PrimaryNavItem = (typeof plottyPrimaryNavItems)[number];
+type PrimaryNavHref = PrimaryNavItem["href"];
+type HeaderNavKey = PrimaryNavHref | "profile";
+type BottomNavKey = "catalog" | "library" | "write" | "profile";
+type BottomNavItem = {
+  key: BottomNavKey;
+  href: string;
+  label: string;
+  icon: typeof BookOpen;
+  active: boolean;
+};
 
 const navIndicatorLastActiveKeys = new Map<string, string>();
 const hiddenNavIndicatorStyle: CSSProperties = {
@@ -46,6 +57,68 @@ function isPrimaryNavItemActive(pathname: string, href: string) {
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function shouldHandlePrimaryNavClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+  const target = event.currentTarget.getAttribute("target");
+
+  return (
+    event.button === 0 &&
+    !event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    (!target || target === "_self")
+  );
+}
+
+function useOptimisticPrimaryNav(pathname: string, actualActiveHref: PrimaryNavHref | null) {
+  const router = useRouter();
+  const [pendingNav, setPendingNav] = useState<{ href: PrimaryNavHref; fromPathname: string } | null>(null);
+
+  useEffect(() => {
+    if (!pendingNav) {
+      return;
+    }
+
+    if (isPrimaryNavItemActive(pathname, pendingNav.href) || pathname !== pendingNav.fromPathname) {
+      setPendingNav(null);
+    }
+  }, [pathname, pendingNav]);
+
+  useEffect(() => {
+    if (!pendingNav) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPendingNav((current) => (current === pendingNav ? null : current));
+    }, 8000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [pendingNav]);
+
+  const handlePrimaryNavClick = useCallback(
+    (href: PrimaryNavHref, event: ReactMouseEvent<HTMLAnchorElement>) => {
+      if (!shouldHandlePrimaryNavClick(event)) {
+        return;
+      }
+
+      if (isPrimaryNavItemActive(pathname, href)) {
+        return;
+      }
+
+      event.preventDefault();
+      setPendingNav({ href, fromPathname: pathname });
+      router.push(href);
+    },
+    [pathname, router],
+  );
+
+  return {
+    activePrimaryNavHref: pendingNav?.href ?? actualActiveHref,
+    handlePrimaryNavClick,
+  };
 }
 
 function getNavItemMeasurement(container: HTMLElement | null, item: HTMLElement | null): NavIndicatorMeasurement | null {
@@ -231,12 +304,8 @@ type PlottyPageShellProps = {
   desktopHeaderActions?: ReactNode;
   mobileHeaderActions?: ReactNode;
   mobileToolbar?: ReactNode;
-  showMobileBack?: boolean;
-  mobileBackHref?: string;
   contentClassName?: string;
   showBottomNav?: boolean;
-  menuContent?: (options: { closeMenu: () => void }) => ReactNode;
-  onMenuOpenChange?: (open: boolean) => void;
   suppressPageIntro?: boolean;
   className?: string;
 };
@@ -263,6 +332,36 @@ function DefaultDesktopActions({
   );
 }
 
+function DesktopPrimaryNavLink({
+  item,
+  isActive,
+  isCurrent,
+  onNavigate,
+  setItemRef,
+}: {
+  item: PrimaryNavItem;
+  isActive: boolean;
+  isCurrent: boolean;
+  onNavigate: (href: PrimaryNavHref, event: ReactMouseEvent<HTMLAnchorElement>) => void;
+  setItemRef: (key: HeaderNavKey, node: HTMLAnchorElement | null) => void;
+}) {
+  return (
+    <Link
+      ref={(node) => setItemRef(item.href, node)}
+      href={item.href}
+      aria-current={isCurrent ? "page" : undefined}
+      onClick={(event) => onNavigate(item.href, event)}
+      className={cn(
+        "plotty-nav-link plotty-button-label relative z-10 flex min-h-[86px] items-center px-4 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+        "whitespace-nowrap",
+        isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
+      )}
+    >
+      <span>{item.label}</span>
+    </Link>
+  );
+}
+
 export function PlottyPageShell(props: PlottyPageShellProps) {
   const isInsidePersistentChrome = useContext(PlottyChromeContext);
 
@@ -282,31 +381,27 @@ function PlottyPageShellFallback({
   desktopHeaderActions,
   mobileHeaderActions,
   mobileToolbar,
-  showMobileBack = false,
-  mobileBackHref,
   contentClassName,
   showBottomNav = true,
-  menuContent,
-  onMenuOpenChange,
   suppressPageIntro = false,
   className,
 }: PlottyPageShellProps) {
   const pathname = usePathname();
   const { user, isAuthenticated } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const activePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const actualActivePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const { activePrimaryNavHref, handlePrimaryNavClick } = useOptimisticPrimaryNav(
+    pathname,
+    actualActivePrimaryNavHref,
+  );
   const profileHref = isAuthenticated && user?.username ? routes.user(user.username) : null;
   const isProfileActive = Boolean(profileHref && (pathname === profileHref || pathname.startsWith(`${profileHref}/`)));
-  const activeHeaderNavKey = desktopHeaderActions === undefined && isProfileActive ? "profile" : activePrimaryNavHref;
+  const activeHeaderNavKey: HeaderNavKey | null =
+    activePrimaryNavHref ?? (desktopHeaderActions === undefined && isProfileActive ? "profile" : null);
   const {
     containerRef: primaryNavRef,
     indicatorStyle: primaryNavIndicatorStyle,
     setItemRef: setPrimaryNavItemRef,
   } = useSlidingNavIndicator("desktop-primary", activeHeaderNavKey);
-
-  useEffect(() => {
-    onMenuOpenChange?.(isMobileMenuOpen);
-  }, [isMobileMenuOpen, onMenuOpenChange]);
 
   const desktopActions =
     desktopHeaderActions !== undefined ? (
@@ -323,8 +418,6 @@ function PlottyPageShellFallback({
         className,
       )}
     >
-      {showMobileBack ? <PlottyMobileBackButton mobileBackHref={mobileBackHref} /> : null}
-
       <section className="plotty-frame">
         <header className="plotty-header sticky top-0 z-40">
           <div className="plotty-frame-inner">
@@ -340,22 +433,18 @@ function PlottyPageShellFallback({
 
               <nav className="relative hidden shrink-0 items-stretch gap-1 lg:flex" aria-label="Основная навигация">
                 {plottyPrimaryNavItems.map((item) => {
-                  const isActive = isPrimaryNavItemActive(pathname, item.href);
+                  const isCurrent = isPrimaryNavItemActive(pathname, item.href);
+                  const isActive = activePrimaryNavHref === item.href;
 
                   return (
-                    <Link
+                    <DesktopPrimaryNavLink
                       key={item.href}
-                      ref={(node) => setPrimaryNavItemRef(item.href, node)}
-                      href={item.href}
-                      aria-current={isActive ? "page" : undefined}
-                      className={cn(
-                        "plotty-nav-link plotty-button-label relative z-10 flex min-h-[86px] items-center px-4 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
-                        "whitespace-nowrap",
-                        isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
-                      )}
-                    >
-                      {item.label}
-                    </Link>
+                      item={item}
+                      isActive={isActive}
+                      isCurrent={isCurrent}
+                      onNavigate={handlePrimaryNavClick}
+                      setItemRef={setPrimaryNavItemRef}
+                    />
                   );
                 })}
               </nav>
@@ -399,11 +488,6 @@ function PlottyPageShellFallback({
           {children}
         </div>
 
-        {menuContent ? (
-          <PlottyMobileSheet open={isMobileMenuOpen} title="Меню" onClose={() => setIsMobileMenuOpen(false)}>
-            {menuContent({ closeMenu: () => setIsMobileMenuOpen(false) })}
-          </PlottyMobileSheet>
-        ) : null}
       </section>
 
       {showBottomNav ? <PlottyBottomNav /> : null}
@@ -435,11 +519,16 @@ function PersistentPlottyHeader({
   showDesktopActions: boolean;
 }) {
   const pathname = usePathname();
-  const activePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const actualActivePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const { activePrimaryNavHref, handlePrimaryNavClick } = useOptimisticPrimaryNav(
+    pathname,
+    actualActivePrimaryNavHref,
+  );
   const { user, isAuthenticated } = useAuth();
   const profileHref = isAuthenticated && user?.username ? routes.user(user.username) : null;
   const isProfileActive = Boolean(profileHref && (pathname === profileHref || pathname.startsWith(`${profileHref}/`)));
-  const activeHeaderNavKey = showDesktopActions && isProfileActive ? "profile" : activePrimaryNavHref;
+  const activeHeaderNavKey: HeaderNavKey | null =
+    activePrimaryNavHref ?? (showDesktopActions && isProfileActive ? "profile" : null);
   const {
     containerRef: primaryNavRef,
     indicatorStyle: primaryNavIndicatorStyle,
@@ -461,22 +550,18 @@ function PersistentPlottyHeader({
 
           <nav className="relative hidden shrink-0 items-stretch gap-1 lg:flex" aria-label="Primary navigation">
             {plottyPrimaryNavItems.map((item) => {
-              const isActive = isPrimaryNavItemActive(pathname, item.href);
+              const isCurrent = isPrimaryNavItemActive(pathname, item.href);
+              const isActive = activePrimaryNavHref === item.href;
 
               return (
-                <Link
+                <DesktopPrimaryNavLink
                   key={item.href}
-                  ref={(node) => setPrimaryNavItemRef(item.href, node)}
-                  href={item.href}
-                  aria-current={isActive ? "page" : undefined}
-                  className={cn(
-                  "plotty-nav-link plotty-button-label relative z-10 flex min-h-[86px] items-center px-4 text-[var(--plotty-ink)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
-                    "whitespace-nowrap",
-                    isActive ? "text-[var(--plotty-accent)]" : "hover:text-[var(--plotty-accent)]",
-                  )}
-                >
-                  {item.label}
-                </Link>
+                  item={item}
+                  isActive={isActive}
+                  isCurrent={isCurrent}
+                  onNavigate={handlePrimaryNavClick}
+                  setItemRef={setPrimaryNavItemRef}
+                />
               );
             })}
           </nav>
@@ -502,8 +587,6 @@ function PlottyPageContent({
   pageMeta,
   pageActions,
   mobileToolbar,
-  showMobileBack = false,
-  mobileBackHref,
   contentClassName,
   suppressPageIntro = false,
 }: PlottyPageShellProps) {
@@ -511,8 +594,6 @@ function PlottyPageContent({
 
   return (
     <>
-      {showMobileBack ? <PlottyMobileBackButton mobileBackHref={mobileBackHref} /> : null}
-
       <div key={pathname} className={cn("plotty-frame-inner plotty-page-enter pb-6 pt-4 lg:pb-10 lg:pt-8", contentClassName)}>
         {mobileToolbar ? <div className="mb-5 border-b border-[var(--plotty-line)] pb-4 lg:hidden">{mobileToolbar}</div> : null}
 
@@ -534,33 +615,6 @@ function PlottyPageContent({
         {children}
       </div>
     </>
-  );
-}
-
-function PlottyMobileBackButton({ mobileBackHref }: { mobileBackHref?: string }) {
-  const router = useRouter();
-  const className = "hidden";
-
-  if (mobileBackHref) {
-    return (
-      <Link
-        href={mobileBackHref}
-        aria-label="Назад"
-        className={iconButtonClassName({
-          size: "md",
-          variant: "secondary",
-          className,
-        })}
-      >
-        <span aria-hidden="true">←</span>
-      </Link>
-    );
-  }
-
-  return (
-    <IconButton aria-label="Назад" onClick={() => router.back()} className={className}>
-      <span aria-hidden="true">←</span>
-    </IconButton>
   );
 }
 
@@ -667,40 +721,6 @@ export function PlottySectionCard({
   );
 }
 
-export function PlottyAppMenu({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname();
-
-  return (
-    <div className="space-y-4">
-      <nav className="grid gap-2" aria-label="Мобильная навигация">
-        {plottyPrimaryNavItems.map((item) => {
-          const isActive = isPrimaryNavItemActive(pathname, item.href);
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "rounded-[var(--plotty-radius-md)] border px-4 py-3 text-sm font-semibold transition-[background-color,border-color,color,transform,box-shadow] duration-[var(--motion-base)] hover:-translate-y-0.5 hover:border-[rgba(195,79,50,0.22)] hover:bg-[var(--plotty-paper-strong)] hover:text-[var(--plotty-ink)] hover:shadow-[var(--plotty-shadow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
-                isActive
-                  ? "border-transparent bg-[var(--plotty-accent)] !text-white visited:!text-white"
-                  : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.8)] text-[var(--plotty-muted)]",
-              )}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <Suspense fallback={<span className="plotty-meta">Проверяем сессию...</span>}>
-        <AuthStatus variant="menu" />
-      </Suspense>
-    </div>
-  );
-}
-
 export function PlottyMobileSheet({
   open,
   title,
@@ -720,14 +740,16 @@ export function PlottyMobileSheet({
 }
 
 function PlottyBottomNav() {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useOptionalSearchParams();
   const { user, isAuthenticated } = useAuth();
+  const [pendingBottomNav, setPendingBottomNav] = useState<{ key: BottomNavKey; fromPathname: string } | null>(null);
   const currentUrl = buildNextUrl(pathname, new URLSearchParams(searchParams));
   const profileHref = isAuthenticated && user?.username ? routes.user(user.username) : routes.auth({ next: currentUrl });
   const libraryHref = isAuthenticated ? routes.library : routes.auth({ next: routes.library });
   const writeHref = isAuthenticated ? routes.write : routes.auth({ next: routes.write });
-  const items = useMemo(
+  const items = useMemo<BottomNavItem[]>(
     () => [
       { key: "catalog", href: routes.home, label: "Каталог", icon: BookOpen, active: pathname === routes.home },
       { key: "library", href: libraryHref, label: "Моя полка", icon: Library, active: pathname.startsWith(routes.library) },
@@ -736,7 +758,47 @@ function PlottyBottomNav() {
     ],
     [libraryHref, pathname, profileHref, writeHref],
   );
-  const activeBottomNavKey = items.find((item) => item.active)?.key ?? null;
+  const actualActiveBottomNavKey = items.find((item) => item.active)?.key ?? null;
+  const activeBottomNavKey = pendingBottomNav?.key ?? actualActiveBottomNavKey;
+
+  useEffect(() => {
+    if (!pendingBottomNav) {
+      return;
+    }
+
+    if (actualActiveBottomNavKey === pendingBottomNav.key || pathname !== pendingBottomNav.fromPathname) {
+      setPendingBottomNav(null);
+    }
+  }, [actualActiveBottomNavKey, pathname, pendingBottomNav]);
+
+  useEffect(() => {
+    if (!pendingBottomNav) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPendingBottomNav((current) => (current === pendingBottomNav ? null : current));
+    }, 8000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [pendingBottomNav]);
+
+  const handleBottomNavClick = useCallback(
+    (item: BottomNavItem, event: ReactMouseEvent<HTMLAnchorElement>) => {
+      if (!shouldHandlePrimaryNavClick(event)) {
+        return;
+      }
+
+      if (item.key === activeBottomNavKey) {
+        return;
+      }
+
+      event.preventDefault();
+      setPendingBottomNav({ key: item.key, fromPathname: pathname });
+      router.push(item.href);
+    },
+    [activeBottomNavKey, pathname, router],
+  );
   const {
     containerRef: bottomNavRef,
     indicatorStyle: bottomNavIndicatorStyle,
@@ -752,16 +814,18 @@ function PlottyBottomNav() {
       <div ref={bottomNavRef} className="relative grid grid-cols-4 gap-1">
         {items.map((item) => {
           const Icon = item.icon;
+          const isActive = item.key === activeBottomNavKey;
 
           return (
             <Link
               key={item.key}
               ref={(node) => setBottomNavItemRef(item.key, node)}
               href={item.href}
-              aria-current={item.active ? "page" : undefined}
+              aria-current={isActive ? "page" : undefined}
+              onClick={(event) => handleBottomNavClick(item, event)}
               className={cn(
                 "relative z-10 flex min-h-[3.6rem] flex-col items-center justify-center gap-1 rounded-[16px] px-1 text-[11px] font-semibold transition-[background-color,color,transform] duration-[var(--motion-base)] hover:-translate-y-0.5 hover:bg-[rgba(195,79,50,0.08)] hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
-                item.active
+                isActive
                   ? "text-[var(--plotty-accent)] [&_span]:text-[var(--plotty-accent)] [&_svg]:text-[var(--plotty-accent)]"
                   : "text-[var(--plotty-muted)]",
               )}

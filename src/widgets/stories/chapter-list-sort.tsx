@@ -97,7 +97,6 @@ export function ChapterSortButton({
       onClick={onToggle}
     >
       <ArrowDownUp className="size-4" aria-hidden="true" />
-      <span>{currentDirectionLabel}</span>
     </Button>
   );
 }

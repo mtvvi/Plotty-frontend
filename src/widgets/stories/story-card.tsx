@@ -17,7 +17,7 @@ import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { StoryRevealButtonLink } from "@/shared/ui/story-reveal-transition";
 
-import { StoryCoverPreview } from "./story-cover-preview";
+import { StoryCoverPreview, storyCoverPlaceholderSrc } from "./story-cover-preview";
 import { StoryCollectionControl } from "./story-collection-control";
 import { getStoryTagTone, StoryTagLinkChip } from "./story-tag-link";
 import { StoryShelfControl } from "./story-shelf-control";
@@ -54,6 +54,7 @@ export function StoryCard({
     refetchOnWindowFocus: false,
   });
   const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
+  const revealCoverImage = displayCoverImage ?? storyCoverPlaceholderSrc;
   const isCoverLoading = Boolean(!story.coverImageUrl && (storyDetailsQuery.isLoading || firstChapterQuery.isLoading));
   const chaptersHref = `${routes.story(story.slug)}?tab=chapters`;
   const chaptersViewedQuery = useQuery({
@@ -188,7 +189,7 @@ export function StoryCard({
                 className="w-full"
                 aria-label="Читать историю"
                 revealTitle={story.title}
-                revealCoverUrl={displayCoverImage}
+                revealCoverUrl={revealCoverImage}
               >
                 <BookOpen className="size-4" aria-hidden="true" />
                 Читать
@@ -239,7 +240,7 @@ export function StoryCard({
             variant="primary"
             className="min-w-0 w-full"
             revealTitle={story.title}
-            revealCoverUrl={displayCoverImage}
+            revealCoverUrl={revealCoverImage}
           >
             <BookOpen className="size-4" aria-hidden="true" />
             Читать

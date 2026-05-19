@@ -25,7 +25,7 @@ import { Card, Surface } from "@/shared/ui/card";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { AnimatedList, AnimatedTabPanel, AsyncJobStatus } from "@/shared/ui/motion";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
-import { PlottyAppMenu, PlottyPageShell } from "@/widgets/layout/plotty-page-shell";
+import { PlottyPageShell } from "@/widgets/layout/plotty-page-shell";
 
 type CreditsTab = "packages" | "transactions";
 
@@ -112,7 +112,6 @@ export function CreditsScreen() {
           Обновить
         </Button>
       }
-      menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       <div className="space-y-6">
         <BalanceSummary balance={balance} isLoading={balanceQuery.isLoading} />

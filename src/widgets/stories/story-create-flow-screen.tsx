@@ -150,7 +150,7 @@ export function StoryCreateFlowScreen() {
 
   if (createdStory) {
     return (
-      <PlottyShell title="Первая глава" description="История сохранена. Добавьте стартовую главу и откройте редактор." mobileBackHref={routes.write}>
+      <PlottyShell title="Первая глава" description="История сохранена. Добавьте стартовую главу и откройте редактор.">
         <ShellCard title={createdStory.title}>
           <div className="grid gap-5">
             <Field>
@@ -193,7 +193,7 @@ export function StoryCreateFlowScreen() {
   }
 
   return (
-    <PlottyShell title="Создание истории" description="" mobileBackHref={routes.write}>
+    <PlottyShell title="Создание истории" description="">
       <div className="space-y-4 lg:space-y-5">
         <ShellCard className="space-y-4">
           <div className="grid gap-2 sm:grid-cols-3">

@@ -9,6 +9,16 @@ export type AvatarCropOptions = {
   scale: number;
 };
 
+export type AvatarDragOptions = {
+  currentOffsetX: number;
+  currentOffsetY: number;
+  deltaX: number;
+  deltaY: number;
+  frameSize: number;
+  maxOffsetX: number;
+  maxOffsetY: number;
+};
+
 export function getAvatarCropGeometry(
   imageSize: AvatarImageSize,
   options: AvatarCropOptions,
@@ -41,6 +51,25 @@ export function getAvatarCropGeometry(
 
 export function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+export function getAvatarDragOffsets({
+  currentOffsetX,
+  currentOffsetY,
+  deltaX,
+  deltaY,
+  frameSize,
+  maxOffsetX,
+  maxOffsetY,
+}: AvatarDragOptions) {
+  const safeFrameSize = Math.max(1, frameSize);
+  const offsetDeltaX = (deltaX / safeFrameSize) * 100;
+  const offsetDeltaY = (deltaY / safeFrameSize) * 100;
+
+  return {
+    offsetX: normalizeZero(clampNumber(currentOffsetX + offsetDeltaX, -maxOffsetX, maxOffsetX)),
+    offsetY: normalizeZero(clampNumber(currentOffsetY + offsetDeltaY, -maxOffsetY, maxOffsetY)),
+  };
 }
 
 function normalizeZero(value: number) {

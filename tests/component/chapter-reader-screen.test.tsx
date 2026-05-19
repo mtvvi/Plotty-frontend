@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 
+import { server } from "@/mocks/server";
 import { ChapterReaderScreen } from "@/widgets/stories/chapter-reader-screen";
 
 vi.mock("next/navigation", () => ({
@@ -29,5 +31,16 @@ describe("ChapterReaderScreen", () => {
     await waitFor(() => expect(screen.getByText("Комментарии к главе")).toBeInTheDocument());
 
     expect(screen.getByText(/Очень хорошо держится ритм/i)).toHaveClass("break-words", "whitespace-pre-wrap");
+  });
+
+  it("shows a retryable comments error instead of the empty comments state", async () => {
+    server.use(http.get("*/chapters/:chapterId/comments", () => HttpResponse.json({ error: "comments unavailable" }, { status: 500 })));
+
+    renderChapterReader();
+
+    await waitFor(() => expect(screen.getByText("Комментарии недоступны")).toBeInTheDocument());
+
+    expect(screen.queryByText("Комментариев пока нет")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
   });
 });

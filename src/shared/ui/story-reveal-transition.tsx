@@ -14,7 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import Link, { type LinkProps } from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { buttonClassName, type ButtonSize, type ButtonVariant } from "@/shared/ui/button";
 
@@ -30,6 +30,8 @@ type StoryRevealContextValue = {
 
 const StoryRevealContext = createContext<StoryRevealContextValue | null>(null);
 const revealDurationMs = 760;
+const revealCleanupDelayMs = revealDurationMs + 180;
+const revealFallbackCleanupDelayMs = 6_000;
 
 function usePrefersReducedMotion() {
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -53,28 +55,49 @@ function usePrefersReducedMotion() {
 
 export function StoryRevealProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const reducedMotion = usePrefersReducedMotion();
   const [activeReveal, setActiveReveal] = useState<RevealRequest | null>(null);
-  const navigationTimerRef = useRef<number | null>(null);
-  const cleanupTimerRef = useRef<number | null>(null);
+  const [revealTargetPathname, setRevealTargetPathname] = useState<string | null>(null);
+  const [revealMinimumElapsed, setRevealMinimumElapsed] = useState(false);
+  const minimumTimerRef = useRef<number | null>(null);
+  const fallbackTimerRef = useRef<number | null>(null);
 
   const clearTimers = useCallback(() => {
-    if (navigationTimerRef.current !== null) {
-      window.clearTimeout(navigationTimerRef.current);
-      navigationTimerRef.current = null;
+    if (minimumTimerRef.current !== null) {
+      window.clearTimeout(minimumTimerRef.current);
+      minimumTimerRef.current = null;
     }
 
-    if (cleanupTimerRef.current !== null) {
-      window.clearTimeout(cleanupTimerRef.current);
-      cleanupTimerRef.current = null;
+    if (fallbackTimerRef.current !== null) {
+      window.clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
     }
   }, []);
 
   useEffect(() => clearTimers, [clearTimers]);
 
+  const finishReveal = useCallback(() => {
+    clearTimers();
+    setActiveReveal(null);
+    setRevealTargetPathname(null);
+    setRevealMinimumElapsed(false);
+  }, [clearTimers]);
+
+  useEffect(() => {
+    if (!activeReveal || !revealMinimumElapsed || !revealTargetPathname) {
+      return;
+    }
+
+    if (pathname === revealTargetPathname) {
+      finishReveal();
+    }
+  }, [activeReveal, finishReveal, pathname, revealMinimumElapsed, revealTargetPathname]);
+
   const startReveal = useCallback(
     (request: RevealRequest) => {
       clearTimers();
+      setRevealMinimumElapsed(false);
 
       if (reducedMotion) {
         router.push(request.href);
@@ -82,12 +105,12 @@ export function StoryRevealProvider({ children }: { children: ReactNode }) {
       }
 
       setActiveReveal(request);
-      navigationTimerRef.current = window.setTimeout(() => {
-        router.push(request.href);
-        cleanupTimerRef.current = window.setTimeout(() => setActiveReveal(null), 180);
-      }, revealDurationMs);
+      setRevealTargetPathname(resolveRevealPathname(request.href));
+      router.push(request.href);
+      minimumTimerRef.current = window.setTimeout(() => setRevealMinimumElapsed(true), revealCleanupDelayMs);
+      fallbackTimerRef.current = window.setTimeout(finishReveal, revealFallbackCleanupDelayMs);
     },
-    [clearTimers, reducedMotion, router],
+    [clearTimers, finishReveal, reducedMotion, router],
   );
 
   const value = useMemo(() => ({ startReveal }), [startReveal]);
@@ -98,6 +121,14 @@ export function StoryRevealProvider({ children }: { children: ReactNode }) {
       {activeReveal ? <StoryRevealOverlay reveal={activeReveal} /> : null}
     </StoryRevealContext.Provider>
   );
+}
+
+function resolveRevealPathname(href: string) {
+  try {
+    return new URL(href, window.location.href).pathname;
+  } catch {
+    return href.split(/[?#]/, 1)[0] || "/";
+  }
 }
 
 function StoryRevealOverlay({ reveal }: { reveal: RevealRequest }) {

@@ -403,6 +403,13 @@ export function ChapterReaderScreen({
                 <div className="h-28 rounded-[20px] bg-white/50" />
                 <div className="h-28 rounded-[20px] bg-white/50" />
               </div>
+            ) : commentsQuery.isError ? (
+              <EmptyState
+                title="Комментарии недоступны"
+                description="Не удалось загрузить обсуждение этой главы."
+                actionLabel="Повторить"
+                onAction={() => void commentsQuery.refetch()}
+              />
             ) : commentsQuery.data?.items.length ? (
               <div className="space-y-3">
                 {commentsQuery.data.items.map((comment) => (

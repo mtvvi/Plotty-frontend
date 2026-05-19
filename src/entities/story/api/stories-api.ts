@@ -124,7 +124,11 @@ export const storyKeys = {
   chapterViewed: (chapterId: string) => ["stories", "chapter-viewed", chapterId] as const,
   chapterWiki: (chapterId: string) => ["stories", "chapter-wiki", chapterId] as const,
   chapterEditor: (storyId: string, chapterId: string) => ["stories", "chapter-editor", storyId, chapterId] as const,
-  aiJob: (jobId: string) => ["stories", "ai-job", jobId] as const,
+};
+
+export const aiKeys = {
+  all: ["ai"] as const,
+  job: (jobId: string) => ["ai", "job", jobId] as const,
 };
 
 function countWords(content: string) {
@@ -411,7 +415,7 @@ export function chapterEditorDetailsQueryOptions(storyId: string, chapterId: str
 
 export function aiJobQueryOptions<TResult>(jobId: string) {
   return queryOptions({
-    queryKey: storyKeys.aiJob(jobId),
+    queryKey: aiKeys.job(jobId),
     queryFn: async () => {
       const response = await fetchJson<AiJobResponse<TResult>>(`/ai/jobs/${jobId}`);
 

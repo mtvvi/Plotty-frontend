@@ -6,6 +6,7 @@ import { AuthProvider } from "@/entities/auth/model/auth-context";
 import { loginMockUser } from "@/mocks/data/auth";
 import { listStories } from "@/mocks/data/stories";
 import { StoryCard } from "@/widgets/stories/story-card";
+import { storyCoverPlaceholderSrc } from "@/widgets/stories/story-cover-preview";
 
 const push = vi.fn();
 
@@ -45,7 +46,10 @@ describe("StoryCard", () => {
     );
     expect(screen.getByText(`Автор ${story.author?.username}`)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: `Открыть историю ${story.title}` })).toBeInTheDocument();
-    expect(screen.getByText(/Обложка появится, когда у первой главы будет иллюстрация/i)).toBeInTheDocument();
+    expect(screen.getByAltText(`Обложка появится позже для истории «${story.title}»`)).toHaveAttribute(
+      "src",
+      storyCoverPlaceholderSrc,
+    );
     expect(screen.getByLabelText("Действия карточки")).toBeInTheDocument();
     expect(screen.queryByText(/\+\d+/)).not.toBeInTheDocument();
   });
@@ -77,12 +81,14 @@ describe("StoryCard", () => {
   });
 
   it("renders a placeholder cover from list data instead of fetching chapter imagery", () => {
-    renderStoryCard();
+    const story = renderStoryCard();
+    const placeholder = screen.getByAltText(`Обложка появится позже для истории «${story.title}»`);
 
-    expect(screen.getByText(/Обложка появится, когда у первой главы будет иллюстрация/i)).toBeInTheDocument();
-    expect(screen.getByText(/Обложка появится, когда у первой главы будет иллюстрация/i).closest('[data-cover-frame="true"]')).toHaveClass(
+    expect(placeholder).toHaveAttribute("src", storyCoverPlaceholderSrc);
+    expect(placeholder.closest('[data-cover-frame="true"]')).toHaveClass(
       "h-full",
       "min-h-[18rem]",
     );
+    expect(placeholder).toHaveClass("object-cover");
   });
 });

@@ -13,7 +13,7 @@ import { EmptyState } from "@/shared/ui/empty-state";
 import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { RequireAuth } from "@/widgets/auth/require-auth";
-import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
+import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
 
 type LibraryTab = "all" | ReaderShelf;
@@ -38,7 +38,6 @@ function ReaderLibraryContent() {
   return (
     <PlottyPageShell
       pageTitle="Моя полка"
-      menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       <div className="space-y-5">
         <SegmentedControl className="w-full !grid grid-cols-3 items-stretch sm:grid-cols-6">
@@ -73,6 +72,13 @@ function ReaderLibraryContent() {
                 <div className="h-44 rounded-[22px] bg-white/50" />
                 <div className="h-44 rounded-[22px] bg-white/50" />
               </div>
+            ) : shelfQuery.isError ? (
+              <EmptyState
+                title="Полка недоступна"
+                description="Не удалось загрузить сохранённые статусы чтения."
+                actionLabel="Повторить"
+                onAction={() => void shelfQuery.refetch()}
+              />
             ) : visibleEntries.length ? (
               <AnimatedList
                 items={visibleEntries}

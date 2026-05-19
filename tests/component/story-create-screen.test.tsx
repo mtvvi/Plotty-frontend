@@ -9,6 +9,29 @@ import { StoryCreateScreen } from "@/widgets/stories/story-create-screen";
 
 const push = vi.fn();
 let currentSearchParams = new URLSearchParams();
+const emeraldWolfChapters = [
+  {
+    id: "chapter-1",
+    number: 1,
+    title: "Глава первая",
+    updatedAt: "2026-04-25T10:00:00.000Z",
+    status: "published",
+  },
+  {
+    id: "chapter-2",
+    number: 2,
+    title: "Глава вторая",
+    updatedAt: "2026-04-25T11:00:00.000Z",
+    status: "published",
+  },
+  {
+    id: "chapter-3",
+    number: 3,
+    title: "Глава третья",
+    updatedAt: "2026-04-25T12:00:00.000Z",
+    status: "draft",
+  },
+];
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
@@ -47,7 +70,7 @@ vi.mock("@/entities/story/api/stories-api", async () => {
             slug: "emerald-wolf",
             title: "Изумрудная волчица",
             tags: [],
-            chaptersCount: 1,
+            chaptersCount: emeraldWolfChapters.length,
             status: "draft",
             coverImageUrl: null,
             createdAt: "2026-04-25T10:00:00.000Z",
@@ -76,10 +99,10 @@ vi.mock("@/entities/story/api/stories-api", async () => {
         slug,
         title: slug === "silent-rain" ? "Тихий дождь" : "Изумрудная волчица",
         tags: [],
-        chapters: [],
-        chaptersCount: 0,
+        chapters: slug === "silent-rain" ? [] : emeraldWolfChapters,
+        chaptersCount: slug === "silent-rain" ? 0 : emeraldWolfChapters.length,
         status: "draft",
-        coverImageUrl: null,
+        coverImageUrl: slug === "silent-rain" ? null : "/cover.png",
         createdAt: "2026-04-25T10:00:00.000Z",
         updatedAt: "2026-04-25T10:00:00.000Z",
       }),
@@ -175,6 +198,24 @@ describe("StoryCreateScreen sidebar", () => {
     expect(screen.getAllByRole("link", { name: "Редактировать теги" })[0]).toHaveAttribute(
       "href",
       "/write/stories/story-emerald-wolf/settings",
+    );
+  });
+
+  it("sorts chapters from the workshop chapter list", async () => {
+    const user = userEvent.setup();
+    const { container } = renderStoryCreateScreen();
+
+    await screen.findByText("Главы истории");
+    const chapterList = container.querySelector(".plotty-workshop-chapter-list");
+
+    expect(chapterList?.textContent?.indexOf("1. Глава первая")).toBeLessThan(
+      chapterList?.textContent?.indexOf("3. Глава третья") ?? -1,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Порядок глав/ }));
+
+    expect(chapterList?.textContent?.indexOf("3. Глава третья")).toBeLessThan(
+      chapterList?.textContent?.indexOf("1. Глава первая") ?? -1,
     );
   });
 });

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ListFilter, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListFilter, LoaderCircle, Search, SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { storiesQueryOptions, storyTagsQueryOptions } from "@/entities/story/api/stories-api";
@@ -18,7 +18,7 @@ import { IconButton } from "@/shared/ui/icon-button";
 import { Input } from "@/shared/ui/input";
 import { AnimatedList } from "@/shared/ui/motion";
 import { PopoverContent, usePopover } from "@/shared/ui/popover";
-import { PlottyAppMenu, PlottyMobileSheet, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
+import { PlottyMobileSheet, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCard } from "./story-card";
 import { StoryTagChip } from "./story-tag-chip";
@@ -31,9 +31,9 @@ type CatalogSort = StoriesSort | "popular-desc";
 type FilterMotionState = "expanded" | "collapsing" | "collapsed";
 
 const sortOptions: Array<{ value: CatalogSort; label: string }> = [
+  { value: "popular-desc", label: "Популярное" },
   { value: "updated-desc", label: "Сначала новые" },
   { value: "updated-asc", label: "Сначала старые" },
-  { value: "popular-desc", label: "Популярное" },
   { value: "title-asc", label: "Название А-Я" },
   { value: "title-desc", label: "Название Я-А" },
 ];
@@ -57,7 +57,6 @@ export function StoriesCatalogShell() {
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [filterMotionState, setFilterMotionState] = useState<FilterMotionState>("expanded");
-  const [, setIsMobileMenuOpen] = useState(false);
   const lastRequestedSearchRef = useRef(appliedQuery.q);
   const filterCollapseTimeoutRef = useRef<number | null>(null);
   const filtersAreHiding = filterMotionState === "collapsing";
@@ -229,8 +228,6 @@ export function StoriesCatalogShell() {
     <PlottyPageShell
       pageTitle={<span aria-label="Каталог историй и глав">Каталог историй</span>}
       pageDescription="Откройте миры, написанные сердцем."
-      onMenuOpenChange={setIsMobileMenuOpen}
-      menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       pageActions={
         <div className="hidden min-w-0 items-center gap-3 lg:mt-3 lg:flex">
           <CatalogSortSelect value={currentSort} onChange={handleSortChange} ariaLabel="Сортировка каталога" />
@@ -305,7 +302,7 @@ export function StoriesCatalogShell() {
           </div>
 
           {hasInitialLoading ? (
-            <CatalogStoriesSkeleton />
+            <CatalogInitialLoading />
           ) : storiesQuery.isError ? (
             <EmptyState
               title="Не удалось загрузить истории"
@@ -583,37 +580,22 @@ function ActiveFilter({ label, onClear }: { label: string; onClear: () => void }
   );
 }
 
-function CatalogStoriesSkeleton() {
+function CatalogInitialLoading() {
   return (
-    <div className="space-y-4" role="status" aria-live="polite" aria-label="Загружаем истории">
-      <span className="sr-only">Загружаем истории...</span>
-      {Array.from({ length: 3 }).map((_, index) => (
-        <Surface
-          key={index}
-          variant="panel"
-          className="grid animate-pulse gap-4 overflow-hidden p-0 md:grid-cols-[minmax(12rem,18rem)_minmax(0,1fr)_10rem]"
-        >
-          <div className="aspect-video bg-white/60 md:aspect-auto md:min-h-[13rem]" />
-          <div className="space-y-3 p-4 md:p-5">
-            <div className="h-6 w-3/4 rounded-full bg-white/70" />
-            <div className="h-4 w-1/2 rounded-full bg-white/60" />
-            <div className="space-y-2 pt-2">
-              <div className="h-3 w-full rounded-full bg-white/55" />
-              <div className="h-3 w-5/6 rounded-full bg-white/55" />
-            </div>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <div className="h-8 w-20 rounded-[var(--plotty-radius-sm)] bg-white/60" />
-              <div className="h-8 w-24 rounded-[var(--plotty-radius-sm)] bg-white/60" />
-              <div className="h-8 w-16 rounded-[var(--plotty-radius-sm)] bg-white/60" />
-            </div>
-          </div>
-          <div className="hidden space-y-3 border-l border-[var(--plotty-line)] bg-[rgba(245,238,229,0.42)] p-4 md:block">
-            <div className="h-11 rounded-[var(--plotty-radius-md)] bg-white/70" />
-            <div className="h-11 rounded-[var(--plotty-radius-md)] bg-white/60" />
-          </div>
-        </Surface>
-      ))}
-    </div>
+    <Surface
+      variant="panel"
+      className="flex min-h-64 items-center justify-center p-8 text-center"
+      role="status"
+      aria-live="polite"
+      aria-label="Загружаем каталог"
+    >
+      <div className="grid justify-items-center gap-3">
+        <span className="inline-flex size-12 items-center justify-center rounded-full border border-[var(--plotty-line)] bg-[var(--plotty-accent-wash)] text-[var(--plotty-accent)] shadow-[var(--plotty-shadow-soft)]">
+          <LoaderCircle className="size-6 animate-spin" aria-hidden="true" />
+        </span>
+        <span className="plotty-meta">Загружаем истории...</span>
+      </div>
+    </Surface>
   );
 }
 
@@ -761,10 +743,16 @@ function CatalogFandomDropdown({
           aria-haspopup="listbox"
           aria-expanded={popover.open}
           onClick={popover.toggle}
-          className="flex min-h-[3rem] w-full items-center justify-between rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.84)] px-4 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] hover:-translate-y-px hover:border-[var(--plotty-line-strong)] hover:shadow-[0_10px_22px_rgba(58,43,27,0.08)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+          className="relative flex min-h-[3rem] w-full items-center rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.84)] py-0 pl-4 pr-10 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] hover:-translate-y-px hover:border-[var(--plotty-line-strong)] hover:shadow-[0_10px_22px_rgba(58,43,27,0.08)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
         >
-          <span>{selectedOption?.name ?? "Любой фандом"}</span>
-          <span className={cn("text-[var(--plotty-muted)] transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")} aria-hidden="true">
+          <span className="min-w-0 truncate">{selectedOption?.name ?? "Любой фандом"}</span>
+          <span
+            className={cn(
+              "absolute right-4 top-1/2 -translate-y-1/2 text-[var(--plotty-muted)] transition-transform duration-[var(--motion-base)]",
+              popover.open && "-translate-y-1/2 rotate-180",
+            )}
+            aria-hidden="true"
+          >
             ▾
           </span>
         </button>
@@ -815,24 +803,52 @@ function CatalogFandomDropdown({
           >
             Любой фандом
           </button>
-          {filteredOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="option"
-              aria-selected={selectedSlug === option.slug}
-              onClick={() => {
-                onSelect(option.slug);
-                popover.close();
-              }}
-              className={cn(
-                "plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
-                selectedSlug === option.slug ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
-              )}
-            >
-              {option.name}
-            </button>
-          ))}
+          {filteredOptions.map((option) => {
+            const isSelected = selectedSlug === option.slug;
+
+            if (isSelected) {
+              return (
+                <div
+                  key={option.id}
+                  role="option"
+                  aria-label={option.name}
+                  aria-selected="true"
+                  className="plotty-popover-item flex w-full items-center justify-between gap-2 rounded-[10px] bg-white px-3 py-1.5 text-left text-sm text-[var(--plotty-ink)] transition-colors"
+                >
+                  <span className="min-w-0 truncate">{option.name}</span>
+                  <IconButton
+                    type="button"
+                    aria-label="Сбросить фандом"
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-8 w-8 rounded-[var(--plotty-radius-sm)] p-0"
+                    onClick={() => {
+                      onSelect("");
+                      popover.close();
+                    }}
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </IconButton>
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="option"
+                aria-selected="false"
+                onClick={() => {
+                  onSelect(option.slug);
+                  popover.close();
+                }}
+                className="plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm text-[var(--plotty-muted)] transition-colors hover:bg-white/80"
+              >
+                {option.name}
+              </button>
+            );
+          })}
           {!filteredOptions.length ? (
             <div className="px-3 py-2 text-sm text-[var(--plotty-muted)]">Фандом не найден.</div>
           ) : null}

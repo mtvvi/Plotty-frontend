@@ -23,14 +23,14 @@ import { EmptyState } from "@/shared/ui/empty-state";
 import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
 import { StoryRevealButtonLink, StoryRevealLink } from "@/shared/ui/story-reveal-transition";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
-import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
+import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import {
   ChapterSortButton,
   sortChaptersForDisplay,
   type ChapterSortDirection,
 } from "./chapter-list-sort";
-import { StoryCoverPreview } from "./story-cover-preview";
+import { StoryCoverPreview, storyCoverPlaceholderSrc } from "./story-cover-preview";
 import { StoryCollectionControl } from "./story-collection-control";
 import { StoryTagLinkChip } from "./story-tag-link";
 import { StoryShelfControl } from "./story-shelf-control";
@@ -110,7 +110,6 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
       <PlottyPageShell
         pageTitle="История загружается"
         pageDescription="Собираем метаданные истории и список глав."
-        menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       >
         <div className="h-72 rounded-[var(--plotty-radius-lg)] bg-white/40" />
       </PlottyPageShell>
@@ -122,7 +121,6 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
       <PlottyPageShell
         pageTitle="История не найдена"
         pageDescription="Либо slug неверный, либо бэкенд не отдал данные."
-        menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       >
         <EmptyState title="История не найдена" description="Вернитесь в каталог и выберите другую историю." />
       </PlottyPageShell>
@@ -132,8 +130,8 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   const story = storyQuery.data;
   const storyDescription = story.aiHint?.trim() ? story.aiHint : STORY_ANNOTATION_PLACEHOLDER;
   const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
+  const revealCoverImage = displayCoverImage ?? storyCoverPlaceholderSrc;
   const readChapter = firstReadableChapter ?? firstChapter;
-  const mobileBackHref = getSafeInternalHref(searchParams.get("from"));
   const viewerHasLiked = Boolean(story.viewerHasLiked);
   const genericTags = story.tags.filter((tag) => !["completion", "rating", "size", "directionality"].includes(tag.category ?? ""));
 
@@ -159,7 +157,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   }
 
   return (
-    <PlottyPageShell suppressPageIntro showMobileBack mobileBackHref={mobileBackHref} menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}>
+    <PlottyPageShell suppressPageIntro>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
         <main className="min-w-0 space-y-5">
           <PlottySectionCard className="plotty-panel-enter overflow-hidden p-0">
@@ -206,7 +204,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                       size="lg"
                       className="max-sm:min-h-12 max-sm:px-3 max-sm:text-sm"
                       revealTitle={story.title}
-                      revealCoverUrl={displayCoverImage}
+                      revealCoverUrl={revealCoverImage}
                     >
                       <BookOpen className="size-5" aria-hidden="true" />
                       Читать
@@ -307,7 +305,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                           href={routes.chapter(story.slug, chapter.number ?? 1)}
                           className="plotty-story-title-anchor plotty-card-title text-[1.18rem] hover:text-[var(--plotty-accent)]"
                           revealTitle={chapter.title}
-                          revealCoverUrl={displayCoverImage}
+                          revealCoverUrl={revealCoverImage}
                         >
                           <span className="plotty-story-title-text">{chapter.title}</span>
                         </StoryRevealLink>
@@ -325,7 +323,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                         variant="secondary"
                         size="sm"
                         revealTitle={chapter.title}
-                        revealCoverUrl={displayCoverImage}
+                        revealCoverUrl={revealCoverImage}
                       >
                         Читать
                       </StoryRevealButtonLink>
@@ -475,14 +473,6 @@ function getInitialMobileSection(searchParams: URLSearchParams): MobileStorySect
   }
 
   return "description";
-}
-
-function getSafeInternalHref(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return undefined;
-  }
-
-  return value;
 }
 
 function createDefaultTitleState(title: string): AdaptiveStoryTitleState {

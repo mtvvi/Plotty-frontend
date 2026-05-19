@@ -14,7 +14,7 @@ import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
-import { PlottyAppMenu, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
+import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
 
 import { CollectionLinkIcon } from "./profile-icons";
@@ -81,9 +81,6 @@ export function PublicCollectionScreen({
       <PlottyPageShell
         pageTitle="Подборка загружается"
         pageDescription="Собираем список историй."
-        showMobileBack
-        mobileBackHref={profileCollectionsHref}
-        menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       >
         <div className="h-72 rounded-[24px] bg-white/40" />
       </PlottyPageShell>
@@ -95,9 +92,6 @@ export function PublicCollectionScreen({
       <PlottyPageShell
         pageTitle="Подборка не найдена"
         pageDescription="Она могла быть удалена или принадлежит другому пользователю."
-        showMobileBack
-        mobileBackHref={profileCollectionsHref}
-        menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       >
         <EmptyState title="Подборка не найдена" description="Вернитесь в профиль пользователя и выберите другую подборку." />
       </PlottyPageShell>
@@ -139,13 +133,27 @@ export function PublicCollectionScreen({
   }
 
   async function handleCopyLink() {
-    if (typeof window === "undefined" || !navigator.clipboard) {
+    if (typeof window === "undefined" || typeof navigator === "undefined" || !navigator.clipboard) {
+      setLocalError("Не удалось скопировать ссылку");
       return;
     }
 
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLocalError(null);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setLocalError("Не удалось скопировать ссылку");
+    }
+  }
+
+  function handleDeleteCollection() {
+    if (!window.confirm("Удалить подборку?")) {
+      return;
+    }
+
+    deleteMutation.mutate();
   }
 
   return (
@@ -166,16 +174,13 @@ export function PublicCollectionScreen({
               <Button type="button" variant="secondary" size="sm" onClick={handleStartEdit}>
                 Изменить
               </Button>
-              <Button type="button" variant="destructive" size="sm" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
+              <Button type="button" variant="destructive" size="sm" onClick={handleDeleteCollection} disabled={deleteMutation.isPending}>
                 Удалить
               </Button>
             </>
           ) : null}
         </div>
       }
-      showMobileBack
-      mobileBackHref={profileCollectionsHref}
-      menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
     >
       {isOwner && editOpen ? (
         <PlottySectionCard className="mb-4">

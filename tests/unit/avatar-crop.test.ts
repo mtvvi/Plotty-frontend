@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getAvatarCropGeometry } from "@/widgets/profile/avatar-crop";
+import { getAvatarCropGeometry, getAvatarDragOffsets } from "@/widgets/profile/avatar-crop";
 
 describe("avatar crop geometry", () => {
   it("keeps the full wide image available for horizontal repositioning", () => {
@@ -27,5 +27,20 @@ describe("avatar crop geometry", () => {
     expect(geometry.offsetY).toBe(0);
     expect(geometry.drawX).toBe(0);
     expect(geometry.drawY).toBe(0);
+  });
+
+  it("maps pointer movement over the preview to clamped avatar offsets", () => {
+    const offsets = getAvatarDragOffsets({
+      currentOffsetX: 10,
+      currentOffsetY: -5,
+      deltaX: 64,
+      deltaY: -96,
+      frameSize: 256,
+      maxOffsetX: 30,
+      maxOffsetY: 50,
+    });
+
+    expect(offsets.offsetX).toBe(30);
+    expect(offsets.offsetY).toBe(-42.5);
   });
 });

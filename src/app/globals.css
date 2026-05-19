@@ -275,10 +275,12 @@ select {
 }
 
 .plotty-profile-username-input {
-  min-height: 5.25rem;
-  font-size: 1.35rem;
-  font-weight: 600;
-  line-height: 1.55rem;
+  min-height: clamp(3.9rem, 2.75rem + 3.1vw, 6.25rem);
+  font-family: var(--font-serif), serif;
+  font-size: clamp(2.65rem, 1.55rem + 3.1vw, 5.1rem);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: 0;
 }
 
 .plotty-avatar-upload {
@@ -1033,12 +1035,24 @@ button:active .plotty-chip-motion {
   overscroll-behavior: contain;
 }
 
+.plotty-workshop-chapter-list {
+  max-height: min(28rem, calc(100vh - 22rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports (height: 100dvh) {
+  .plotty-workshop-chapter-list {
+    max-height: min(28rem, calc(100dvh - 22rem));
+  }
+}
+
 .plotty-chapter-sort-button {
+  width: 2.35rem;
   min-height: 2.35rem;
-  padding-inline: 0.72rem;
-  font-size: 0.82rem;
+  padding-inline: 0;
   line-height: 1;
-  white-space: nowrap;
 }
 
 @media (min-width: 1024px) {
@@ -1051,8 +1065,6 @@ button:active .plotty-chip-motion {
 
   .plotty-workshop-chapter-list {
     max-height: min(28rem, calc(100vh - 18rem));
-    overflow-y: auto;
-    overscroll-behavior: contain;
   }
 }
 
@@ -1536,6 +1548,28 @@ button:active .plotty-chip-motion {
   outline-offset: 3px;
 }
 
+.plotty-mobile-sheet-overlay[data-state="open"] {
+  animation: plotty-mobile-sheet-overlay-in var(--motion-base) var(--ease-out-soft) both;
+}
+
+.plotty-mobile-sheet-overlay[data-state="closing"] {
+  animation: plotty-mobile-sheet-overlay-out var(--motion-slow) var(--ease-in-out-soft) both;
+}
+
+.plotty-mobile-sheet-panel {
+  transform: translate3d(0, 100%, 0);
+  will-change: transform, opacity;
+}
+
+.plotty-mobile-sheet-panel[data-state="open"] {
+  animation: plotty-mobile-sheet-slide-in 320ms var(--ease-out-soft) both;
+}
+
+.plotty-mobile-sheet-panel[data-state="closing"] {
+  pointer-events: none;
+  animation: plotty-mobile-sheet-slide-out var(--motion-slow) var(--ease-in-out-soft) both;
+}
+
 .plotty-chapter-title-motion {
   display: inline;
   background-image:
@@ -1759,22 +1793,22 @@ button:active .plotty-chip-motion {
 @keyframes plotty-popover-open {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.98);
+    transform: translate3d(0, -6px, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes plotty-popover-close {
   from {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate3d(0, 0, 0);
   }
   to {
     opacity: 0;
-    transform: translateY(-4px) scale(0.985);
+    transform: translate3d(0, -4px, 0);
   }
 }
 
@@ -1814,6 +1848,42 @@ button:active .plotty-chip-motion {
 @keyframes plotty-reveal-overlay {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes plotty-mobile-sheet-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes plotty-mobile-sheet-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes plotty-mobile-sheet-slide-in {
+  0% {
+    opacity: 0.96;
+    transform: translate3d(0, 100%, 0);
+  }
+  72% {
+    opacity: 1;
+    transform: translate3d(0, -0.35rem, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes plotty-mobile-sheet-slide-out {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    opacity: 0.98;
+    transform: translate3d(0, 100%, 0);
+  }
 }
 
 @keyframes plotty-reveal-book {
