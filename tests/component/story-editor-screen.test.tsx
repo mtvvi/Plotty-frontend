@@ -170,7 +170,7 @@ describe("StoryEditorScreen", () => {
     expect(screen.getByText(/доступна только для историй с выбранным фандомом/i)).toBeInTheDocument();
   });
 
-  it("deletes the current chapter and navigates back to the story page", async () => {
+  it("deletes the current chapter and navigates back to the selected workshop story", async () => {
     const user = userEvent.setup();
 
     renderEditor();
@@ -178,7 +178,7 @@ describe("StoryEditorScreen", () => {
     await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Удалить главу" }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/stories/after-midnight-the-snow-does-not-melt"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/write?story=after-midnight-the-snow-does-not-melt#active-story"));
     const response = await fetch("http://localhost/chapters/chapter-1");
     expect(response.status).toBe(404);
   });
