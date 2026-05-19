@@ -73,7 +73,7 @@ describe("StoryEditorScreen", () => {
     });
     expect(screen.getByText(/нечаянно/i)).toBeInTheDocument();
     expect(screen.getByText("Было")).toBeInTheDocument();
-    expect(screen.getByText("Стало")).toBeInTheDocument();
+    expect(screen.getByText("Замена")).toBeInTheDocument();
   });
 
   it("dismisses a spellcheck issue without changing chapter text", async () => {

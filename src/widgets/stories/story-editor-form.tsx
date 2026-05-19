@@ -492,7 +492,6 @@ export function StoryEditorForm({
                               onClick={() => openSpellcheckIssue(issue)}
                             >
                               <div className="min-w-0 space-y-1">
-                                <div className="truncate text-sm font-semibold">{issue.fragmentText}</div>
                                 <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
                                 <SpellcheckPreview issue={issue} />
                                 {isUnresolved ? (
@@ -694,7 +693,7 @@ function SpellcheckPreview({ issue }: { issue: SpellcheckIssue }) {
         <p className="break-words text-[var(--plotty-ink)]">{issue.fragmentText}</p>
       </div>
       <div className="min-w-0 space-y-1">
-        <div className="plotty-kicker">Стало</div>
+        <div className="plotty-kicker">Замена</div>
         <p className="break-words font-semibold text-[var(--plotty-accent)]">{issue.suggestion}</p>
       </div>
     </div>
@@ -802,7 +801,6 @@ function SpellcheckIssueContent({
   return (
     <div className="min-w-0 space-y-3">
       <div className="min-w-0 space-y-1">
-        <div className="break-words text-sm font-semibold">{issue.fragmentText}</div>
         <div className="break-words text-sm leading-5 text-[var(--plotty-muted)]">{issue.message}</div>
         <SpellcheckPreview issue={issue} />
       </div>
