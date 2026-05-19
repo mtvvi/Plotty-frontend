@@ -258,17 +258,13 @@ export function StoryCreateScreen() {
                   </div>
 
                   <Surface variant="subtle" className="space-y-3 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="plotty-label">Теги, жанры и предупреждения</div>
-                        <p className="plotty-meta">Здесь настраиваются фандом, рейтинг, статус, жанры и предупреждения.</p>
-                      </div>
+                    <StoryTagsByCategory tags={selectedStoryQuery.data.tags} />
+                    <div className="flex justify-start">
                       <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary" size="sm">
                         <Settings className="size-4" aria-hidden="true" />
-                        Редактировать теги
+                        Редактировать
                       </ButtonLink>
                     </div>
-                    <StoryTagsByCategory tags={selectedStoryQuery.data.tags} />
                   </Surface>
 
                   <div className="flex flex-wrap gap-3">
@@ -279,10 +275,6 @@ export function StoryCreateScreen() {
                     <ButtonLink href={routes.story(selectedStoryQuery.data.slug)} variant="secondary">
                       <BookOpen className="size-4" aria-hidden="true" />
                       Открыть историю
-                    </ButtonLink>
-                    <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary">
-                      <Settings className="size-4" aria-hidden="true" />
-                      Редактировать теги
                     </ButtonLink>
                   </div>
                 </div>
@@ -389,10 +381,6 @@ export function StoryCreateScreen() {
                     Редактировать последнюю главу
                   </ButtonLink>
                 ) : null}
-                <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary" className="w-full justify-start">
-                  <Settings className="size-4" aria-hidden="true" />
-                  Редактировать теги
-                </ButtonLink>
               </>
             ) : null}
           </div>

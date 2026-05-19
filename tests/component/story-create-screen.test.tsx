@@ -191,14 +191,19 @@ describe("StoryCreateScreen sidebar", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("История сохранена");
   });
 
-  it("makes tag editing visible from the active workshop story", async () => {
+  it("keeps a single compact tag editing action on the active workshop story", async () => {
     renderStoryCreateScreen();
 
-    expect(await screen.findByText("Теги, жанры и предупреждения")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Редактировать теги" })[0]).toHaveAttribute(
-      "href",
-      "/write/stories/story-emerald-wolf/settings",
-    );
+    await screen.findByText("Главы истории");
+
+    expect(screen.queryByText("Теги, жанры и предупреждения")).not.toBeInTheDocument();
+    expect(screen.queryByText("Здесь настраиваются фандом, рейтинг, статус, жанры и предупреждения.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Редактировать теги" })).not.toBeInTheDocument();
+    const settingsLinks = screen
+      .getAllByRole("link", { name: "Редактировать" })
+      .filter((link) => link.getAttribute("href") === "/write/stories/story-emerald-wolf/settings");
+
+    expect(settingsLinks).toHaveLength(1);
   });
 
   it("sorts chapters from the workshop chapter list", async () => {

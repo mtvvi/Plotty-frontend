@@ -9,6 +9,7 @@ import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
+import { profileAvatarPlaceholderSrc } from "@/widgets/profile/profile-avatar-placeholder";
 
 import { resetViewerSessionCache } from "./viewer-session-cache";
 
@@ -27,17 +28,11 @@ function AccountAvatar({
   avatarUrl?: string | null;
   className?: string;
 }) {
-  if (avatarUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={avatarUrl} alt={`Аватар ${username}`} className={cn("shrink-0 rounded-[var(--plotty-radius-md)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]", className)} />
-    );
-  }
+  const imageSrc = avatarUrl ?? profileAvatarPlaceholderSrc;
 
   return (
-    <span className={cn("flex shrink-0 items-center justify-center rounded-[var(--plotty-radius-md)] bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)] transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]", className)}>
-      {username.slice(0, 1).toUpperCase()}
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={imageSrc} alt={`Аватар ${username}`} className={cn("shrink-0 rounded-[var(--plotty-radius-md)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]", className)} />
   );
 }
 

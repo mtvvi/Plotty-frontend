@@ -251,7 +251,7 @@ export function ChapterReaderScreen({
             className="plotty-story-title-anchor plotty-story-title-inline-anchor group text-[var(--plotty-ink)] transition-colors hover:text-[var(--plotty-accent)] focus-visible:text-[var(--plotty-accent)]"
           >
             <ArrowLeft className="plotty-page-title-back-icon size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
-            <span className="plotty-story-title-text text-[2rem]">{story.title}</span>
+            <span className="plotty-story-title-text plotty-reader-story-title-text text-[2rem]">{story.title}</span>
           </Link>
           <span className="plotty-page-title-part text-[2rem]">{`• Глава ${displayChapterNumber}`}</span>
         </span>

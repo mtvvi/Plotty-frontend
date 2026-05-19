@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { AuthStatus } from "@/widgets/auth/auth-status";
+import { profileAvatarPlaceholderSrc } from "@/widgets/profile/profile-avatar-placeholder";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
@@ -47,5 +48,6 @@ describe("AuthStatus", () => {
     renderAuthStatus();
 
     expect(screen.getByText("ilya@gmail.com")).toHaveClass("leading-[1.35]");
+    expect(screen.getByAltText("Аватар ilyaa")).toHaveAttribute("src", profileAvatarPlaceholderSrc);
   });
 });

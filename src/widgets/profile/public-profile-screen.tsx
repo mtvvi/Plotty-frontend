@@ -33,6 +33,7 @@ import { resetViewerSessionCache } from "@/widgets/auth/viewer-session-cache";
 
 import { ProfileCollectionsManager } from "./profile-collections-manager";
 import { getAvatarCropGeometry, getAvatarDragOffsets, type AvatarImageSize } from "./avatar-crop";
+import { profileAvatarPlaceholderSrc } from "./profile-avatar-placeholder";
 import {
   CreativityIcon,
   EditProfileIcon,
@@ -45,7 +46,7 @@ import {
 type ProfileTab = "works" | "collections";
 type ProfileInlineField = "username" | "bio";
 
-export const profileAvatarPlaceholderSrc = "/profile-avatar-placeholder.png";
+export { profileAvatarPlaceholderSrc } from "./profile-avatar-placeholder";
 
 const ownStoriesQuery = {
   tags: [],

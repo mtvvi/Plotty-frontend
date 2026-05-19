@@ -1243,6 +1243,10 @@ button:active .plotty-chip-motion {
     background-size var(--motion-slow) var(--ease-out-soft);
 }
 
+.plotty-reader-story-title-text {
+  padding-bottom: 0.12em;
+}
+
 .plotty-story-title-anchor:is(:hover, :focus-visible, :focus-within) .plotty-story-title-text,
 .plotty-story-card:is(:hover, :focus-within) .plotty-story-title-text {
   color: var(--plotty-accent);
