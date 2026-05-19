@@ -30,12 +30,12 @@ function AccountAvatar({
   if (avatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={avatarUrl} alt={`Аватар ${username}`} className={cn("shrink-0 rounded-[var(--plotty-radius-md)] object-cover", className)} />
+      <img src={avatarUrl} alt={`Аватар ${username}`} className={cn("shrink-0 rounded-[var(--plotty-radius-md)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]", className)} />
     );
   }
 
   return (
-    <span className={cn("flex shrink-0 items-center justify-center rounded-[var(--plotty-radius-md)] bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)]", className)}>
+    <span className={cn("flex shrink-0 items-center justify-center rounded-[var(--plotty-radius-md)] bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)] transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]", className)}>
       {username.slice(0, 1).toUpperCase()}
     </span>
   );
@@ -140,7 +140,7 @@ export function AuthStatus({
       ref={profileIndicatorRef}
       href={profileHref}
       className={cn(
-        "plotty-button-label relative inline-flex min-h-[92px] items-center justify-start gap-3 rounded-[var(--plotty-radius-md)] px-2.5 py-1.5 pr-4 text-left text-[var(--plotty-ink)] transition-colors duration-150 ease-out hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+        "group plotty-button-label relative inline-flex min-h-[86px] items-center justify-start gap-3 rounded-[var(--plotty-radius-md)] px-2.5 py-1.5 pr-4 text-left text-[var(--plotty-ink)] transition-[color,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
         isProfileActive ? "text-[var(--plotty-accent)]" : null,
       )}
       aria-label={`Открыть профиль ${user.username}`}
@@ -151,7 +151,7 @@ export function AuthStatus({
         <span className="block max-w-[8rem] truncate text-[0.95rem] font-semibold leading-[1.2] text-[var(--plotty-ink)]">{user.username}</span>
         <span className="mt-1 hidden max-w-[8rem] truncate text-[11px] leading-[1.35] text-[var(--plotty-muted)] md:block">{user.email}</span>
       </span>
-      <span className="ml-0.5 text-[var(--plotty-muted)]" aria-hidden="true">
+      <span className="ml-0.5 text-[var(--plotty-muted)] transition-transform duration-[var(--motion-base)] group-hover:translate-x-0.5" aria-hidden="true">
         →
       </span>
       {showInlineActiveIndicator && isProfileActive ? (

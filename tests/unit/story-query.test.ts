@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { aiKeys, storyKeys } from "@/entities/story/api/stories-api";
 import type { StoryListItem } from "@/entities/story/model/types";
 import {
   defaultStoriesQuery,
@@ -112,5 +113,11 @@ describe("story query helpers", () => {
     expect(parseStoriesQuery(params)).toEqual({
       ...defaultStoriesQuery,
     });
+  });
+});
+
+describe("story API query keys", () => {
+  it("keeps AI job polling outside the stories invalidation namespace", () => {
+    expect(aiKeys.job("job-1")[0]).not.toBe(storyKeys.all[0]);
   });
 });

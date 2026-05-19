@@ -14,8 +14,9 @@ import {
   removeStoryFromCollection,
 } from "@/entities/library/api/library-api";
 import { profileKeys } from "@/entities/profile/api/profile-api";
-import { ApiError, isAuthError } from "@/shared/api/fetch-json";
+import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
@@ -91,7 +92,7 @@ export function StoryCollectionControl({
       return;
     }
 
-    setLocalError(error instanceof ApiError ? error.message : "Не удалось обновить подборку");
+    setLocalError(toUserFacingErrorMessage(error, "Не удалось обновить подборку"));
   }
 
   function ensureAuthenticated() {
@@ -142,17 +143,18 @@ export function StoryCollectionControl({
   }
 
   const busy = membershipMutation.isPending || createMutation.isPending || (isAuthenticated && collectionsQuery.isLoading);
-  const label = selectedCount ? `В ${selectedCount} подборк${selectedCount === 1 ? "е" : "ах"}` : "Добавить в подборку";
+  const label = selectedCount ? `В ${selectedCount} подборк${selectedCount === 1 ? "е" : "ах"}` : "В подборку";
 
   return (
     <div ref={popover.triggerRef} className={cn("relative w-full min-w-0", compact ? "" : "max-w-[18rem] space-y-1.5", className)}>
       {compact ? null : <span className="plotty-kicker">Подборки</span>}
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] overflow-hidden rounded-[16px] border border-[rgba(41,38,34,0.1)] bg-white/88 shadow-[0_8px_24px_rgba(46,35,23,0.05)]">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] overflow-hidden rounded-[16px] border border-[rgba(41,38,34,0.1)] bg-white/88 shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] hover:-translate-y-px hover:border-[rgba(195,79,50,0.18)] hover:shadow-[0_12px_28px_rgba(58,43,27,0.08)]">
         <button
           type="button"
           className="plotty-button-label flex min-h-[42px] min-w-0 items-center gap-2 overflow-hidden px-3 text-left text-[var(--plotty-ink)] disabled:opacity-60"
           onClick={handleToggleOpen}
           disabled={busy}
+          title={selectedCount ? "Открыть подборки" : "Добавить историю в подборку"}
         >
           {compact ? <Layers className="size-4 shrink-0" aria-hidden="true" /> : null}
           <span className="truncate">{label}</span>
@@ -166,7 +168,9 @@ export function StoryCollectionControl({
           disabled={busy}
           className="flex min-h-[42px] items-center justify-center border-l border-[rgba(41,38,34,0.1)] text-[var(--plotty-muted)] transition-colors hover:bg-white disabled:opacity-60"
         >
-          ▾
+          <span className={cn("transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")} aria-hidden="true">
+            ▾
+          </span>
         </button>
       </div>
 
@@ -192,7 +196,7 @@ export function StoryCollectionControl({
                     onClick={() => handleToggleCollection(collection.id, selected)}
                     disabled={busy}
                     className={cn(
-                      "flex w-full items-start gap-2 rounded-[12px] px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-60",
+                      "plotty-popover-item flex w-full items-start gap-2 rounded-[12px] px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-60",
                       selected ? "bg-white font-semibold text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
                     )}
                   >

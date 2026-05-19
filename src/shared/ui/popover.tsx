@@ -137,15 +137,29 @@ export function PopoverContent({
   open: boolean;
   position: PopoverPosition;
 } & HTMLAttributes<HTMLDivElement>) {
-  if (!open || typeof document === "undefined") {
+  const [present, setPresent] = useState(open);
+
+  useEffect(() => {
+    if (open) {
+      setPresent(true);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setPresent(false), 140);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [open]);
+
+  if (!present || typeof document === "undefined") {
     return null;
   }
 
   return createPortal(
     <div
       ref={contentRef}
+      data-state={open ? "open" : "closing"}
       className={cn(
-        "z-[100] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl",
+        "plotty-popover-content z-[100] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl",
         className,
       )}
       style={{

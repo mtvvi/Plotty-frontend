@@ -5,6 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { storiesQueryOptions } from "@/entities/story/api/stories-api";
+import { defaultStoriesQuery } from "@/entities/story/model/story-query";
 import { server } from "@/mocks/server";
 import { StoriesCatalogShell } from "@/widgets/stories/stories-catalog-shell";
 
@@ -20,11 +22,13 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => currentSearchParams,
 }));
 
-function renderCatalogShell() {
-  const queryClient = new QueryClient({
+function createCatalogQueryClient() {
+  return new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+}
 
+function renderCatalogShell(queryClient = createCatalogQueryClient()) {
   return render(
     <QueryClientProvider client={queryClient}>
       <StoriesCatalogShell />
@@ -55,6 +59,52 @@ describe("StoriesCatalogShell", () => {
     vi.useRealTimers();
   });
 
+  it("shows a spinner while initial catalog tiles load without cached data", async () => {
+    let resolveStories: (() => void) | undefined;
+
+    server.use(
+      http.get(
+        "*/stories",
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveStories = () =>
+              resolve(
+                HttpResponse.json({
+                  items: [makeStoryResponseItem(1)],
+                  pagination: { page: 1, pageSize: 20, total: 1 },
+                }),
+              );
+          }),
+      ),
+    );
+
+    const { container } = renderCatalogShell();
+
+    expect(screen.getByRole("status", { name: "Загружаем каталог" })).toBeInTheDocument();
+    expect(container.querySelector(".animate-spin")).not.toBeNull();
+    expect(screen.queryByText("История 1")).not.toBeInTheDocument();
+
+    await waitFor(() => expect(resolveStories).toBeTypeOf("function"));
+    resolveStories?.();
+
+    expect(await screen.findAllByText("История 1")).not.toHaveLength(0);
+    expect(screen.queryByRole("status", { name: "Загружаем каталог" })).not.toBeInTheDocument();
+  });
+
+  it("does not show the initial spinner when catalog page data is already cached", async () => {
+    const queryClient = createCatalogQueryClient();
+
+    queryClient.setQueryData(storiesQueryOptions(defaultStoriesQuery).queryKey, {
+      items: [makeStoryResponseItem(1)],
+      pagination: { page: 1, pageSize: 20, total: 1 },
+    });
+
+    renderCatalogShell(queryClient);
+
+    expect(screen.queryByRole("status", { name: "Загружаем каталог" })).not.toBeInTheDocument();
+    expect(await screen.findAllByText("История 1")).not.toHaveLength(0);
+  });
+
   it("applies desktop tag filter changes immediately", async () => {
     const user = userEvent.setup();
     renderCatalogShell();
@@ -79,6 +129,118 @@ describe("StoriesCatalogShell", () => {
     await user.click(screen.getByRole("option", { name: "Ведьмак" }));
 
     expect(replace).toHaveBeenCalledWith("/?tag=witcher", { scroll: false });
+  });
+
+  it("clears the selected fandom from the selected popup option", async () => {
+    const user = userEvent.setup();
+    currentSearchParams = new URLSearchParams("tag=dc&tag=drama");
+
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Фандом" })).toHaveTextContent("DC"));
+
+    expect(screen.queryByRole("button", { name: "Сбросить фандом" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Фандом" }));
+    const fandomPopup = await screen.findByRole("dialog", { name: "Фандом" });
+    const selectedFandom = within(fandomPopup).getByRole("option", { name: "DC" });
+
+    expect(selectedFandom).toHaveAttribute("aria-selected", "true");
+
+    await user.click(within(selectedFandom).getByRole("button", { name: "Сбросить фандом" }));
+
+    expect(replace).toHaveBeenCalledWith("/?tag=drama", { scroll: false });
+  });
+
+  it("filters fandom options by text inside the fandom picker", async () => {
+    const user = userEvent.setup();
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Фандом" })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Фандом" }));
+    await user.type(screen.getByLabelText("Поиск по фандомам"), "ведь");
+
+    expect(screen.getByRole("option", { name: "Ведьмак" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Гарри Поттер" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Очистить поиск фандомов" }));
+
+    expect(screen.getByRole("option", { name: "Гарри Поттер" })).toBeInTheDocument();
+  });
+
+  it("clears selected genre and warning groups independently", async () => {
+    const user = userEvent.setup();
+    currentSearchParams = new URLSearchParams("tag=drama&tag=violence");
+
+    const firstView = renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Драма" })).toBeInTheDocument());
+
+    const genreGroup = screen.getByText("Жанры").closest("section");
+    const warningGroup = screen.getByText("Предупреждения").closest("section");
+
+    expect(genreGroup).not.toBeNull();
+    expect(warningGroup).not.toBeNull();
+
+    await user.click(within(genreGroup as HTMLElement).getByRole("button", { name: "Очистить" }));
+    expect(replace).toHaveBeenLastCalledWith("/?tag=violence", { scroll: false });
+
+    firstView.unmount();
+    currentSearchParams = new URLSearchParams("tag=drama&tag=violence");
+    replace.mockClear();
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Насилие" })).toBeInTheDocument());
+    const nextWarningGroup = screen.getByText("Предупреждения").closest("section");
+
+    expect(nextWarningGroup).not.toBeNull();
+    await user.click(within(nextWarningGroup as HTMLElement).getByRole("button", { name: "Очистить" }));
+    expect(replace).toHaveBeenLastCalledWith("/?tag=drama", { scroll: false });
+  });
+
+  it("keeps newest as the default catalog sort but shows popularity first in the popup", async () => {
+    const user = userEvent.setup();
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сортировка" })).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: "Сортировка" })).toHaveTextContent("Сначала новые");
+
+    await user.click(screen.getByRole("button", { name: "Сортировка" }));
+
+    const options = screen.getAllByRole("option");
+
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Популярное",
+      "Сначала новые",
+      "Сначала старые",
+      "Название А-Я",
+      "Название Я-А",
+    ]);
+    expect(options[0]).toHaveAttribute("aria-selected", "false");
+    expect(options[1]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("offers a local popularity sort without sending an unsupported API sort", async () => {
+    const user = userEvent.setup();
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сортировка" })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Сортировка" }));
+    await user.click(screen.getByRole("option", { name: "Популярное" }));
+
+    expect(screen.getByRole("button", { name: "Сортировка" })).toHaveTextContent("Популярное");
+    expect(replace).toHaveBeenLastCalledWith("/", { scroll: false });
+  });
+
+  it("does not render the duplicate small catalog search in page actions", async () => {
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сортировка" })).toBeInTheDocument());
+
+    expect(screen.queryByLabelText("Поиск в каталоге")).not.toBeInTheDocument();
   });
 
   it("keeps multi-select tag groups visible after selecting one fandom", async () => {

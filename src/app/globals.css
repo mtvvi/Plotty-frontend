@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --plotty-bg: #d8caba;
-  --plotty-bg-highlight: #efe6d9;
+  --plotty-bg: #f3eadf;
+  --plotty-bg-highlight: #fffaf4;
   --plotty-paper: #fbf7f2;
   --plotty-paper-strong: #fffdf9;
   --plotty-paper-soft: #f5eee5;
-  --plotty-panel: #f0e5d6;
-  --plotty-panel-strong: #e7d8c7;
-  --plotty-panel-muted: rgba(255, 251, 245, 0.72);
-  --plotty-line: rgba(43, 36, 29, 0.11);
-  --plotty-line-strong: rgba(43, 36, 29, 0.19);
+  --plotty-panel: #f6ecdf;
+  --plotty-panel-strong: #eadbc8;
+  --plotty-panel-muted: rgba(255, 251, 245, 0.7);
+  --plotty-line: rgba(43, 36, 29, 0.1);
+  --plotty-line-strong: rgba(43, 36, 29, 0.17);
   --plotty-ink: #1f1a16;
   --plotty-ink-soft: #3e352d;
   --plotty-muted: #70665b;
@@ -27,14 +27,20 @@
   --plotty-gold-soft: #f0e4cb;
   --plotty-danger: #bd3f32;
   --plotty-danger-soft: #fde5dd;
-  --plotty-shadow: 0 26px 80px rgba(58, 43, 27, 0.14);
-  --plotty-shadow-soft: 0 12px 32px rgba(58, 43, 27, 0.09);
-  --plotty-shadow-card: 0 16px 46px rgba(58, 43, 27, 0.08);
-  --plotty-container: 1720px;
-  --plotty-radius-xl: 26px;
+  --plotty-shadow: 0 28px 90px rgba(58, 43, 27, 0.08);
+  --plotty-shadow-soft: 0 12px 32px rgba(58, 43, 27, 0.07);
+  --plotty-shadow-card: 0 14px 42px rgba(58, 43, 27, 0.07);
+  --plotty-container: 1400px;
+  --plotty-radius-xl: 28px;
   --plotty-radius-lg: 18px;
   --plotty-radius-md: 14px;
   --plotty-radius-sm: 10px;
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 260ms;
+  --motion-page: 420ms;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 * {
@@ -50,9 +56,9 @@ body {
   min-height: 100vh;
   color: var(--plotty-ink);
   background:
-    radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.66), transparent 26rem),
-    radial-gradient(circle at 86% 12%, rgba(195, 79, 50, 0.07), transparent 24rem),
-    linear-gradient(180deg, var(--plotty-bg-highlight) 0%, var(--plotty-bg) 100%);
+    radial-gradient(circle at 20% -8%, rgba(255, 255, 255, 0.95), transparent 24rem),
+    radial-gradient(circle at 86% 8%, rgba(255, 255, 255, 0.72), transparent 25rem),
+    linear-gradient(180deg, var(--plotty-bg-highlight) 0%, var(--plotty-bg) 72%, #efe2d4 100%);
   font-family: var(--font-sans), sans-serif;
 }
 
@@ -95,24 +101,44 @@ select {
   position: relative;
   width: 100%;
   min-height: 100vh;
-  padding: 0.45rem clamp(0.45rem, 2.4vw, 1.4rem) 4.5rem;
+  padding: 0 clamp(0.8rem, 2.4vw, 1.8rem) 4.5rem;
   overflow-x: clip;
 }
 
 .plotty-frame {
   width: min(100%, var(--plotty-container));
-  margin: 0 auto 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  border-radius: var(--plotty-radius-xl);
-  background:
-    linear-gradient(180deg, rgba(255, 253, 249, 0.92), rgba(250, 245, 238, 0.98)),
-    var(--plotty-paper);
-  box-shadow: var(--plotty-shadow);
-  overflow: hidden;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .plotty-frame-inner {
-  padding-inline: clamp(1rem, 2.2vw, 2.1rem);
+  padding-inline: clamp(1rem, 2.8vw, 2.35rem);
+}
+
+.plotty-header {
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  background: rgba(255, 250, 244, 0.78);
+  backdrop-filter: blur(22px);
+  animation: plotty-header-enter 320ms var(--ease-out-soft) both;
+}
+
+.plotty-header > .plotty-frame-inner {
+  width: min(100%, var(--plotty-container));
+  margin-inline: auto;
+}
+
+.plotty-header::after {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(43, 36, 29, 0.08), transparent);
+  content: "";
 }
 
 .plotty-nav-indicator {
@@ -125,10 +151,43 @@ select {
   opacity: 0;
   pointer-events: none;
   transition:
-    opacity 180ms ease,
-    transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    width 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    opacity var(--motion-base) var(--ease-out-soft),
+    transform 320ms var(--ease-out-soft),
+    width 320ms var(--ease-out-soft);
   will-change: transform, width;
+}
+
+.plotty-nav-link::after {
+  position: absolute;
+  inset-inline: 0.9rem;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.42;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition:
+    opacity var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-slow) var(--ease-out-soft);
+  content: "";
+}
+
+.plotty-nav-link {
+  border-radius: var(--plotty-radius-md);
+  transition:
+    color var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-nav-link:hover,
+.plotty-nav-link:focus-visible {
+  transform: translateY(-1px);
+}
+
+.plotty-nav-link:hover::after,
+.plotty-nav-link:focus-visible::after {
+  transform: scaleX(1);
 }
 
 .plotty-shell-grid {
@@ -144,6 +203,871 @@ select {
   box-shadow: var(--plotty-shadow-card);
 }
 
+.plotty-page-enter {
+  animation: plotty-page-enter var(--motion-page) var(--ease-out-soft) both;
+}
+
+.plotty-panel-enter {
+  animation: plotty-panel-enter 340ms var(--ease-out-soft) both;
+}
+
+.plotty-profile-edit-region {
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  transform-origin: top center;
+  animation: plotty-profile-edit-region-enter 520ms var(--ease-out-soft) both;
+}
+
+.plotty-profile-edit-region[data-state="closing"] {
+  pointer-events: none;
+  animation: plotty-profile-edit-region-exit 520ms var(--ease-in-out-soft) both;
+}
+
+.plotty-profile-settings-panel {
+  display: grid;
+  min-height: 0;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(41, 38, 34, 0.08);
+  border-radius: 22px;
+  background: var(--plotty-panel-muted);
+  transform-origin: top center;
+  animation: plotty-profile-settings-enter 440ms var(--ease-out-soft) both;
+}
+
+.plotty-profile-edit-region[data-state="closing"] .plotty-profile-settings-panel {
+  animation: plotty-profile-settings-exit 420ms var(--ease-in-out-soft) both;
+}
+
+.plotty-profile-settings-panel > * {
+  animation: plotty-profile-settings-item-enter 380ms var(--ease-out-soft) both;
+  animation-delay: calc(var(--plotty-profile-edit-index, 0) * 34ms);
+}
+
+.plotty-profile-settings-panel > :nth-child(1) {
+  --plotty-profile-edit-index: 1;
+}
+
+.plotty-profile-settings-panel > :nth-child(2) {
+  --plotty-profile-edit-index: 2;
+}
+
+.plotty-profile-settings-panel > :nth-child(3) {
+  --plotty-profile-edit-index: 3;
+}
+
+.plotty-profile-settings-panel > :nth-child(4) {
+  --plotty-profile-edit-index: 4;
+}
+
+.plotty-profile-settings-panel > :nth-child(5) {
+  --plotty-profile-edit-index: 5;
+}
+
+.plotty-profile-settings-panel > :nth-child(6) {
+  --plotty-profile-edit-index: 6;
+}
+
+.plotty-profile-edit-region[data-state="closing"] .plotty-profile-settings-panel > * {
+  animation: plotty-profile-settings-item-exit 280ms var(--ease-in-out-soft) both;
+  animation-delay: calc((7 - var(--plotty-profile-edit-index, 0)) * 24ms);
+}
+
+.plotty-profile-username-input {
+  min-height: clamp(3.9rem, 2.75rem + 3.1vw, 6.25rem);
+  font-family: var(--font-serif), serif;
+  font-size: clamp(2.65rem, 1.55rem + 3.1vw, 5.1rem);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.plotty-avatar-upload {
+  display: flex;
+  min-height: 5.25rem;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--plotty-line);
+  border-radius: var(--plotty-radius-md);
+  background: rgba(255, 253, 249, 0.86);
+  color: var(--plotty-ink);
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition:
+    background-color var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-base) var(--ease-out-soft),
+    color var(--motion-fast) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-avatar-upload:hover {
+  transform: translateY(-1px);
+  border-color: rgba(195, 79, 50, 0.28);
+  background: var(--plotty-paper-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    0 12px 28px rgba(195, 79, 50, 0.08);
+}
+
+.plotty-avatar-upload[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.plotty-avatar-upload[aria-disabled="true"]:hover {
+  transform: none;
+  border-color: var(--plotty-line);
+  background: rgba(255, 253, 249, 0.86);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.plotty-avatar-upload-input:focus-visible + .plotty-avatar-upload {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 0 0 2px var(--plotty-accent-soft),
+    0 12px 28px rgba(195, 79, 50, 0.08);
+  border-color: var(--plotty-accent);
+}
+
+.plotty-avatar-upload-icon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(195, 79, 50, 0.18);
+  border-radius: var(--plotty-radius-sm);
+  background: var(--plotty-accent-soft);
+  color: var(--plotty-accent);
+  transition:
+    background-color var(--motion-base) var(--ease-out-soft),
+    color var(--motion-fast) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-avatar-upload:hover .plotty-avatar-upload-icon,
+.plotty-avatar-upload-input:focus-visible + .plotty-avatar-upload .plotty-avatar-upload-icon {
+  transform: rotate(90deg) scale(1.03);
+  background: var(--plotty-accent);
+  color: white;
+}
+
+.plotty-stagger > .plotty-stagger-item,
+.plotty-stagger > * {
+  animation: plotty-stagger-enter 360ms var(--ease-out-soft) both;
+}
+
+.plotty-stagger > :nth-child(1) { animation-delay: 0ms; }
+.plotty-stagger > :nth-child(2) { animation-delay: 45ms; }
+.plotty-stagger > :nth-child(3) { animation-delay: 90ms; }
+.plotty-stagger > :nth-child(4) { animation-delay: 135ms; }
+.plotty-stagger > :nth-child(5) { animation-delay: 180ms; }
+.plotty-stagger > :nth-child(6) { animation-delay: 225ms; }
+.plotty-stagger > :nth-child(n + 7) { animation-delay: 260ms; }
+
+.plotty-lift-card,
+.plotty-lift-panel,
+.plotty-action-zone {
+  transition:
+    background-color var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-slow) var(--ease-out-soft),
+    color var(--motion-fast) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-lift-card:hover,
+.plotty-lift-card:focus-within {
+  transform: translateY(-3px);
+  border-color: rgba(195, 79, 50, 0.22);
+  box-shadow: 0 24px 58px rgba(58, 43, 27, 0.13);
+}
+
+.plotty-lift-panel:hover,
+.plotty-lift-panel:focus-within {
+  transform: translateY(-1px);
+  border-color: rgba(195, 79, 50, 0.18);
+  box-shadow: 0 18px 44px rgba(58, 43, 27, 0.09);
+}
+
+.plotty-pressable:active {
+  transform: scale(0.98);
+}
+
+.plotty-cover-preview {
+  transition:
+    border-color var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-slow) var(--ease-out-soft),
+    transform var(--motion-slow) var(--ease-out-soft);
+}
+
+.plotty-cover-preview img {
+  transition: transform var(--motion-page) var(--ease-out-soft);
+  will-change: transform;
+}
+
+.plotty-cover-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at center, rgba(255, 253, 249, 0.7), rgba(255, 253, 249, 0.16) 48%, transparent 72%),
+    rgba(35, 30, 24, 0.08);
+  backdrop-filter: blur(2px);
+  transition: opacity var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-cover-loading-spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 3px solid rgba(255, 253, 249, 0.78);
+  border-top-color: var(--plotty-accent);
+  border-right-color: rgba(195, 79, 50, 0.58);
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(58, 43, 27, 0.14);
+  animation: plotty-cover-loading-spin 850ms linear infinite;
+}
+
+.plotty-cover-preview:hover,
+.plotty-story-card:hover .plotty-cover-preview,
+.plotty-lift-card:hover .plotty-cover-preview {
+  border-color: rgba(195, 79, 50, 0.2);
+  box-shadow: 0 20px 46px rgba(58, 43, 27, 0.12);
+}
+
+.plotty-cover-preview:hover img,
+.plotty-story-card:hover .plotty-cover-preview img,
+.plotty-lift-card:hover .plotty-cover-preview img {
+  transform: scale(1.03);
+}
+
+.plotty-popover-content {
+  transform-origin: top center;
+  animation: plotty-popover-open var(--motion-base) var(--ease-out-soft) both;
+}
+
+.plotty-popover-content[data-state="closing"] {
+  pointer-events: none;
+  animation: plotty-popover-close var(--motion-fast) var(--ease-in-out-soft) both;
+}
+
+.plotty-popover-item {
+  transition:
+    background-color var(--motion-fast) var(--ease-out-soft),
+    color var(--motion-fast) var(--ease-out-soft),
+    transform var(--motion-fast) var(--ease-out-soft);
+}
+
+.plotty-popover-item:hover,
+.plotty-popover-item:focus-visible {
+  transform: translateX(2px);
+}
+
+.plotty-button-label[data-plotty-button],
+.plotty-icon-motion[data-plotty-icon-button] {
+  transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: center;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+.plotty-button-label[data-plotty-button] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition-duration: var(--motion-slow);
+}
+
+.plotty-button-label[data-plotty-button]::after {
+  position: absolute;
+  inset: -35% -55%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 34%, rgba(255, 250, 244, 0.28) 48%, transparent 62%);
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  transform: translate3d(-34%, 0, 0) skewX(-10deg);
+  transition:
+    opacity var(--motion-base) var(--ease-out-soft),
+    transform 520ms var(--ease-out-soft);
+  content: "";
+}
+
+.plotty-button-label[data-plotty-button]:hover:not(:disabled):not([aria-disabled="true"])::after,
+.plotty-button-label[data-plotty-button]:focus-visible:not(:disabled):not([aria-disabled="true"])::after {
+  opacity: 1;
+  transform: translate3d(34%, 0, 0) skewX(-10deg);
+}
+
+.plotty-button-label[data-plotty-button][data-variant="primary"]:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, -2px, 0) scale(1.01);
+}
+
+.plotty-button-label[data-plotty-button][data-variant="secondary"]:hover:not(:disabled):not([aria-disabled="true"]),
+.plotty-button-label[data-plotty-button][data-variant="ghost"]:hover:not(:disabled):not([aria-disabled="true"]),
+.plotty-button-label[data-plotty-button][data-variant="destructive"]:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, -1px, 0) scale(1.005);
+}
+
+.plotty-button-label[data-plotty-button]:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, 0, 0) scale(0.98);
+  transition-duration: var(--motion-fast);
+}
+
+.plotty-button-label[data-plotty-button][data-variant="primary"]:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, 0, 0) scale(0.97);
+}
+
+.plotty-icon-motion[data-plotty-icon-button]:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, -1px, 0) scale(1.03);
+}
+
+.plotty-icon-motion[data-plotty-icon-button][data-variant="primary"]:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, -2px, 0) scale(1.04);
+}
+
+.plotty-icon-motion[data-plotty-icon-button]:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, 0, 0) scale(0.95);
+  transition-duration: var(--motion-fast);
+}
+
+.plotty-chip-motion,
+.plotty-badge-motion {
+  position: relative;
+  overflow: hidden;
+  transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: center;
+  backface-visibility: hidden;
+  animation: plotty-chip-enter var(--motion-slow) var(--ease-out-soft);
+  transition:
+    background-color var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-base) var(--ease-out-soft),
+    color var(--motion-fast) var(--ease-out-soft),
+    opacity var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-chip-motion::before,
+.plotty-badge-motion::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 250, 244, 0.42), transparent 58%);
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-out-soft);
+  content: "";
+}
+
+.plotty-chip-motion:hover,
+.plotty-badge-motion:hover {
+  transform: translate3d(0, -1px, 0) scale(1.025);
+  border-color: rgba(195, 79, 50, 0.24);
+  box-shadow: 0 10px 22px rgba(58, 43, 27, 0.1);
+}
+
+.plotty-chip-motion:hover::before,
+.plotty-badge-motion:hover::before,
+button:focus-visible .plotty-chip-motion::before {
+  opacity: 1;
+}
+
+.plotty-chip-motion:active,
+button:active .plotty-chip-motion {
+  transform: translate3d(0, 0, 0) scale(0.98);
+  transition-duration: var(--motion-fast);
+}
+
+.plotty-chip-motion[data-selected="true"] {
+  animation:
+    plotty-chip-enter var(--motion-slow) var(--ease-out-soft),
+    plotty-chip-selected-glow 620ms var(--ease-out-soft) 80ms both;
+}
+
+.plotty-credit-cost-badge {
+  position: absolute;
+}
+
+.plotty-like-pop[aria-pressed="true"] svg,
+.plotty-like-pop[data-liked="true"] svg {
+  animation: plotty-like-pop 360ms var(--ease-out-soft) both;
+}
+
+.plotty-button-label svg,
+.plotty-icon-motion svg {
+  transition:
+    color var(--motion-fast) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-button-label:hover svg,
+.plotty-icon-motion:hover svg {
+  transform: translateY(-1px);
+}
+
+.plotty-danger-motion:hover svg {
+  transform: translateX(2px);
+}
+
+.plotty-tab-panel-enter {
+  animation: plotty-stagger-enter 260ms var(--ease-out-soft) both;
+}
+
+.plotty-motion-list {
+  --plotty-motion-stagger-step: 42ms;
+}
+
+.plotty-motion-list-item {
+  animation: plotty-motion-list-item-enter 360ms var(--ease-out-soft) both;
+  animation-delay: min(calc(var(--plotty-motion-index, 0) * var(--plotty-motion-stagger-step)), 260ms);
+}
+
+.plotty-motion-tab-panel {
+  animation: plotty-motion-tab-panel-enter 300ms var(--ease-out-soft) both;
+}
+
+.plotty-motion-tab-panel[hidden] {
+  display: none;
+}
+
+.plotty-async-status {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.78rem 0.9rem;
+  border: 1px solid var(--plotty-line);
+  border-radius: var(--plotty-radius-md);
+  background: rgba(255, 253, 249, 0.78);
+  box-shadow: 0 10px 24px rgba(58, 43, 27, 0.05);
+  animation: plotty-motion-tab-panel-enter 260ms var(--ease-out-soft) both;
+  transition:
+    background-color var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-async-status-compact {
+  padding: 0.58rem 0.7rem;
+}
+
+.plotty-async-status-busy {
+  border-color: rgba(195, 79, 50, 0.18);
+  background: var(--plotty-accent-wash);
+}
+
+.plotty-async-status-completed {
+  border-color: rgba(63, 93, 69, 0.18);
+  background: rgba(220, 230, 216, 0.52);
+}
+
+.plotty-async-status-failed {
+  border-color: rgba(189, 63, 50, 0.2);
+  background: var(--plotty-danger-soft);
+}
+
+.plotty-async-status-pulse {
+  animation:
+    plotty-motion-tab-panel-enter 260ms var(--ease-out-soft) both,
+    plotty-async-status-complete-pulse 780ms var(--ease-out-soft) both;
+}
+
+.plotty-async-status-icon {
+  position: relative;
+  display: inline-flex;
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 auto;
+  margin-top: 0.25rem;
+  border-radius: 999px;
+  background: var(--plotty-muted-soft);
+  box-shadow: 0 0 0 3px rgba(112, 102, 91, 0.1);
+}
+
+.plotty-async-status-busy .plotty-async-status-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.15rem;
+  border: 2px solid rgba(195, 79, 50, 0.22);
+  border-top-color: var(--plotty-accent);
+  background: transparent;
+  box-shadow: none;
+  animation: plotty-cover-loading-spin 720ms linear infinite;
+}
+
+.plotty-async-status-busy .plotty-async-status-icon::after {
+  content: none;
+}
+
+.plotty-async-status-completed .plotty-async-status-icon {
+  background: var(--plotty-olive);
+  box-shadow: 0 0 0 3px rgba(63, 93, 69, 0.12);
+}
+
+.plotty-async-status-failed .plotty-async-status-icon {
+  background: var(--plotty-danger);
+  box-shadow: 0 0 0 3px rgba(189, 63, 50, 0.13);
+}
+
+.plotty-reader-progress {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 3px;
+  margin-inline: calc(clamp(1rem, 2.8vw, 2.35rem) * -1);
+  overflow: hidden;
+  background: transparent;
+}
+
+.plotty-reader-progress-bar {
+  width: 100%;
+  height: 100%;
+  transform: scaleX(var(--plotty-reader-progress, 0));
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--plotty-accent), var(--plotty-gold));
+  transition: transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-motion-drawer {
+  animation: plotty-motion-drawer-enter 320ms var(--ease-out-soft) both;
+}
+
+.plotty-flow-step-button {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-base) var(--ease-out-soft),
+    background-color var(--motion-base) var(--ease-out-soft),
+    color var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-flow-step-button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(58, 43, 27, 0.06);
+}
+
+.plotty-flow-step-button[data-active="true"]::after {
+  position: absolute;
+  inset: auto 1rem 0.55rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: plotty-flow-step-active 420ms var(--ease-out-soft) both;
+  content: "";
+}
+
+.plotty-collection-tile {
+  position: relative;
+  transition:
+    background-color var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-collection-tile:hover {
+  border-color: rgba(195, 79, 50, 0.16);
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(58, 43, 27, 0.07);
+  transform: translateY(-1px);
+}
+
+.plotty-collection-actions-summary {
+  list-style: none;
+}
+
+.plotty-collection-actions-summary::-webkit-details-marker {
+  display: none;
+}
+
+.plotty-collection-actions-menu {
+  animation: plotty-popover-open 160ms var(--ease-out-soft) both;
+}
+
+.plotty-tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: calc(var(--plotty-radius-md) - 4px);
+  background: var(--plotty-accent);
+  box-shadow: 0 8px 18px rgba(188, 95, 61, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    height var(--motion-slow) var(--ease-out-soft),
+    opacity var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-slow) var(--ease-out-soft),
+    width var(--motion-slow) var(--ease-out-soft);
+}
+
+.plotty-segmented > .plotty-tab-indicator ~ .plotty-tab-button[data-active="true"] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.plotty-search-shell {
+  transition:
+    border-color var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-search-shell:focus-within {
+  border-color: rgba(195, 79, 50, 0.45);
+  box-shadow:
+    0 0 0 2px var(--plotty-accent-soft),
+    0 12px 30px rgba(195, 79, 50, 0.1);
+}
+
+.plotty-search-shell:focus-within svg {
+  color: var(--plotty-accent);
+}
+
+.plotty-search-shell input:is(:focus, :focus-visible) {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.plotty-catalog-layout {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.plotty-catalog-filter-rail {
+  min-width: 0;
+}
+
+.plotty-catalog-filter-card {
+  transform-origin: left top;
+  transition:
+    opacity 260ms var(--ease-out-soft),
+    filter 420ms var(--ease-out-soft),
+    transform 520ms var(--ease-out-soft),
+    box-shadow 420ms var(--ease-out-soft);
+  will-change: opacity, filter, transform;
+}
+
+.plotty-catalog-filter-card > div > * {
+  transition:
+    opacity 280ms var(--ease-out-soft),
+    transform 440ms var(--ease-out-soft);
+  transition-delay: calc(var(--plotty-filter-index, 0) * 28ms);
+}
+
+.plotty-catalog-filter-card > div > :nth-child(1) {
+  --plotty-filter-index: 1;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(2) {
+  --plotty-filter-index: 2;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(3) {
+  --plotty-filter-index: 3;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(4) {
+  --plotty-filter-index: 4;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(5) {
+  --plotty-filter-index: 5;
+}
+
+.plotty-catalog-filter-card > div > :nth-child(6) {
+  --plotty-filter-index: 6;
+}
+
+@media (min-width: 1024px) {
+  .plotty-catalog-layout {
+    grid-template-columns: 17rem minmax(0, 1fr);
+    column-gap: 1.75rem;
+    row-gap: 1.75rem;
+    align-items: start;
+    transition:
+      column-gap 520ms var(--ease-in-out-soft),
+      grid-template-columns 620ms var(--ease-in-out-soft);
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] {
+    grid-template-columns: 0 minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .plotty-catalog-filter-rail {
+    position: relative;
+    z-index: 2;
+    overflow: clip;
+    opacity: 1;
+    transition:
+      opacity 260ms var(--ease-out-soft),
+      transform 620ms var(--ease-in-out-soft);
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-rail {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-1.25rem);
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-card {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateX(-1.1rem) scale(0.96);
+    box-shadow: none;
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-card > div > * {
+    opacity: 0;
+    transform: translateY(0.75rem);
+    transition-delay: 0ms;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-rail {
+    overflow: visible;
+    opacity: 1;
+    pointer-events: none;
+    transform: none;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card {
+    width: 17rem;
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateX(-1.1rem) scale(0.96);
+    box-shadow: none;
+    transition-delay: 190ms, 150ms, 150ms, 150ms;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card > div > * {
+    opacity: 0;
+    transform: translateX(-0.25rem) translateY(0.75rem);
+    transition-delay: calc((7 - var(--plotty-filter-index, 0)) * 28ms);
+  }
+}
+
+@media (min-width: 1280px) {
+  .plotty-catalog-layout {
+    grid-template-columns: 18rem minmax(0, 1fr);
+    column-gap: 2rem;
+  }
+
+  .plotty-catalog-layout[data-filters-collapsed="true"] {
+    grid-template-columns: 0 minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card {
+    width: 18rem;
+  }
+}
+
+.plotty-info-row {
+  transition: color var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-info-row > span,
+.plotty-info-row div span:last-child {
+  transition:
+    color var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-info-row:hover > span {
+  color: var(--plotty-accent);
+}
+
+.plotty-info-row:hover div span:last-child {
+  transform: translateX(2px);
+}
+
+.plotty-scroll-panel {
+  scrollbar-color: rgba(112, 102, 91, 0.36) transparent;
+  scrollbar-width: thin;
+}
+
+.plotty-scroll-panel::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.plotty-scroll-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.plotty-scroll-panel::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(112, 102, 91, 0.34);
+  background-clip: padding-box;
+}
+
+.plotty-scroll-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(112, 102, 91, 0.48);
+  background-clip: padding-box;
+}
+
+.plotty-editor-chapter-nav-list {
+  max-height: min(31rem, calc(100vh - 16rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+}
+
+.plotty-story-details-chapter-list {
+  max-height: min(34rem, calc(100vh - 14rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.plotty-reader-chapter-list {
+  max-height: min(24rem, calc(100vh - 16rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.plotty-workshop-chapter-list {
+  max-height: min(28rem, calc(100vh - 22rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports (height: 100dvh) {
+  .plotty-workshop-chapter-list {
+    max-height: min(28rem, calc(100dvh - 22rem));
+  }
+}
+
+.plotty-chapter-sort-button {
+  width: 2.35rem;
+  min-height: 2.35rem;
+  padding-inline: 0;
+  line-height: 1;
+}
+
+@media (min-width: 1024px) {
+  .plotty-workshop-story-list {
+    max-height: min(36rem, calc(100vh - 16rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.25rem;
+  }
+
+  .plotty-workshop-chapter-list {
+    max-height: min(28rem, calc(100vh - 18rem));
+  }
+}
+
 .plotty-seriffed,
 .plotty-serif {
   font-family: var(--font-serif), serif;
@@ -151,10 +1075,29 @@ select {
 
 .plotty-logo {
   font-family: var(--font-serif), serif;
-  font-size: clamp(2rem, 1.4rem + 1.55vw, 3.2rem);
+  font-size: clamp(1.9rem, 1.45rem + 1.1vw, 2.75rem);
   font-weight: 700;
   line-height: 0.92;
   letter-spacing: 0;
+  transition:
+    color var(--motion-base) var(--ease-out-soft),
+    opacity var(--motion-base) var(--ease-out-soft),
+    text-shadow var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-logo:hover,
+.plotty-logo:focus-visible {
+  transform: translateY(-1px);
+  text-shadow: 0 10px 24px rgba(195, 79, 50, 0.18);
+}
+
+.plotty-logo:hover .plotty-feather,
+.plotty-logo:focus-visible .plotty-feather,
+.plotty-logo:hover svg,
+.plotty-logo:focus-visible svg {
+  filter: drop-shadow(0 4px 8px rgba(195, 79, 50, 0.22));
+  transform: translateY(-1px) rotate(-4deg);
 }
 
 .plotty-feather {
@@ -163,14 +1106,50 @@ select {
   font-size: 0.7em;
   font-weight: 700;
   line-height: 1;
+  transition:
+    filter var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
 }
 
 .plotty-page-title {
   font-family: var(--font-serif), serif;
-  font-size: clamp(2.25rem, 1.35rem + 2.6vw, 4.25rem);
+  font-size: clamp(2.65rem, 1.55rem + 3.1vw, 5.1rem);
   font-weight: 700;
   line-height: 0.98;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.plotty-page-title-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.12em 0.28em;
+  vertical-align: baseline;
+}
+
+.plotty-page-title-row .plotty-story-title-inline-anchor {
+  align-items: baseline;
+}
+
+.plotty-page-title-back-icon {
+  align-self: center;
+  transform: translateY(0.03em);
+}
+
+.plotty-page-title-part {
+  display: inline-flex;
+  align-items: baseline;
+  line-height: inherit;
+}
+
+.plotty-adaptive-story-title {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
 }
 
 .plotty-section-title {
@@ -187,19 +1166,35 @@ select {
   font-weight: 700;
   line-height: 1.14;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .plotty-story-card {
   transition:
-    border-color 220ms ease,
-    box-shadow 220ms ease,
-    transform 220ms ease;
+    background-color var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-slow) var(--ease-out-soft),
+    transform var(--motion-slow) var(--ease-out-soft);
 }
 
 .plotty-story-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(195, 79, 50, 0.2);
+  transform: translateY(-3px);
+  border-color: rgba(195, 79, 50, 0.22);
   box-shadow: 0 24px 58px rgba(58, 43, 27, 0.13);
+}
+
+.plotty-story-card-body-link {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border-radius: var(--plotty-radius-md);
+}
+
+.plotty-story-card-body-link:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--plotty-paper),
+    0 0 0 4px var(--plotty-accent);
 }
 
 .plotty-story-eyebrow-kind {
@@ -223,6 +1218,7 @@ select {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .plotty-story-title-anchor {
@@ -243,8 +1239,8 @@ select {
   background-repeat: no-repeat;
   background-size: 0 2px;
   transition:
-    color 180ms ease,
-    background-size 260ms ease;
+    color var(--motion-base) var(--ease-out-soft),
+    background-size var(--motion-slow) var(--ease-out-soft);
 }
 
 .plotty-story-title-anchor:is(:hover, :focus-visible, :focus-within) .plotty-story-title-text,
@@ -289,6 +1285,7 @@ select {
 }
 
 .plotty-segmented {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -370,6 +1367,616 @@ select {
     margin-bottom: 0;
     border: 0;
     border-radius: 0;
+    overflow: hidden;
+  }
+
+  .plotty-header {
+    background: rgba(251, 247, 242, 0.94);
+  }
+}
+
+.plotty-story-reveal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 250, 244, 0.34), transparent 21rem),
+    rgba(48, 35, 27, 0.34);
+  backdrop-filter: blur(9px);
+  animation: plotty-reveal-overlay 180ms var(--ease-out-soft) both;
+}
+
+.plotty-story-reveal-book {
+  width: min(26rem, 86vw);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  animation: plotty-reveal-book 760ms var(--ease-out-soft) both;
+}
+
+.plotty-story-reveal-cover {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(195, 79, 50, 0.18);
+  border-radius: var(--plotty-radius-lg);
+  background: linear-gradient(135deg, var(--plotty-panel), var(--plotty-paper));
+  box-shadow:
+    -12px 0 28px rgba(31, 26, 22, 0.16),
+    0 36px 92px rgba(31, 26, 22, 0.28);
+  transform-origin: left center;
+  animation: plotty-reveal-cover 760ms var(--ease-out-soft) both;
+}
+
+.plotty-story-reveal-cover::before {
+  display: block;
+  aspect-ratio: 3 / 4;
+  content: "";
+}
+
+.plotty-story-reveal-cover::after {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 14%;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(31, 26, 22, 0.28), rgba(31, 26, 22, 0.08), transparent),
+    linear-gradient(90deg, rgba(255, 250, 244, 0.12), transparent 55%);
+  opacity: 0.88;
+  content: "";
+}
+
+.plotty-story-reveal-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.04);
+  animation: plotty-reveal-cover-image 760ms var(--ease-out-soft) both;
+}
+
+.plotty-story-reveal-cover-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 24%, transparent 0 36%, rgba(31, 26, 22, 0.14) 74%),
+    linear-gradient(180deg, transparent 42%, rgba(31, 26, 22, 0.76));
+  opacity: 0;
+  animation: plotty-reveal-cover-vignette 640ms var(--ease-out-soft) 80ms both;
+}
+
+.plotty-story-reveal-cover-title {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 1.25rem;
+  color: white;
+  font-family: var(--font-serif), serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  opacity: 0;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.42);
+  transform: translateY(12px);
+  animation: plotty-reveal-title 520ms var(--ease-out-soft) 170ms both;
+}
+
+.plotty-image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 3vw, 2rem);
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 250, 244, 0.2), transparent 28rem),
+    rgba(31, 26, 22, 0.82);
+  backdrop-filter: blur(10px);
+  animation: plotty-reveal-overlay var(--motion-base) var(--ease-out-soft) both;
+}
+
+.plotty-image-lightbox-frame {
+  position: relative;
+  display: grid;
+  max-height: min(88vh, 58rem);
+  max-width: min(92vw, 58rem);
+  place-items: center;
+  gap: 0.75rem;
+  animation: plotty-lightbox-image-enter var(--motion-slow) var(--ease-out-soft) both;
+}
+
+.plotty-image-lightbox-media {
+  position: relative;
+  width: min(92vw, 82vh, 54rem);
+  height: min(92vw, 82vh, 54rem);
+  max-height: min(92vw, 82vh, 54rem);
+  max-width: min(92vw, 82vh, 54rem);
+  aspect-ratio: 1;
+}
+
+.plotty-image-lightbox-image {
+  border-radius: var(--plotty-radius-md);
+  box-shadow: 0 32px 86px rgba(0, 0, 0, 0.38);
+  object-fit: contain;
+}
+
+.plotty-image-lightbox-caption {
+  max-width: min(88vw, 44rem);
+  color: rgba(255, 250, 244, 0.88);
+  font-family: var(--font-serif), serif;
+  font-size: clamp(1.05rem, 2vw, 1.45rem);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
+}
+
+.plotty-image-lightbox-close {
+  position: fixed;
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  z-index: 1;
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 250, 244, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 250, 244, 0.14);
+  color: #fffaf4;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+  transition:
+    background-color var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-image-lightbox-close:hover,
+.plotty-image-lightbox-close:focus-visible {
+  border-color: rgba(255, 250, 244, 0.42);
+  background: rgba(255, 250, 244, 0.22);
+  transform: translateY(-1px);
+}
+
+.plotty-image-lightbox-close:focus-visible {
+  outline: 2px solid rgba(255, 250, 244, 0.82);
+  outline-offset: 3px;
+}
+
+.plotty-mobile-sheet-overlay[data-state="open"] {
+  animation: plotty-mobile-sheet-overlay-in var(--motion-base) var(--ease-out-soft) both;
+}
+
+.plotty-mobile-sheet-overlay[data-state="closing"] {
+  animation: plotty-mobile-sheet-overlay-out var(--motion-slow) var(--ease-in-out-soft) both;
+}
+
+.plotty-mobile-sheet-panel {
+  transform: translate3d(0, 100%, 0);
+  will-change: transform, opacity;
+}
+
+.plotty-mobile-sheet-panel[data-state="open"] {
+  animation: plotty-mobile-sheet-slide-in 320ms var(--ease-out-soft) both;
+}
+
+.plotty-mobile-sheet-panel[data-state="closing"] {
+  pointer-events: none;
+  animation: plotty-mobile-sheet-slide-out var(--motion-slow) var(--ease-in-out-soft) both;
+}
+
+.plotty-chapter-title-motion {
+  display: inline;
+  background-image:
+    linear-gradient(90deg, rgba(195, 79, 50, 0), rgba(195, 79, 50, 0.3), rgba(195, 79, 50, 0)),
+    linear-gradient(90deg, currentColor, currentColor);
+  background-position:
+    -140% 100%,
+    0 100%;
+  background-repeat: no-repeat;
+  background-size:
+    70% 2px,
+    100% 2px;
+  animation: plotty-chapter-title-ink 2.8s var(--ease-in-out-soft) infinite;
+}
+
+@keyframes plotty-header-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes plotty-profile-settings-enter {
+  0% {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(-10px) scale(0.992);
+  }
+  72% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(1px) scale(1);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes plotty-profile-settings-exit {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(-10px) scale(0.985);
+  }
+}
+
+@keyframes plotty-profile-edit-region-enter {
+  0% {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+  100% {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-profile-edit-region-exit {
+  0% {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+}
+
+@keyframes plotty-profile-settings-item-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-profile-settings-item-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes plotty-stagger-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-motion-list-item-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.992);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes plotty-motion-tab-panel-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-async-status-orbit {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.72);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+@keyframes plotty-cover-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes plotty-async-status-complete-pulse {
+  0% {
+    box-shadow: 0 0 0 rgba(63, 93, 69, 0);
+    transform: translateY(0);
+  }
+  48% {
+    box-shadow:
+      0 0 0 4px rgba(63, 93, 69, 0.12),
+      0 14px 30px rgba(58, 43, 27, 0.08);
+    transform: translateY(-1px);
+  }
+  100% {
+    box-shadow: 0 10px 24px rgba(58, 43, 27, 0.05);
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-motion-drawer-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(1.25rem);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes plotty-flow-step-active {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes plotty-popover-open {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes plotty-popover-close {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0);
+  }
+}
+
+@keyframes plotty-chip-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  72% {
+    opacity: 1;
+    transform: translateY(0) scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes plotty-chip-selected-glow {
+  0% {
+    box-shadow: 0 0 0 rgba(195, 79, 50, 0);
+  }
+  45% {
+    box-shadow: 0 0 0 3px rgba(195, 79, 50, 0.12), 0 10px 22px rgba(58, 43, 27, 0.08);
+  }
+  100% {
+    box-shadow: 0 8px 18px rgba(195, 79, 50, 0.14);
+  }
+}
+
+@keyframes plotty-like-pop {
+  0% { transform: scale(0.95); }
+  55% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@keyframes plotty-reveal-overlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes plotty-mobile-sheet-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes plotty-mobile-sheet-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes plotty-mobile-sheet-slide-in {
+  0% {
+    opacity: 0.96;
+    transform: translate3d(0, 100%, 0);
+  }
+  72% {
+    opacity: 1;
+    transform: translate3d(0, -0.35rem, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes plotty-mobile-sheet-slide-out {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    opacity: 0.98;
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+@keyframes plotty-reveal-book {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92);
+  }
+  38% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.035);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1.01);
+  }
+}
+
+@keyframes plotty-reveal-cover {
+  0% {
+    opacity: 0;
+    transform: rotateX(7deg) rotateY(-13deg) translateX(-8px);
+    box-shadow:
+      -4px 0 14px rgba(31, 26, 22, 0.08),
+      0 18px 46px rgba(31, 26, 22, 0.16);
+  }
+  44% {
+    opacity: 1;
+    transform: rotateX(2deg) rotateY(-5deg) translateX(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateX(0deg) rotateY(0deg) translateX(0);
+    box-shadow:
+      -12px 0 28px rgba(31, 26, 22, 0.16),
+      0 36px 92px rgba(31, 26, 22, 0.28);
+  }
+}
+
+@keyframes plotty-reveal-cover-image {
+  0% {
+    transform: scale(1.11);
+  }
+  100% {
+    transform: scale(1.025);
+  }
+}
+
+@keyframes plotty-reveal-cover-vignette {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes plotty-reveal-title {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plotty-lightbox-image-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes plotty-chapter-title-ink {
+  0% {
+    background-position:
+      -140% 100%,
+      0 100%;
+  }
+  52% {
+    background-position:
+      180% 100%,
+      0 100%;
+  }
+  100% {
+    background-position:
+      180% 100%,
+      0 100%;
   }
 }
 
@@ -394,14 +2001,30 @@ select {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .plotty-story-card,
-  .plotty-story-title-text,
   * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
-    transition-duration: 1ms !important;
+    transition-duration: 0.01ms !important;
   }
 
-  .plotty-story-card:hover {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .plotty-story-card:hover,
+  .plotty-lift-card:hover,
+  .plotty-lift-panel:hover,
+  .plotty-cover-preview:hover img {
     transform: none;
+  }
+
+  .plotty-chapter-title-motion {
+    background-image: none;
   }
 }

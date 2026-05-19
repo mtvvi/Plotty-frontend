@@ -1,9 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { AuthProvider } from "@/entities/auth/model/auth-context";
+import { loginMockUser } from "@/mocks/data/auth";
 import { listStories } from "@/mocks/data/stories";
 import { StoryCard } from "@/widgets/stories/story-card";
+import { storyCoverPlaceholderSrc } from "@/widgets/stories/story-cover-preview";
 
 const push = vi.fn();
 
@@ -13,15 +16,17 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-function renderStoryCard() {
-  const story = listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items[0];
+function renderStoryCard(index = 0) {
+  const story = listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items[index];
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
 
   render(
     <QueryClientProvider client={queryClient}>
-      <StoryCard story={story} />
+      <AuthProvider>
+        <StoryCard story={story} />
+      </AuthProvider>
     </QueryClientProvider>,
   );
 
@@ -35,9 +40,16 @@ describe("StoryCard", () => {
     expect(screen.getByRole("heading", { name: story.title })).toBeInTheDocument();
     expect(screen.getByText(story.aiHint!)).toBeInTheDocument();
     expect(screen.getByText(story.tags[0].name)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: `Фильтр: ${story.tags[0].name}` })).toHaveAttribute(
+      "href",
+      `/?tag=${story.tags[0].slug}`,
+    );
     expect(screen.getByText(`Автор ${story.author?.username}`)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: `Открыть историю ${story.title}` })).toBeInTheDocument();
-    expect(screen.getByText(/Обложка появится, когда у первой главы будет иллюстрация/i)).toBeInTheDocument();
+    expect(screen.getByAltText(`Обложка появится позже для истории «${story.title}»`)).toHaveAttribute(
+      "src",
+      storyCoverPlaceholderSrc,
+    );
     expect(screen.getByLabelText("Действия карточки")).toBeInTheDocument();
     expect(screen.queryByText(/\+\d+/)).not.toBeInTheDocument();
   });
@@ -48,13 +60,35 @@ describe("StoryCard", () => {
     expect(screen.getByRole("link", { name: `Открыть историю ${story.title}` })).toHaveAttribute("href", `/stories/${story.slug}`);
   });
 
-  it("renders a placeholder cover from list data instead of fetching chapter imagery", () => {
+  it("uses explicit shelf and collection action labels", async () => {
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    renderStoryCard(1);
+
+    expect(await screen.findAllByRole("button", { name: "В планы" })).not.toHaveLength(0);
+    expect(screen.getAllByRole("button", { name: "В подборку" })).not.toHaveLength(0);
+  });
+
+  it("links authenticated readers to the first unread chapter", async () => {
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
     renderStoryCard();
 
-    expect(screen.getByText(/Обложка появится, когда у первой главы будет иллюстрация/i)).toBeInTheDocument();
-    expect(screen.getByText(/Обложка появится, когда у первой главы будет иллюстрация/i).closest('[data-cover-frame="true"]')).toHaveClass(
+    await waitFor(() =>
+      expect(screen.getAllByRole("link", { name: "Читать" })[0]).toHaveAttribute(
+        "href",
+        "/stories/after-midnight-the-snow-does-not-melt/chapters/2",
+      ),
+    );
+  });
+
+  it("renders a placeholder cover from list data instead of fetching chapter imagery", () => {
+    const story = renderStoryCard();
+    const placeholder = screen.getByAltText(`Обложка появится позже для истории «${story.title}»`);
+
+    expect(placeholder).toHaveAttribute("src", storyCoverPlaceholderSrc);
+    expect(placeholder.closest('[data-cover-frame="true"]')).toHaveClass(
       "h-full",
       "min-h-[18rem]",
     );
+    expect(placeholder).toHaveClass("object-cover");
   });
 });

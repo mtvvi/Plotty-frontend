@@ -6,17 +6,20 @@ import { BookOpen, Heart, List } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { chapterDetailsQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
+import { chapterDetailsQueryOptions, chaptersViewedQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
-import type { StoryListItem } from "@/entities/story/model/types";
+import type { StoryListItem, StoryTag } from "@/entities/story/model/types";
+import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
+import { StoryRevealButtonLink } from "@/shared/ui/story-reveal-transition";
 
-import { StoryCoverPreview } from "./story-cover-preview";
+import { StoryCoverPreview, storyCoverPlaceholderSrc } from "./story-cover-preview";
 import { StoryCollectionControl } from "./story-collection-control";
+import { getStoryTagTone, StoryTagLinkChip } from "./story-tag-link";
 import { StoryShelfControl } from "./story-shelf-control";
 
 export function StoryCard({
@@ -39,7 +42,11 @@ export function StoryCard({
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
-  const firstChapter = storyDetailsQuery.data?.chapters[0];
+  const readerChapters = useMemo(
+    () => (storyDetailsQuery.data ? publicChaptersForReader(storyDetailsQuery.data.chapters) : []),
+    [storyDetailsQuery.data],
+  );
+  const firstChapter = readerChapters[0];
   const firstChapterQuery = useQuery({
     ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
     enabled: Boolean(firstChapter?.id && !story.coverImageUrl),
@@ -47,8 +54,30 @@ export function StoryCard({
     refetchOnWindowFocus: false,
   });
   const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
+  const revealCoverImage = displayCoverImage ?? storyCoverPlaceholderSrc;
+  const isCoverLoading = Boolean(!story.coverImageUrl && (storyDetailsQuery.isLoading || firstChapterQuery.isLoading));
   const chaptersHref = `${routes.story(story.slug)}?tab=chapters`;
-  const readHref = firstChapter ? routes.chapter(story.slug, firstChapter.number ?? 1) : resolvedStoryHref;
+  const chaptersViewedQuery = useQuery({
+    ...chaptersViewedQueryOptions(story.slug),
+    enabled: Boolean(isAuthenticated && storyDetailsQuery.data && readerChapters.length),
+  });
+  const viewedByChapterId = useMemo(() => {
+    const items = chaptersViewedQuery.data?.items ?? [];
+
+    return new Map(items.map((item) => [item.chapterId, item.viewed]));
+  }, [chaptersViewedQuery.data?.items]);
+  const firstReadableChapter = useMemo(() => {
+    if (!readerChapters.length) {
+      return null;
+    }
+
+    if (!isAuthenticated || !chaptersViewedQuery.isSuccess) {
+      return readerChapters[0];
+    }
+
+    return readerChapters.find((chapter) => viewedByChapterId.get(chapter.id) !== true) ?? readerChapters[0];
+  }, [chaptersViewedQuery.isSuccess, isAuthenticated, readerChapters, viewedByChapterId]);
+  const readHref = firstReadableChapter ? routes.chapter(story.slug, firstReadableChapter.number ?? 1) : resolvedStoryHref;
   const viewerHasLiked = Boolean(storyDetailsQuery.data?.viewerHasLiked ?? story.viewerHasLiked);
   const likesCount = storyDetailsQuery.data?.likesCount ?? story.likesCount;
   const likeMutation = useStoryLikeMutation({
@@ -90,19 +119,29 @@ export function StoryCard({
             className="h-full rounded-none border-0"
             imageClassName="h-full min-h-[18rem] max-md:!min-h-0"
             fullHeight
+            isLoading={isCoverLoading}
           />
         </Link>
 
-        <div className="min-w-0 space-y-3 p-4 md:space-y-4 md:p-5 lg:p-6">
-          <div className="space-y-1.5 md:space-y-2">
-            <Link href={resolvedStoryHref} className="plotty-story-title-anchor">
-              <h2 className="plotty-card-title text-[1.28rem] leading-[1.05] md:text-[1.8rem] md:leading-none lg:text-[2.25rem]">
+        <div className="relative min-w-0 space-y-3 p-4 md:space-y-3.5 md:p-5">
+          <Link
+            href={resolvedStoryHref}
+            aria-label={`Перейти на страницу истории ${story.title}`}
+            className="plotty-story-card-body-link"
+          />
+
+          <div className="pointer-events-none relative z-20 space-y-1.5 md:space-y-2">
+            <div className="plotty-story-title-anchor">
+              <h2 className="plotty-card-title text-[1.28rem] leading-[1.08] md:text-[1.75rem] md:leading-none lg:text-[2rem]">
                 <span className="plotty-story-title-text">{story.title}</span>
               </h2>
-            </Link>
+            </div>
             <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs leading-5 text-[var(--plotty-muted)] md:gap-x-2.5 md:gap-y-1 md:text-sm">
               {story.author?.username ? (
-                <Link href={routes.user(story.author.username)} className="font-semibold hover:text-[var(--plotty-accent)]">
+                <Link
+                  href={routes.user(story.author.username)}
+                  className="pointer-events-auto relative z-30 font-semibold transition-colors hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                >
                   Автор {story.author.username}
                 </Link>
               ) : null}
@@ -117,7 +156,7 @@ export function StoryCard({
 
           {story.aiHint ? (
             <p
-              className="plotty-body text-[13px] leading-5 text-[var(--plotty-ink-soft)] md:text-[14px] md:leading-6 lg:text-[15px]"
+              className="pointer-events-none relative z-20 plotty-body text-[13px] leading-5 text-[var(--plotty-ink-soft)] md:text-[14px] md:leading-6 lg:text-[15px]"
               style={{
                 display: "-webkit-box",
                 WebkitLineClamp: 2,
@@ -129,21 +168,32 @@ export function StoryCard({
             </p>
           ) : null}
 
-          <CatalogStoryTags
-            fandom={story.fandom}
-            rating={story.ratingLabel}
-            status={story.statusLabel}
-            size={story.sizeLabel}
-            genres={genres}
-            warnings={warnings}
-            extraTags={extraTags}
-          />
-          <div className="grid gap-2 pt-1 md:hidden">
+          <div className="pointer-events-none relative z-20">
+            <CatalogStoryTags
+              fandom={story.fandom}
+              rating={story.ratingLabel}
+              status={story.statusLabel}
+              size={story.sizeLabel}
+              tags={story.tags}
+              genres={genres}
+              warnings={warnings}
+              extraTags={extraTags}
+            />
+          </div>
+          <div className="pointer-events-auto relative z-30 grid gap-2 pt-1 md:hidden">
             <div className={showChapterActions ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
-              <ButtonLink href={readHref} variant="primary" size="sm" className="w-full" aria-label="Читать историю">
+              <StoryRevealButtonLink
+                href={readHref}
+                variant="primary"
+                size="sm"
+                className="w-full"
+                aria-label="Читать историю"
+                revealTitle={story.title}
+                revealCoverUrl={revealCoverImage}
+              >
                 <BookOpen className="size-4" aria-hidden="true" />
                 Читать
-              </ButtonLink>
+              </StoryRevealButtonLink>
               {showChapterActions ? (
                 <ButtonLink href={chaptersHref} variant="secondary" size="sm" className="w-full" aria-label="Открыть главы">
                   <List className="size-4" aria-hidden="true" />
@@ -158,7 +208,7 @@ export function StoryCard({
                 disabled={likeMutation.isPending}
                 variant={viewerHasLiked ? "primary" : "secondary"}
                 size="sm"
-                className="w-full"
+                className="plotty-like-pop w-full"
                 aria-pressed={viewerHasLiked}
                 aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
               >
@@ -183,12 +233,18 @@ export function StoryCard({
 
         <aside
           aria-label="Действия карточки"
-          className="hidden min-w-0 content-start gap-3 overflow-hidden border-t border-[var(--plotty-line)] bg-[rgba(245,238,229,0.48)] p-4 md:grid md:border-l md:border-t-0 lg:p-5"
+          className="plotty-action-zone hidden min-w-0 content-start gap-3 overflow-hidden border-t border-[var(--plotty-line)] bg-[rgba(245,238,229,0.48)] p-4 md:grid md:border-l md:border-t-0 lg:p-5"
         >
-          <ButtonLink href={readHref} variant="primary" className="min-w-0 w-full">
+          <StoryRevealButtonLink
+            href={readHref}
+            variant="primary"
+            className="min-w-0 w-full"
+            revealTitle={story.title}
+            revealCoverUrl={revealCoverImage}
+          >
             <BookOpen className="size-4" aria-hidden="true" />
             Читать
-          </ButtonLink>
+          </StoryRevealButtonLink>
           {showChapterActions ? (
             <ButtonLink href={chaptersHref} variant="secondary" className="min-w-0 w-full">
               <List className="size-4" aria-hidden="true" />
@@ -202,7 +258,7 @@ export function StoryCard({
               disabled={likeMutation.isPending}
               variant={viewerHasLiked ? "primary" : "secondary"}
               size="sm"
-              className="w-full"
+              className="plotty-like-pop w-full"
               aria-pressed={viewerHasLiked}
               aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
             >
@@ -233,6 +289,7 @@ function CatalogStoryTags({
   rating,
   status,
   size,
+  tags,
   genres,
   warnings,
   extraTags,
@@ -241,18 +298,31 @@ function CatalogStoryTags({
   rating?: string;
   status?: string;
   size?: string;
-  genres: Array<{ id: string; name: string }>;
-  warnings: Array<{ id: string; name: string }>;
-  extraTags: Array<{ id: string; name: string }>;
+  tags: StoryTag[];
+  genres: StoryTag[];
+  warnings: StoryTag[];
+  extraTags: StoryTag[];
 }) {
+  const linkedTags = sortDisplayTags(tags).slice(0, 8);
+
+  if (linkedTags.length) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {linkedTags.map((tag) => (
+          <StoryTagLinkChip key={tag.id} tag={tag} />
+        ))}
+      </div>
+    );
+  }
+
   const chips = [
     fandom ? { id: "fandom", label: fandom, tone: "gold" as const } : null,
     rating ? { id: "rating", label: rating, tone: "default" as const } : null,
     status ? { id: "status", label: status, tone: "olive" as const } : null,
     size ? { id: "size", label: size, tone: "default" as const } : null,
-    ...genres.map((tag) => ({ id: tag.id, label: tag.name, tone: "default" as const })),
-    ...warnings.map((tag) => ({ id: tag.id, label: tag.name, tone: "gold" as const })),
-    ...extraTags.map((tag) => ({ id: tag.id, label: tag.name, tone: "default" as const })),
+    ...genres.map((tag) => ({ id: tag.id, label: tag.name, tone: getStoryTagTone(tag) })),
+    ...warnings.map((tag) => ({ id: tag.id, label: tag.name, tone: getStoryTagTone(tag) })),
+    ...extraTags.map((tag) => ({ id: tag.id, label: tag.name, tone: getStoryTagTone(tag) })),
   ].filter(Boolean) as Array<{ id: string; label: string; tone: "default" | "gold" | "olive" }>;
 
   if (!chips.length) {
@@ -268,6 +338,17 @@ function CatalogStoryTags({
       ))}
     </div>
   );
+}
+
+function sortDisplayTags(tags: StoryTag[]) {
+  const order = ["directionality", "rating", "completion", "size", "genre", "warning"];
+
+  return [...tags].sort((left, right) => {
+    const leftIndex = order.indexOf(left.category ?? "other");
+    const rightIndex = order.indexOf(right.category ?? "other");
+
+    return (leftIndex === -1 ? order.length : leftIndex) - (rightIndex === -1 ? order.length : rightIndex);
+  });
 }
 
 function formatCount(value?: number) {

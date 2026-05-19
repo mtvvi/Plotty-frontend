@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { AuthProvider } from "@/entities/auth/model/auth-context";
 import { initializeMocks } from "@/mocks/browser";
 import { AppShellSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
+import { StoryRevealProvider } from "@/shared/ui/story-reveal-transition";
 
 let browserMocksPromise: Promise<void> | null = null;
 
@@ -45,7 +46,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {isReady ? <AuthProvider>{children}</AuthProvider> : <AppShellSkeleton />}
+      {isReady ? (
+        <AuthProvider>
+          <StoryRevealProvider>{children}</StoryRevealProvider>
+        </AuthProvider>
+      ) : (
+        <AppShellSkeleton />
+      )}
     </QueryClientProvider>
   );
 }

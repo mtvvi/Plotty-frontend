@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { creditBalanceQueryOptions, creditsKeys } from "@/entities/credits/api/credits-api";
@@ -11,11 +11,14 @@ import {
   startImageGeneration,
   storyKeys,
 } from "@/entities/story/api/stories-api";
-import type { ImageGenerationResult } from "@/entities/story/model/types";
+import type { AiJobStatus, ImageGenerationResult } from "@/entities/story/model/types";
 import { isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
+import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Button, ButtonLink } from "@/shared/ui/button";
-import { Surface } from "@/shared/ui/card";
+import { Field, FieldLabel } from "@/shared/ui/field";
+import { AsyncJobStatus, type AsyncJobStatusValue } from "@/shared/ui/motion";
+import { Textarea } from "@/shared/ui/textarea";
 import { CreditCostBadge } from "@/widgets/credits/credit-cost-badge";
 
 export function GenerateChapterImageButton({
@@ -32,6 +35,12 @@ export function GenerateChapterImageButton({
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState("");
   const [creditError, setCreditError] = useState("");
+  const defaultPrompt = useMemo(
+    () => `Иллюстрация к главе "${chapterTitle}" истории "${storyTitle ?? storySlug}"`,
+    [chapterTitle, storySlug, storyTitle],
+  );
+  const [promptDraft, setPromptDraft] = useState(defaultPrompt);
+  const [promptTouched, setPromptTouched] = useState(false);
 
   const imageMutation = useMutation({
     mutationFn: startImageGeneration,
@@ -52,17 +61,19 @@ export function GenerateChapterImageButton({
     },
   });
 
+  const generatedImageUrl = jobQuery.data?.result?.images[0]?.imageUrl;
+
   useEffect(() => {
-    if (!jobQuery.data?.result?.images[0]?.imageUrl) {
+    if (!generatedImageUrl) {
       return;
     }
 
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) }),
       queryClient.invalidateQueries({ queryKey: storyKeys.details(storySlug) }),
-      queryClient.invalidateQueries({ queryKey: storyKeys.all }),
+      queryClient.invalidateQueries({ queryKey: ["stories", "list"] }),
     ]);
-  }, [chapterId, jobQuery.data?.result?.images, queryClient, storySlug]);
+  }, [chapterId, generatedImageUrl, queryClient, storySlug]);
 
   async function handleGenerate() {
     setCreditError("");
@@ -72,7 +83,7 @@ export function GenerateChapterImageButton({
       const accepted = await imageMutation.mutateAsync({
         chapterId,
         content: chapter.content,
-        prompt: `Иллюстрация к главе "${chapter.title || chapterTitle}" истории "${storyTitle ?? storySlug}"`,
+        prompt: promptDraft.trim() || defaultPrompt,
       });
 
       setJobId(accepted.jobId);
@@ -90,8 +101,34 @@ export function GenerateChapterImageButton({
   const isGenerating =
     imageMutation.isPending || jobQuery.data?.status === "queued" || jobQuery.data?.status === "processing";
   const hasImage = Boolean(chapterQuery.data?.imageUrl || jobQuery.data?.result?.images[0]?.imageUrl);
+  const imageStatus = getImageAsyncStatus({
+    isPending: imageMutation.isPending,
+    status: jobQuery.data?.status,
+    hasResult: Boolean(jobQuery.data?.result?.images[0]?.imageUrl),
+    hasError: Boolean(creditError),
+  });
+
+  useEffect(() => {
+    if (!promptTouched) {
+      setPromptDraft(defaultPrompt);
+    }
+  }, [defaultPrompt, promptTouched]);
+  const imageStatusError =
+    creditError ||
+    (jobQuery.data?.status === "failed"
+      ? sanitizeUserFacingMessage(
+          jobQuery.data.errorMessage ?? jobQuery.data.error,
+          "Не удалось сгенерировать иллюстрацию. Попробуйте ещё раз.",
+        )
+      : undefined);
   const shouldOfferTopUp =
     typeof balanceQuery.data?.balance === "number" && balanceQuery.data.balance < AI_CREDIT_COSTS.imageGeneration;
+  const buttonLabel =
+    imageStatus === "failed"
+      ? "Повторить генерацию"
+      : hasImage
+        ? "Обновить иллюстрацию"
+        : "Сгенерировать картинку";
 
   return (
     <div className="space-y-3">
@@ -100,27 +137,68 @@ export function GenerateChapterImageButton({
           Пополнить баланс
         </ButtonLink>
       ) : null}
-      {isGenerating ? (
-        <p className="plotty-meta" aria-live="polite">
-          Генерируем иллюстрацию...
-        </p>
-      ) : null}
+      <AsyncJobStatus
+        compact
+        status={imageStatus}
+        label={imageStatus === "completed" ? "Иллюстрация готова" : "Генерируем иллюстрацию"}
+        description="Обновляем изображение главы после подтверждения результата."
+        error={imageStatusError}
+      />
       {creditError ? (
-        <Surface variant="subtle" className="space-y-3 p-3">
-          <p className="text-sm font-semibold text-[var(--plotty-danger)]">{creditError}</p>
-          <ButtonLink href={routes.credits} variant="secondary" size="sm">
-            Пополнить
-          </ButtonLink>
-        </Surface>
+        <ButtonLink href={routes.credits} variant="secondary" size="sm">
+          Пополнить
+        </ButtonLink>
       ) : null}
-      <span className="relative inline-flex pt-2">
+      <Field>
+        <FieldLabel htmlFor={`chapter-image-prompt-${chapterId}`}>Промпт для иллюстрации</FieldLabel>
+        <Textarea
+          id={`chapter-image-prompt-${chapterId}`}
+          value={promptDraft}
+          onChange={(event) => {
+            setPromptTouched(true);
+            setPromptDraft(event.target.value);
+          }}
+          className="min-h-24 text-sm leading-6"
+        />
+      </Field>
+      <span className="relative inline-flex">
         <Button variant="secondary" onClick={handleGenerate} isLoading={isGenerating}>
-          {hasImage ? "Обновить иллюстрацию" : "Сгенерировать картинку"}
+          {buttonLabel}
         </Button>
         <CreditCostBadge cost={AI_CREDIT_COSTS.imageGeneration} />
       </span>
     </div>
   );
+}
+
+function getImageAsyncStatus({
+  isPending,
+  status,
+  hasResult,
+  hasError,
+}: {
+  isPending: boolean;
+  status?: AiJobStatus;
+  hasResult: boolean;
+  hasError: boolean;
+}): AsyncJobStatusValue {
+  if (hasError || status === "failed") {
+    return "failed";
+  }
+
+  if (isPending) {
+    return "queued";
+  }
+
+  if (status === "queued" || status === "processing") {
+    return status;
+  }
+
+  if (status === "completed" && hasResult) {
+    return "completed";
+  }
+
+  return "idle";
 }
 
 function getInsufficientCreditsMessage(balance?: number) {

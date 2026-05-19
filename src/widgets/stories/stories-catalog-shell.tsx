@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ListFilter, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListFilter, LoaderCircle, Search, SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { storiesQueryOptions, storyTagsQueryOptions } from "@/entities/story/api/stories-api";
@@ -16,8 +16,9 @@ import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Input } from "@/shared/ui/input";
+import { AnimatedList } from "@/shared/ui/motion";
 import { PopoverContent, usePopover } from "@/shared/ui/popover";
-import { PlottyAppMenu, PlottyMobileSheet, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
+import { PlottyMobileSheet, PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
 import { StoryCard } from "./story-card";
 import { StoryTagChip } from "./story-tag-chip";
@@ -25,7 +26,12 @@ import { StoryTagChip } from "./story-tag-chip";
 const multiSelectCategories = new Set(["rating", "completion", "size"]);
 const singleSelectCategories = new Set(["directionality"]);
 const searchDebounceMs = 300;
-const sortOptions: Array<{ value: StoriesSort; label: string }> = [
+const catalogFilterExitMs = 620;
+type CatalogSort = StoriesSort | "popular-desc";
+type FilterMotionState = "expanded" | "collapsing" | "collapsed";
+
+const sortOptions: Array<{ value: CatalogSort; label: string }> = [
+  { value: "popular-desc", label: "Популярное" },
   { value: "updated-desc", label: "Сначала новые" },
   { value: "updated-asc", label: "Сначала старые" },
   { value: "title-asc", label: "Название А-Я" },
@@ -47,9 +53,14 @@ export function StoriesCatalogShell() {
   const searchParamsString = searchParams.toString();
   const appliedQuery = useMemo(() => parseStoriesQuery(new URLSearchParams(searchParamsString)), [searchParamsString]);
   const [searchDraft, setSearchDraft] = useState(appliedQuery.q);
+  const [localSort, setLocalSort] = useState<CatalogSort>(appliedQuery.sort ?? defaultStoriesSort);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  const [, setIsMobileMenuOpen] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [filterMotionState, setFilterMotionState] = useState<FilterMotionState>("expanded");
   const lastRequestedSearchRef = useRef(appliedQuery.q);
+  const filterCollapseTimeoutRef = useRef<number | null>(null);
+  const filtersAreHiding = filterMotionState === "collapsing";
+  const filtersAreHidden = filtersCollapsed || filtersAreHiding;
 
   const navigateToQuery = useCallback(
     (nextQuery: StoriesQuery) => {
@@ -70,12 +81,24 @@ export function StoriesCatalogShell() {
     }
   }, [appliedQuery.q]);
 
+  const clearFilterCollapseTimeout = useCallback(() => {
+    if (filterCollapseTimeoutRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(filterCollapseTimeoutRef.current);
+    filterCollapseTimeoutRef.current = null;
+  }, []);
+
+  useEffect(() => () => clearFilterCollapseTimeout(), [clearFilterCollapseTimeout]);
+
   const normalizedSearchDraft = searchDraft.trim();
   const isSearchDirty = normalizedSearchDraft !== appliedQuery.q;
-  const currentSort = appliedQuery.sort ?? defaultStoriesSort;
+  const currentSort = localSort;
+  const apiQuery = currentSort === "popular-desc" ? { ...appliedQuery, sort: undefined } : appliedQuery;
 
   const storiesQuery = useQuery({
-    ...storiesQueryOptions(appliedQuery),
+    ...storiesQueryOptions(apiQuery),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
@@ -93,6 +116,10 @@ export function StoriesCatalogShell() {
   const pageHasOnlyDraftStories = (rawListItems?.length ?? 0) > 0 && catalogStories.length === 0;
   const hasInitialLoading = storiesQuery.isLoading && !storiesQuery.data;
   const appliedActiveTags = (tagsQuery.data?.items ?? []).filter((tag) => appliedQuery.tags.includes(tag.slug));
+
+  useEffect(() => {
+    setLocalSort((current) => (current === "popular-desc" ? current : appliedQuery.sort ?? defaultStoriesSort));
+  }, [appliedQuery.sort]);
 
   useEffect(() => {
     if (!isSearchDirty) {
@@ -139,12 +166,31 @@ export function StoriesCatalogShell() {
     navigateToQuery({ ...appliedQuery, q: "", tags: [], page: 1 });
   }
 
-  function handleSortChange(sort: StoriesSort) {
+  function handleSortChange(sort: CatalogSort) {
+    setLocalSort(sort);
+
     navigateToQuery({
       ...appliedQuery,
-      sort: sort === defaultStoriesSort ? undefined : sort,
+      sort: sort === "popular-desc" || sort === defaultStoriesSort ? undefined : sort,
       page: 1,
     });
+  }
+
+  function toggleDesktopFilters() {
+    clearFilterCollapseTimeout();
+
+    if (filtersCollapsed || filtersAreHiding) {
+      setFiltersCollapsed(false);
+      setFilterMotionState("expanded");
+      return;
+    }
+
+    setFilterMotionState("collapsing");
+    setFiltersCollapsed(true);
+    filterCollapseTimeoutRef.current = window.setTimeout(() => {
+      setFilterMotionState("collapsed");
+      filterCollapseTimeoutRef.current = null;
+    }, catalogFilterExitMs);
   }
 
   function setSingleSelectTag(currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) {
@@ -182,11 +228,19 @@ export function StoriesCatalogShell() {
     <PlottyPageShell
       pageTitle={<span aria-label="Каталог историй и глав">Каталог историй</span>}
       pageDescription="Откройте миры, написанные сердцем."
-      onMenuOpenChange={setIsMobileMenuOpen}
-      menuContent={({ closeMenu }) => <PlottyAppMenu onNavigate={closeMenu} />}
       pageActions={
-        <div className="hidden items-center gap-3 lg:flex">
-          <CatalogSortSelect value={currentSort} onChange={handleSortChange} />
+        <div className="hidden min-w-0 items-center gap-3 lg:mt-3 lg:flex">
+          <CatalogSortSelect value={currentSort} onChange={handleSortChange} ariaLabel="Сортировка каталога" />
+          <Button
+            type="button"
+            variant="secondary"
+            aria-pressed={filtersAreHidden}
+            className="whitespace-nowrap"
+            onClick={toggleDesktopFilters}
+          >
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+            {filtersAreHidden ? "Показать фильтры" : "Скрыть фильтры"}
+          </Button>
         </div>
       }
       mobileToolbar={
@@ -209,17 +263,20 @@ export function StoriesCatalogShell() {
           </Button>
         </div>
       }
-      contentClassName="pt-4 lg:pt-7"
-      className="lg:!px-5"
+      contentClassName="pt-5 lg:pt-10"
     >
-      <div className="grid gap-4 lg:grid-cols-[21rem_minmax(0,1fr)] lg:gap-6">
-        <aside className="hidden lg:block">
-          <PlottySectionCard variant="sidebar" className="sticky top-[7.25rem] space-y-5 shadow-none">
+      <div
+        className="plotty-catalog-layout"
+        data-filters-collapsed={filtersCollapsed ? "true" : "false"}
+        data-filters-state={filterMotionState}
+      >
+        <aside className="plotty-catalog-filter-rail hidden lg:block" aria-hidden={filtersAreHidden}>
+          <PlottySectionCard variant="sidebar" className="plotty-catalog-filter-card plotty-lift-panel sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
             {filters}
           </PlottySectionCard>
         </aside>
 
-        <section className="min-w-0 space-y-4">
+        <section className="min-w-0 space-y-5">
           <div className="flex flex-wrap items-center gap-2">
             {appliedQuery.q ? (
               <ActiveFilter label={`Поиск: ${appliedQuery.q}`} onClear={() => navigateToQuery({ ...appliedQuery, q: "", page: 1 })} />
@@ -245,10 +302,7 @@ export function StoriesCatalogShell() {
           </div>
 
           {hasInitialLoading ? (
-            <div className="space-y-3">
-              <div className="h-56 rounded-[var(--plotty-radius-lg)] bg-white/50" />
-              <div className="h-56 rounded-[var(--plotty-radius-lg)] bg-white/50" />
-            </div>
+            <CatalogInitialLoading />
           ) : storiesQuery.isError ? (
             <EmptyState
               title="Не удалось загрузить истории"
@@ -264,11 +318,13 @@ export function StoriesCatalogShell() {
               onAction={clearAppliedFilters}
             />
           ) : catalogStories.length ? (
-            <div className="space-y-3.5" aria-live="polite">
-              {catalogStories.map((story) => (
-                <StoryCard key={story.id} story={story} showChapterActions={false} />
-              ))}
-            </div>
+            <AnimatedList
+              items={catalogStories}
+              getKey={(story) => story.id}
+              className="space-y-4"
+              ariaLive="polite"
+              renderItem={(story) => <StoryCard story={story} showChapterActions={false} />}
+            />
           ) : (
             <EmptyState
               title="Под этот запрос историй не нашлось"
@@ -322,11 +378,11 @@ function CatalogFilters({
     <div className="space-y-5">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="plotty-section-title flex items-center gap-2 text-[1.35rem]">
-            <SlidersHorizontal className="size-5 text-[var(--plotty-accent)]" aria-hidden="true" />
+          <h2 className="plotty-section-title flex items-center gap-2 text-[1.3rem]">
+            <SlidersHorizontal className="size-4 text-[var(--plotty-accent)]" aria-hidden="true" />
             Фильтры
           </h2>
-          <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearTagFilters}>
+          <Button variant="ghost" className="min-h-8 px-2 text-xs" onClick={clearTagFilters}>
             Сбросить всё
           </Button>
         </div>
@@ -368,7 +424,12 @@ function CatalogFilters({
         }
 
         return (
-          <CatalogToggleGroup key={category} title={getStoryTagCategoryLabel(category)}>
+          <CatalogToggleGroup
+            key={category}
+            title={getStoryTagCategoryLabel(category)}
+            canClear={selectedSlugs.length > 0}
+            onClear={() => onTagsChange(replaceCategoryTags(selectedTags, tags, []))}
+          >
             {tags.map((tag) => (
               <StoryTagChip
                 key={tag.id}
@@ -385,57 +446,66 @@ function CatalogFilters({
 }
 
 function CatalogSearchField({
+  ariaLabel = "Поиск по названию истории",
+  className,
   value,
   onChange,
 }: {
+  ariaLabel?: string;
+  className?: string;
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
     <Surface
       variant="inset"
-      className="grid grid-cols-[auto_1fr] items-center gap-3 px-4 py-1.5 transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-[var(--plotty-accent)] focus-within:shadow-[0_0_0_2px_var(--plotty-accent-soft)]"
+      className={cn(
+        "plotty-search-shell grid grid-cols-[auto_1fr] items-center gap-3 bg-[rgba(255,253,249,0.9)] px-4 py-1.5 shadow-[0_10px_24px_rgba(58,43,27,0.04)]",
+        className,
+      )}
     >
       <Search className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        aria-label="Поиск по названию истории"
+        aria-label={ariaLabel}
         placeholder="Поиск по названию истории"
-        className="min-h-[42px] rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="min-h-[42px] rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus:shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </Surface>
   );
 }
 
 function CatalogSortSelect({
+  ariaLabel = "Сортировка",
   value,
   onChange,
   compact = false,
 }: {
-  value: StoriesSort;
-  onChange: (value: StoriesSort) => void;
+  ariaLabel?: string;
+  value: CatalogSort;
+  onChange: (value: CatalogSort) => void;
   compact?: boolean;
 }) {
   const popover = usePopover({ minWidth: 220 });
   const selectedOption = sortOptions.find((option) => option.value === value) ?? sortOptions[0];
 
   return (
-    <div ref={popover.triggerRef} className={cn("relative", compact ? "w-full" : "min-w-[12.5rem]")}>
+    <div ref={popover.triggerRef} className={cn("relative", compact ? "w-full" : "min-w-[11.5rem]")}>
       <button
         type="button"
-        aria-label="Сортировка"
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={popover.open}
         onClick={popover.toggle}
         className={cn(
-          "inline-grid min-h-12 w-full grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] px-3 text-left text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_8px_24px_rgba(58,43,27,0.05)] transition-[border-color,box-shadow] hover:border-[var(--plotty-line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
+          "inline-grid min-h-11 w-full grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] px-3 text-left text-sm font-semibold text-[var(--plotty-ink)] shadow-[0_10px_24px_rgba(58,43,27,0.05)] transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-[var(--plotty-line-strong)] hover:shadow-[0_14px_28px_rgba(58,43,27,0.09)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
           compact ? "w-full" : "",
         )}
       >
         <ListFilter className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
         <span className="truncate">{selectedOption.label}</span>
-        <span className="text-[var(--plotty-muted)]" aria-hidden="true">
+        <span className={cn("text-[var(--plotty-muted)] transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")} aria-hidden="true">
           ▾
         </span>
       </button>
@@ -459,7 +529,7 @@ function CatalogSortSelect({
               popover.close();
             }}
             className={cn(
-              "flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
+              "plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
               option.value === value ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
             )}
           >
@@ -471,10 +541,16 @@ function CatalogSortSelect({
   );
 }
 
-function sortStoryListItems(stories: StoryListItem[], sort: StoriesSort) {
+function sortStoryListItems(stories: StoryListItem[], sort: CatalogSort) {
   return [...stories].sort((a, b) => {
     if (sort === "updated-asc") {
       return a.updatedAt.localeCompare(b.updatedAt);
+    }
+
+    if (sort === "popular-desc") {
+      const likesDelta = (b.likesCount ?? 0) - (a.likesCount ?? 0);
+
+      return likesDelta || b.updatedAt.localeCompare(a.updatedAt);
     }
 
     if (sort === "title-asc") {
@@ -493,13 +569,33 @@ function ActiveFilter({ label, onClear }: { label: string; onClear: () => void }
   return (
     <button
       type="button"
+      aria-label={`Убрать фильтр ${label}`}
       title={label}
       onClick={onClear}
-      className="inline-flex min-h-9 max-w-full min-w-0 items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[rgba(195,79,50,0.13)] bg-[var(--plotty-accent-wash)] px-3 text-sm font-semibold text-[var(--plotty-accent)] transition-colors hover:bg-[var(--plotty-accent-soft)]"
+      className="plotty-chip-motion inline-flex min-h-9 max-w-full min-w-0 items-center gap-2 rounded-[var(--plotty-radius-md)] border border-[rgba(195,79,50,0.13)] bg-[var(--plotty-accent-wash)] px-3 text-sm font-semibold text-[var(--plotty-accent)] transition-colors hover:bg-[var(--plotty-accent-soft)] [&_svg]:transition-transform hover:[&_svg]:rotate-90"
     >
       <span className="min-w-0 max-w-xs truncate sm:max-w-md lg:max-w-2xl">{label}</span>
       <X className="size-3.5 shrink-0" aria-hidden="true" />
     </button>
+  );
+}
+
+function CatalogInitialLoading() {
+  return (
+    <Surface
+      variant="panel"
+      className="flex min-h-64 items-center justify-center p-8 text-center"
+      role="status"
+      aria-live="polite"
+      aria-label="Загружаем каталог"
+    >
+      <div className="grid justify-items-center gap-3">
+        <span className="inline-flex size-12 items-center justify-center rounded-full border border-[var(--plotty-line)] bg-[var(--plotty-accent-wash)] text-[var(--plotty-accent)] shadow-[var(--plotty-shadow-soft)]">
+          <LoaderCircle className="size-6 animate-spin" aria-hidden="true" />
+        </span>
+        <span className="plotty-meta">Загружаем истории...</span>
+      </div>
+    </Surface>
   );
 }
 
@@ -630,7 +726,12 @@ function CatalogFandomDropdown({
   onSelect: (value: string) => void;
 }) {
   const popover = usePopover();
+  const [searchQuery, setSearchQuery] = useState("");
   const selectedOption = options.find((option) => option.slug === selectedSlug);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredOptions = normalizedSearchQuery
+    ? options.filter((option) => option.name.toLowerCase().includes(normalizedSearchQuery))
+    : options;
 
   return (
     <div ref={popover.triggerRef} className="grid gap-3">
@@ -642,10 +743,16 @@ function CatalogFandomDropdown({
           aria-haspopup="listbox"
           aria-expanded={popover.open}
           onClick={popover.toggle}
-          className="flex min-h-[3rem] w-full items-center justify-between rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.84)] px-4 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-[border-color,box-shadow] duration-150 hover:border-[var(--plotty-line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+          className="relative flex min-h-[3rem] w-full items-center rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.84)] py-0 pl-4 pr-10 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] hover:-translate-y-px hover:border-[var(--plotty-line-strong)] hover:shadow-[0_10px_22px_rgba(58,43,27,0.08)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
         >
-          <span>{selectedOption?.name ?? "Любой фандом"}</span>
-          <span className="text-[var(--plotty-muted)]" aria-hidden="true">
+          <span className="min-w-0 truncate">{selectedOption?.name ?? "Любой фандом"}</span>
+          <span
+            className={cn(
+              "absolute right-4 top-1/2 -translate-y-1/2 text-[var(--plotty-muted)] transition-transform duration-[var(--motion-base)]",
+              popover.open && "-translate-y-1/2 rotate-180",
+            )}
+            aria-hidden="true"
+          >
             ▾
           </span>
         </button>
@@ -654,10 +761,33 @@ function CatalogFandomDropdown({
           open={popover.open}
           contentRef={popover.contentRef}
           position={popover.position}
-          role="listbox"
+          role="dialog"
           aria-label={title}
-          className="rounded-[var(--plotty-radius-md)] p-2"
+          className="max-h-[min(32rem,calc(100vh-2rem))] overflow-y-auto rounded-[var(--plotty-radius-md)] p-2"
         >
+          <div className="sticky top-0 z-10 mb-2 bg-[rgba(251,247,242,0.98)] pb-2">
+            <div className="relative">
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="Поиск по фандомам"
+                placeholder="Найти фандом"
+                className="min-h-10 pr-10"
+              />
+              {searchQuery ? (
+                <IconButton
+                  type="button"
+                  aria-label="Очистить поиск фандомов"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 min-h-8 w-8 -translate-y-1/2 rounded-[var(--plotty-radius-sm)] p-0"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </IconButton>
+              ) : null}
+            </div>
+          </div>
           <button
             type="button"
             role="option"
@@ -667,30 +797,61 @@ function CatalogFandomDropdown({
               popover.close();
             }}
             className={cn(
-              "flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
+              "plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
               !selectedSlug ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
             )}
           >
             Любой фандом
           </button>
-          {options.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="option"
-              aria-selected={selectedSlug === option.slug}
-              onClick={() => {
-                onSelect(option.slug);
-                popover.close();
-              }}
-              className={cn(
-                "flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
-                selectedSlug === option.slug ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
-              )}
-            >
-              {option.name}
-            </button>
-          ))}
+          {filteredOptions.map((option) => {
+            const isSelected = selectedSlug === option.slug;
+
+            if (isSelected) {
+              return (
+                <div
+                  key={option.id}
+                  role="option"
+                  aria-label={option.name}
+                  aria-selected="true"
+                  className="plotty-popover-item flex w-full items-center justify-between gap-2 rounded-[10px] bg-white px-3 py-1.5 text-left text-sm text-[var(--plotty-ink)] transition-colors"
+                >
+                  <span className="min-w-0 truncate">{option.name}</span>
+                  <IconButton
+                    type="button"
+                    aria-label="Сбросить фандом"
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-8 w-8 rounded-[var(--plotty-radius-sm)] p-0"
+                    onClick={() => {
+                      onSelect("");
+                      popover.close();
+                    }}
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </IconButton>
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="option"
+                aria-selected="false"
+                onClick={() => {
+                  onSelect(option.slug);
+                  popover.close();
+                }}
+                className="plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm text-[var(--plotty-muted)] transition-colors hover:bg-white/80"
+              >
+                {option.name}
+              </button>
+            );
+          })}
+          {!filteredOptions.length ? (
+            <div className="px-3 py-2 text-sm text-[var(--plotty-muted)]">Фандом не найден.</div>
+          ) : null}
         </PopoverContent>
       </div>
     </div>
@@ -709,14 +870,14 @@ function CatalogToggleGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3 border-t border-[var(--plotty-line)] pt-4 first:border-t-0 first:pt-0">
+    <section className="space-y-3 border-t border-[var(--plotty-line)] pt-4 transition-colors duration-[var(--motion-base)] hover:border-[rgba(195,79,50,0.18)] first:border-t-0 first:pt-0">
       <div className="flex items-center justify-between gap-3">
         <h3 className="plotty-label">{title}</h3>
         {canClear && onClear ? (
           <button
             type="button"
             onClick={onClear}
-            className="plotty-meta text-xs font-semibold transition-colors hover:text-[var(--plotty-ink)]"
+            className="plotty-meta text-xs font-semibold transition-[color,transform] duration-[var(--motion-base)] hover:translate-x-0.5 hover:text-[var(--plotty-ink)] active:scale-[0.98]"
           >
             Очистить
           </button>
