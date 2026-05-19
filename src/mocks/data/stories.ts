@@ -1349,8 +1349,8 @@ export function updateChapterRecord(chapterId: string, payload: UpdateChapterPay
     chapter.publishedUpdatedAt = chapter.updatedAt;
   }
 
-  chapter.title = payload.draftTitle ?? payload.title;
-  chapter.content = payload.draftContent ?? payload.content;
+  chapter.title = payload.title;
+  chapter.content = payload.content;
   chapter.draftTitle = chapter.title;
   chapter.draftContent = chapter.content;
   chapter.updatedAt = nowIso();

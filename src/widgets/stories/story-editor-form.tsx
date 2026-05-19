@@ -320,7 +320,7 @@ export function StoryEditorForm({
               </div>
             ) : null}
 
-            <div className="grid gap-4 rounded-[22px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.58)] p-4">
+            <div className="grid gap-4 rounded-[22px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-muted)] p-4">
               {hasUnpublishedChanges ? (
                 <div className="plotty-panel-enter rounded-[18px] border border-[rgba(195,79,50,0.18)] bg-[var(--plotty-accent-wash)] px-4 py-3 text-sm leading-6 text-[var(--plotty-ink)]">
                   <span className="font-semibold">Есть неопубликованные изменения.</span>{" "}
@@ -345,7 +345,7 @@ export function StoryEditorForm({
                   value={values.chapterContent}
                   onChange={(event) => update("chapterContent", event.target.value)}
                   placeholder="Начните писать главу"
-                  className="min-h-[420px] bg-[rgba(255,255,255,0.9)]"
+                  className="min-h-[420px] bg-[var(--plotty-surface-strong)]"
                   activeHighlightId={activeSpellcheckIssueId}
                   activeHighlightScrollKey={highlightScrollKey}
                   highlightRanges={spellcheckHighlights}
@@ -608,7 +608,7 @@ export function StoryEditorForm({
                     className={`block rounded-[18px] border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,color,transform] duration-150 hover:translate-x-0.5 ${
                       chapter.id === chapterId
                         ? "border-[rgba(188,95,61,0.16)] bg-[rgba(188,95,61,0.08)] text-[var(--plotty-ink)]"
-                        : "border-[var(--plotty-line)] bg-white/70 text-[var(--plotty-muted)] hover:bg-white hover:text-[var(--plotty-ink)]"
+                        : "border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] text-[var(--plotty-muted)] hover:bg-[var(--plotty-surface-hover)] hover:text-[var(--plotty-ink)]"
                     }`}
                   >
                     Глава {chapter.number ?? "—"}. {chapter.title}
@@ -654,7 +654,7 @@ function DiffBlock({ title, parts }: { title: string; parts: TextDiffPart[] }) {
   return (
     <div className="space-y-2">
       <div className="plotty-kicker">{title}</div>
-      <div className="max-h-72 overflow-y-auto rounded-[18px] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.72)] p-3 text-sm leading-7 text-[var(--plotty-ink)]">
+      <div className="max-h-72 overflow-y-auto rounded-[18px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-3 text-sm leading-7 text-[var(--plotty-ink)]">
         {parts.length ? (
           <p className="whitespace-pre-wrap">
             {parts.map((part, index) => (
@@ -687,7 +687,7 @@ function getSpellcheckIssueKey(issue: SpellcheckIssue) {
 
 function SpellcheckPreview({ issue }: { issue: SpellcheckIssue }) {
   return (
-    <div className="grid gap-2 rounded-[14px] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.72)] p-2 text-sm sm:grid-cols-2">
+    <div className="grid gap-2 rounded-[14px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-2 text-sm sm:grid-cols-2">
       <div className="min-w-0 space-y-1">
         <div className="plotty-kicker">Было</div>
         <p className="break-words text-[var(--plotty-ink)]">{issue.fragmentText}</p>
@@ -773,7 +773,7 @@ function SpellcheckIssueBottomSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Исправление ошибки"
-        className="absolute inset-x-0 bottom-0 min-w-0 max-h-[82vh] overflow-y-auto overflow-x-hidden rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] px-5 pt-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
+        className="absolute inset-x-0 bottom-0 min-w-0 max-h-[82vh] overflow-y-auto overflow-x-hidden rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] px-5 pt-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.25rem)" }}
       >
         <div className="mb-4 flex items-center justify-between gap-3">

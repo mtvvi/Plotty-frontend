@@ -2,9 +2,11 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loginMockUser, resetMockAuthDb } from "@/mocks/data/auth";
+import { server } from "@/mocks/server";
 import { StoryEditorScreen } from "@/widgets/stories/story-editor-screen";
 
 const push = vi.fn();
@@ -58,6 +60,52 @@ describe("StoryEditorScreen", () => {
       expect(data.title).toBe("Глава 1. Новый архив");
     });
     expect(screen.getByRole("status")).toHaveTextContent("Черновик сохранён");
+  });
+
+  it("sends one chapter save PATCH with the current backend body contract", async () => {
+    const user = userEvent.setup();
+    const patchBodies: unknown[] = [];
+    server.use(
+      http.patch("*/chapters/:chapterId", async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+
+        patchBodies.push(body);
+
+        if ("draftTitle" in body || "draftContent" in body) {
+          return HttpResponse.json({ error: "invalid chapter patch body" }, { status: 422 });
+        }
+
+        return HttpResponse.json({
+          id: "chapter-1",
+          storyId: "story-1",
+          title: body.title,
+          content: body.content,
+          updatedAt: "2026-05-19T12:00:00.000Z",
+          status: "draft",
+        });
+      }),
+    );
+
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+
+    const chapterTitle = screen.getByDisplayValue("Глава 1. Архив под лестницей");
+    await user.clear(chapterTitle);
+    await user.type(chapterTitle, "Глава 1. Один PATCH");
+    await user.click(screen.getByRole("button", { name: "Сохранить черновик" }));
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Черновик сохранён"));
+
+    expect(patchBodies).toHaveLength(1);
+    expect(patchBodies[0]).toEqual(
+      expect.objectContaining({
+        title: "Глава 1. Один PATCH",
+        content: expect.any(String),
+      }),
+    );
+    expect(patchBodies[0]).not.toHaveProperty("draftTitle");
+    expect(patchBodies[0]).not.toHaveProperty("draftContent");
   });
 
   it("runs spellcheck and renders the returned issues", async () => {

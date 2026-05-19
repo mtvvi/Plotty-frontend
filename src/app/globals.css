@@ -9,6 +9,12 @@
   --plotty-panel: #f6ecdf;
   --plotty-panel-strong: #eadbc8;
   --plotty-panel-muted: rgba(255, 251, 245, 0.7);
+  --plotty-surface: rgba(255, 253, 249, 0.86);
+  --plotty-surface-strong: rgba(255, 253, 249, 0.94);
+  --plotty-surface-soft: rgba(255, 253, 249, 0.76);
+  --plotty-surface-muted: rgba(255, 253, 249, 0.56);
+  --plotty-surface-hover: rgba(255, 255, 255, 0.92);
+  --plotty-hover: rgba(31, 26, 22, 0.05);
   --plotty-line: rgba(43, 36, 29, 0.1);
   --plotty-line-strong: rgba(43, 36, 29, 0.17);
   --plotty-ink: #1f1a16;
@@ -30,6 +36,8 @@
   --plotty-shadow: 0 28px 90px rgba(58, 43, 27, 0.08);
   --plotty-shadow-soft: 0 12px 32px rgba(58, 43, 27, 0.07);
   --plotty-shadow-card: 0 14px 42px rgba(58, 43, 27, 0.07);
+  --plotty-focus-inset: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --plotty-danger-hover: #fbd7cd;
   --plotty-container: 1400px;
   --plotty-radius-xl: 28px;
   --plotty-radius-lg: 18px;
@@ -41,6 +49,46 @@
   --motion-page: 420ms;
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+:root[data-theme="dark"] {
+  --plotty-bg: #17120f;
+  --plotty-bg-highlight: #241b17;
+  --plotty-paper: #1d1714;
+  --plotty-paper-strong: #28201b;
+  --plotty-paper-soft: #15110f;
+  --plotty-panel: #211916;
+  --plotty-panel-strong: #332821;
+  --plotty-panel-muted: rgba(37, 29, 25, 0.76);
+  --plotty-surface: rgba(42, 33, 28, 0.86);
+  --plotty-surface-strong: rgba(51, 40, 34, 0.94);
+  --plotty-surface-soft: rgba(38, 30, 26, 0.78);
+  --plotty-surface-muted: rgba(42, 33, 28, 0.56);
+  --plotty-surface-hover: rgba(57, 45, 38, 0.9);
+  --plotty-hover: rgba(255, 244, 232, 0.08);
+  --plotty-line: rgba(255, 239, 223, 0.12);
+  --plotty-line-strong: rgba(255, 239, 223, 0.2);
+  --plotty-ink: #fff2e5;
+  --plotty-ink-soft: #ead7c6;
+  --plotty-muted: #baa897;
+  --plotty-muted-soft: #806f62;
+  --plotty-accent: #e56b4d;
+  --plotty-accent-strong: #f1805f;
+  --plotty-accent-soft: rgba(229, 107, 77, 0.24);
+  --plotty-accent-wash: rgba(229, 107, 77, 0.14);
+  --plotty-olive: #a6c49c;
+  --plotty-olive-soft: rgba(112, 149, 100, 0.24);
+  --plotty-blue: #98bddb;
+  --plotty-blue-soft: rgba(109, 148, 183, 0.22);
+  --plotty-gold: #e4bd74;
+  --plotty-gold-soft: rgba(169, 120, 46, 0.24);
+  --plotty-danger: #ff9a82;
+  --plotty-danger-soft: rgba(189, 63, 50, 0.2);
+  --plotty-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+  --plotty-shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.32);
+  --plotty-shadow-card: 0 14px 42px rgba(0, 0, 0, 0.28);
+  --plotty-focus-inset: inset 0 1px 0 rgba(255, 244, 232, 0.08);
+  --plotty-danger-hover: rgba(189, 63, 50, 0.28);
 }
 
 * {
@@ -56,9 +104,9 @@ body {
   min-height: 100vh;
   color: var(--plotty-ink);
   background:
-    radial-gradient(circle at 20% -8%, rgba(255, 255, 255, 0.95), transparent 24rem),
-    radial-gradient(circle at 86% 8%, rgba(255, 255, 255, 0.72), transparent 25rem),
-    linear-gradient(180deg, var(--plotty-bg-highlight) 0%, var(--plotty-bg) 72%, #efe2d4 100%);
+    radial-gradient(circle at 20% -8%, var(--plotty-surface-strong), transparent 24rem),
+    radial-gradient(circle at 86% 8%, var(--plotty-surface-muted), transparent 25rem),
+    linear-gradient(180deg, var(--plotty-bg-highlight) 0%, var(--plotty-bg) 72%, var(--plotty-paper-soft) 100%);
   font-family: var(--font-sans), sans-serif;
 }
 
@@ -122,7 +170,7 @@ select {
 .plotty-header {
   width: 100vw;
   margin-inline: calc(50% - 50vw);
-  background: rgba(255, 250, 244, 0.78);
+  background: color-mix(in srgb, var(--plotty-paper-strong) 78%, transparent);
   backdrop-filter: blur(22px);
   animation: plotty-header-enter 320ms var(--ease-out-soft) both;
 }
@@ -199,7 +247,7 @@ select {
 .plotty-surface {
   border: 1px solid var(--plotty-line);
   border-radius: var(--plotty-radius-lg);
-  background: rgba(255, 251, 245, 0.78);
+  background: var(--plotty-surface-soft);
   box-shadow: var(--plotty-shadow-card);
 }
 
@@ -291,10 +339,10 @@ select {
   padding: 1rem;
   border: 1px solid var(--plotty-line);
   border-radius: var(--plotty-radius-md);
-  background: rgba(255, 253, 249, 0.86);
+  background: var(--plotty-surface);
   color: var(--plotty-ink);
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  box-shadow: var(--plotty-focus-inset);
   transition:
     background-color var(--motion-base) var(--ease-out-soft),
     border-color var(--motion-base) var(--ease-out-soft),
@@ -320,14 +368,14 @@ select {
 .plotty-avatar-upload[aria-disabled="true"]:hover {
   transform: none;
   border-color: var(--plotty-line);
-  background: rgba(255, 253, 249, 0.86);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  background: var(--plotty-surface);
+  box-shadow: var(--plotty-focus-inset);
 }
 
 .plotty-avatar-upload-input:focus-visible + .plotty-avatar-upload {
   outline: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    var(--plotty-focus-inset),
     0 0 0 2px var(--plotty-accent-soft),
     0 12px 28px rgba(195, 79, 50, 0.08);
   border-color: var(--plotty-accent);
@@ -645,7 +693,7 @@ button:active .plotty-chip-motion {
   padding: 0.78rem 0.9rem;
   border: 1px solid var(--plotty-line);
   border-radius: var(--plotty-radius-md);
-  background: rgba(255, 253, 249, 0.78);
+  background: var(--plotty-surface-soft);
   box-shadow: 0 10px 24px rgba(58, 43, 27, 0.05);
   animation: plotty-motion-tab-panel-enter 260ms var(--ease-out-soft) both;
   transition:
@@ -777,7 +825,7 @@ button:active .plotty-chip-motion {
 
 .plotty-collection-tile:hover {
   border-color: rgba(195, 79, 50, 0.16);
-  background: #fff;
+  background: var(--plotty-surface-hover);
   box-shadow: 0 14px 30px rgba(58, 43, 27, 0.07);
   transform: translateY(-1px);
 }
@@ -1281,7 +1329,7 @@ button:active .plotty-chip-motion {
   padding: 0.58rem 0.78rem;
   border: 1px solid var(--plotty-line);
   border-radius: var(--plotty-radius-md);
-  background: rgba(255, 253, 249, 0.84);
+  background: var(--plotty-surface);
   color: var(--plotty-muted);
   font-size: 0.83rem;
   font-weight: 650;
@@ -1296,8 +1344,8 @@ button:active .plotty-chip-motion {
   padding: 0.25rem;
   border: 1px solid var(--plotty-line);
   border-radius: var(--plotty-radius-md);
-  background: rgba(255, 251, 245, 0.76);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  background: var(--plotty-surface-soft);
+  box-shadow: var(--plotty-focus-inset);
 }
 
 .plotty-segmented-mobile-grid {
@@ -1375,7 +1423,7 @@ button:active .plotty-chip-motion {
   }
 
   .plotty-header {
-    background: rgba(251, 247, 242, 0.94);
+    background: color-mix(in srgb, var(--plotty-paper) 94%, transparent);
   }
 }
 

@@ -107,7 +107,7 @@ export function AuthStatus({
         <div className="plotty-kicker">Аккаунт</div>
         <Link
           href={profileHref}
-          className="flex items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[rgba(41,38,34,0.08)] bg-white/84 p-4 transition-colors hover:bg-white"
+          className="flex items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[var(--plotty-surface)] p-4 transition-colors hover:bg-[var(--plotty-surface-hover)]"
         >
           <AccountAvatar username={user.username} avatarUrl={avatarUrl} className="size-11 text-sm" />
           <span className="min-w-0">

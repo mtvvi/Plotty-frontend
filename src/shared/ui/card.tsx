@@ -14,21 +14,21 @@ export type SurfaceVariant =
 
 const surfaceClasses: Record<SurfaceVariant, string> = {
   default:
-    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] shadow-[var(--plotty-shadow-card)]",
+    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[var(--plotty-surface)] shadow-[var(--plotty-shadow-card)]",
   panel:
     "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[var(--plotty-panel-muted)]",
   inset:
-    "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.78)]",
+    "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)]",
   listItem:
-    "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.76)]",
+    "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)]",
   sidebar:
-    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(250,245,238,0.7)] shadow-[0_12px_34px_rgba(58,43,27,0.04)]",
+    "rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[var(--plotty-panel-muted)] shadow-[0_12px_34px_rgba(58,43,27,0.04)]",
   subtle:
-    "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.56)]",
+    "rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-muted)]",
   media:
     "overflow-hidden rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[linear-gradient(135deg,var(--plotty-panel),var(--plotty-paper))]",
   interactive:
-    "plotty-lift-panel rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] shadow-[var(--plotty-shadow-card)] hover:border-[rgba(195,79,50,0.2)] hover:shadow-[0_22px_52px_rgba(58,43,27,0.1)]",
+    "plotty-lift-panel rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[var(--plotty-surface)] shadow-[var(--plotty-shadow-card)] hover:border-[rgba(195,79,50,0.2)] hover:shadow-[0_22px_52px_rgba(58,43,27,0.1)]",
 };
 
 export interface SurfaceProps extends HTMLAttributes<HTMLDivElement> {

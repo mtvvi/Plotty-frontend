@@ -1,6 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 
-import { fetchJson, isApiError } from "@/shared/api/fetch-json";
+import { fetchJson } from "@/shared/api/fetch-json";
 
 import { getTagName, mapStoryListItem, type BackendStoriesResponse } from "./story-mappers";
 import { serializeStoriesQuery } from "../model/story-query";
@@ -468,53 +468,17 @@ export function createChapter(storyId: string, payload: CreateChapterPayload) {
   }).then(mapChapterDetails);
 }
 
-type ChapterPatchBody = Partial<Pick<UpdateChapterPayload, "title" | "content" | "draftTitle" | "draftContent">>;
-
-function patchChapter(chapterId: string, body: ChapterPatchBody) {
-  return fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  }).then(mapChapterDetails);
-}
-
-function shouldRetryChapterPatch(error: unknown) {
-  return isApiError(error) && (error.status === 400 || error.status === 422 || error.status === 500);
-}
-
-export async function updateChapter(chapterId: string, payload: UpdateChapterPayload) {
+export function updateChapter(chapterId: string, payload: UpdateChapterPayload) {
   const title = payload.title.trim();
   const content = payload.content.trim();
-  const draftTitle = payload.draftTitle ?? title;
-  const draftContent = payload.draftContent ?? content;
-  const fallbackBodies: ChapterPatchBody[] = [
-    { draftTitle, draftContent },
-    { title, content },
-  ];
 
-  try {
-    return await patchChapter(chapterId, {
+  return fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
       title,
       content,
-      draftTitle,
-      draftContent,
-    });
-  } catch (error) {
-    if (!shouldRetryChapterPatch(error)) {
-      throw error;
-    }
-  }
-
-  for (const body of fallbackBodies) {
-    try {
-      return await patchChapter(chapterId, body);
-    } catch (error) {
-      if (!shouldRetryChapterPatch(error)) {
-        throw error;
-      }
-    }
-  }
-
-  return patchChapter(chapterId, { title, content });
+    }),
+  }).then(mapChapterDetails);
 }
 
 export function deleteChapter(chapterId: string) {

@@ -145,7 +145,7 @@ export function Sheet({
         aria-labelledby={title ? titleId : undefined}
         data-state={motionState}
         className={cn(
-          "plotty-mobile-sheet-panel absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto overscroll-contain rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] px-5 pt-5 pb-[calc(6.75rem+env(safe-area-inset-bottom))] shadow-[var(--plotty-shadow)] backdrop-blur-xl",
+          "plotty-mobile-sheet-panel absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto overscroll-contain rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] px-5 pt-5 pb-[calc(6.75rem+env(safe-area-inset-bottom))] shadow-[var(--plotty-shadow)] backdrop-blur-xl",
           className,
         )}
       >

@@ -159,7 +159,7 @@ export function PopoverContent({
       ref={contentRef}
       data-state={open ? "open" : "closing"}
       className={cn(
-        "plotty-popover-content z-[100] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.98)] shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl",
+        "plotty-popover-content z-[100] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl",
         className,
       )}
       style={{

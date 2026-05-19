@@ -16,6 +16,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
+import { ThemeToggle } from "@/shared/theme/theme-context";
 import { Card, type SurfaceVariant } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Sheet } from "@/shared/ui/sheet";
@@ -453,15 +454,13 @@ function PlottyPageShellFallback({
 
               <div className="hidden shrink-0 items-center gap-3 lg:flex">
                 {desktopActions}
+                <ThemeToggle />
               </div>
 
-              {mobileHeaderActions ? (
-                <div className="ml-auto flex items-center gap-2 lg:hidden">
-                  {mobileHeaderActions}
-                </div>
-              ) : (
-                <div className="ml-auto lg:hidden" />
-              )}
+              <div className="ml-auto flex items-center gap-2 lg:hidden">
+                {mobileHeaderActions}
+                <ThemeToggle />
+              </div>
               <span className="plotty-nav-indicator" style={primaryNavIndicatorStyle} aria-hidden="true" />
             </div>
 
@@ -568,11 +567,15 @@ function PersistentPlottyHeader({
 
           <GlobalSearch className="hidden min-w-0 flex-1 lg:flex" />
 
-          {showDesktopActions ? (
-            <div className="hidden shrink-0 items-center gap-3 lg:flex">
+          <div className="hidden shrink-0 items-center gap-3 lg:flex">
+            {showDesktopActions ? (
               <DefaultDesktopActions profileIndicatorRef={(node) => setPrimaryNavItemRef("profile", node)} />
-            </div>
-          ) : null}
+            ) : null}
+            <ThemeToggle />
+          </div>
+          <div className="ml-auto flex items-center gap-2 lg:hidden">
+            <ThemeToggle />
+          </div>
           <span className="plotty-nav-indicator" style={primaryNavIndicatorStyle} aria-hidden="true" />
         </div>
       </div>
@@ -674,7 +677,7 @@ function GlobalSearch({ className }: { className?: string }) {
   return (
     <form
       className={cn(
-        "plotty-search-shell items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.88)] px-4 py-2.5 shadow-[0_10px_28px_rgba(58,43,27,0.05)]",
+        "plotty-search-shell items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[var(--plotty-surface)] px-4 py-2.5 shadow-[0_10px_28px_rgba(58,43,27,0.05)]",
         className,
       )}
       role="search"
@@ -807,7 +810,7 @@ function PlottyBottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-3 bottom-3 z-40 rounded-[22px] border border-[var(--plotty-line)] bg-[rgba(251,247,242,0.94)] px-2 py-1.5 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-3 bottom-3 z-40 rounded-[22px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] px-2 py-1.5 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl lg:hidden"
       aria-label="Нижняя навигация"
       style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
     >

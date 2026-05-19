@@ -19,16 +19,19 @@ function withoutIncompatibleAbortSignal(init: RequestInit): RequestInit {
 }
 
 export interface ApiFieldError {
+  code?: string;
   field: string;
   message: string;
 }
+
+export type ApiValidationError = string | ApiFieldError | { code?: string; field?: string; message?: string; msg?: string };
 
 export interface ApiErrorPayload {
   error?: string;
   message?: string;
   detail?: unknown;
   code?: string;
-  errors?: ApiFieldError[];
+  errors?: ApiValidationError[];
 }
 
 export class ApiError extends Error {

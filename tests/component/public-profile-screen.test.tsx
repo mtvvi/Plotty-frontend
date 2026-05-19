@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => currentSearchParams,
 }));
 
-function renderPublicProfile() {
+function renderPublicProfile(username = "writer") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -25,7 +25,7 @@ function renderPublicProfile() {
   render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <PublicProfileScreen username="writer" />
+        <PublicProfileScreen username={username} />
       </AuthProvider>
     </QueryClientProvider>,
   );
@@ -129,5 +129,27 @@ describe("PublicProfileScreen", () => {
     expect(await screen.findByText("Подборки недоступны")).toBeInTheDocument();
     expect(screen.queryByText("Публичных подборок пока нет")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+  });
+
+  it("shows AI credits only on the viewer's own profile", async () => {
+    currentSearchParams = new URLSearchParams();
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+
+    renderPublicProfile("writer");
+
+    expect(await screen.findByText("AI-кредиты")).toBeInTheDocument();
+    expect(screen.getByText("50 кредитов")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /пополнить баланс/i })).toHaveAttribute("href", "/credits");
+  });
+
+  it("does not show AI credits on another user's public profile", async () => {
+    currentSearchParams = new URLSearchParams();
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+
+    renderPublicProfile("reader_one");
+
+    await screen.findByRole("heading", { name: "reader_one" });
+    expect(screen.queryByText("AI-кредиты")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /пополнить баланс/i })).not.toBeInTheDocument();
   });
 });

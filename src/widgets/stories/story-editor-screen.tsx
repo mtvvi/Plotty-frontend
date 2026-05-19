@@ -159,8 +159,6 @@ export function StoryEditorScreen({
       updateChapter(targetChapterId, {
         title: targetPayload.chapterTitle.trim(),
         content: targetPayload.chapterContent.trim(),
-        draftTitle: targetPayload.chapterTitle.trim(),
-        draftContent: targetPayload.chapterContent.trim(),
       }),
   });
   const createChapterMutation = useMutation({
@@ -706,7 +704,7 @@ export function StoryEditorScreen({
         isCanonChecking={isCanonCheckBusy}
         imagePanel={
           <div className="space-y-5">
-            <div className="plotty-lift-panel rounded-[26px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.8)] p-4 shadow-[var(--plotty-shadow-card)]">
+            <div className="plotty-lift-panel rounded-[26px] border border-[var(--plotty-line)] bg-[var(--plotty-surface)] p-4 shadow-[var(--plotty-shadow-card)]">
               <div className="space-y-3">
                 <div>
                   <div className="plotty-section-title">Иллюстрация главы</div>

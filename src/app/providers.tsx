@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { AuthProvider } from "@/entities/auth/model/auth-context";
 import { initializeMocks } from "@/mocks/browser";
+import { ThemeProvider } from "@/shared/theme/theme-context";
 import { AppShellSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
 import { StoryRevealProvider } from "@/shared/ui/story-reveal-transition";
 
@@ -45,14 +46,16 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {isReady ? (
-        <AuthProvider>
-          <StoryRevealProvider>{children}</StoryRevealProvider>
-        </AuthProvider>
-      ) : (
-        <AppShellSkeleton />
-      )}
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        {isReady ? (
+          <AuthProvider>
+            <StoryRevealProvider>{children}</StoryRevealProvider>
+          </AuthProvider>
+        ) : (
+          <AppShellSkeleton />
+        )}
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

@@ -143,10 +143,7 @@ export interface CreateChapterPayload {
   content: string;
 }
 
-export interface UpdateChapterPayload extends CreateChapterPayload {
-  draftTitle?: string;
-  draftContent?: string;
-}
+export type UpdateChapterPayload = CreateChapterPayload;
 
 export interface SpellcheckIssue {
   fragmentText: string;

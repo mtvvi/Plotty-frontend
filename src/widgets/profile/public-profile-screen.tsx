@@ -2,12 +2,13 @@
 
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Coins, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { authKeys, logout, updateProfile, uploadAvatar } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
+import { formatCreditsAmount } from "@/entities/credits/model/credit-utils";
 import { myShelfQueryOptions } from "@/entities/library/api/library-api";
 import {
   publicProfileQueryOptions,
@@ -19,7 +20,7 @@ import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
 import { usernameValidationMessage } from "@/shared/lib/username";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
-import { Button } from "@/shared/ui/button";
+import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { FieldError } from "@/shared/ui/field";
 import { IconButton } from "@/shared/ui/icon-button";
@@ -405,6 +406,18 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 value={secondaryCount}
                 icon={isOwnProfile ? <ProfileLibraryIcon className="size-6" /> : <PublicCollectionsIcon className="size-6" />}
               />
+              {isOwnProfile ? (
+                <>
+                  <ProfileStat
+                    label="AI-кредиты"
+                    value={formatCreditsAmount(user?.credits ?? 0)}
+                    icon={<Coins className="size-6" />}
+                  />
+                  <ButtonLink href={routes.credits} variant="secondary" size="sm" className="w-full">
+                    Пополнить баланс
+                  </ButtonLink>
+                </>
+              ) : null}
             </div>
           </div>
         </PlottySectionCard>
@@ -487,7 +500,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   renderItem={(collection) => (
                     <Link
                       href={routes.userCollection(profile.username, collection.id)}
-                      className="plotty-collection-tile plotty-lift-panel block h-full rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                      className="plotty-collection-tile plotty-lift-panel block h-full rounded-[20px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
                     >
                       <div className="space-y-2">
                         <div className="plotty-card-title text-[1.2rem]">{collection.title}</div>
@@ -1011,7 +1024,7 @@ function ProfileStat({ label, value, icon }: { label: string; value: number | st
   const displayValue = typeof value === "number" ? value.toLocaleString("ru-RU") : value;
 
   return (
-    <div className="plotty-lift-panel h-full rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/70 p-4">
+    <div className="plotty-lift-panel h-full rounded-[18px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-2xl font-bold text-[var(--plotty-ink)]">{displayValue}</div>
