@@ -91,6 +91,31 @@
   --plotty-danger-hover: rgba(189, 63, 50, 0.28);
 }
 
+:root[data-theme="dark"] .plotty-story-card {
+  background: var(--plotty-surface-strong) !important;
+}
+
+:root[data-theme="dark"] .plotty-action-zone {
+  background: var(--plotty-surface-soft) !important;
+}
+
+:root[data-theme="dark"] .plotty-catalog-filter-card {
+  background: var(--plotty-panel-muted) !important;
+}
+
+:root[data-theme="dark"] .bg-white,
+:root[data-theme="dark"] [class*="bg-white/"],
+:root[data-theme="dark"] [class*="bg-[rgba(255"],
+:root[data-theme="dark"] [class*="bg-[rgba(251"],
+:root[data-theme="dark"] [class*="bg-[rgba(245"] {
+  background-color: var(--plotty-surface-soft) !important;
+}
+
+:root[data-theme="dark"] [class*="hover:bg-white"]:hover,
+:root[data-theme="dark"] [class*="hover:bg-white/"]:hover {
+  background-color: var(--plotty-surface-hover) !important;
+}
+
 * {
   box-sizing: border-box;
 }
