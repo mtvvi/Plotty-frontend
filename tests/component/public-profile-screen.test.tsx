@@ -66,11 +66,11 @@ describe("PublicProfileScreen", () => {
     expect(summary).toHaveClass("p-0");
     expect(screen.queryByRole("button", { name: "Редактировать" })).not.toBeInTheDocument();
     expect(screen.queryByText("Мой профиль")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Загрузить аватар" })).toHaveClass("w-full", "lg:h-full");
+    expect(screen.getByRole("button", { name: "Загрузить аватар" })).toHaveClass("h-full", "w-full", "lg:aspect-square", "lg:w-auto", "lg:min-h-full");
     expect(within(summary).getByAltText("Аватар writer")).toHaveAttribute("src", profileAvatarPlaceholderSrc);
-    expect(within(summary).getByAltText("Аватар writer")).toHaveClass("aspect-square", "w-full", "lg:min-h-80");
-    expect(summary).toHaveClass("lg:min-h-80");
-    expect(summary.firstElementChild).toHaveClass("lg:grid-cols-[20rem_minmax(0,1fr)_auto]");
+    expect(within(summary).getByAltText("Аватар writer")).toHaveClass("aspect-square", "w-full", "lg:w-auto", "lg:min-h-80");
+    expect(summary).toHaveClass("h-full", "lg:min-h-80");
+    expect(summary.firstElementChild).toHaveClass("h-full", "lg:grid-cols-[auto_minmax(0,1fr)_auto]");
 
     await user.click(screen.getByRole("button", { name: "Редактировать ник" }));
 

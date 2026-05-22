@@ -1,4 +1,5 @@
 import type { StoryDetails, StoryListItem, StoryTag } from "@/entities/story/model/types";
+import { sanitizeImageUrl } from "@/shared/lib/safe-url";
 
 export interface BackendStoryListItem {
   id: string;
@@ -10,7 +11,9 @@ export interface BackendStoryListItem {
   likesCount?: number;
   likedByMe?: boolean;
   aiHint?: string;
+  coverUrl?: string | null;
   coverImageUrl?: string | null;
+  readChapterNumber?: number | null;
   createdAt: string;
   updatedAt: string;
   author?: {
@@ -36,7 +39,7 @@ export function getTagName(tags: StoryTag[], category: string) {
 export function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
   const tags = item.tags ?? [];
 
-  return {
+  const story: StoryListItem = {
     id: item.id,
     slug: item.slug,
     title: item.title,
@@ -52,7 +55,18 @@ export function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
     likesCount: item.likesCount,
     viewerHasLiked: item.likedByMe,
     aiHint: item.aiHint,
-    author: item.author,
-    coverImageUrl: item.coverImageUrl ?? null,
+    author: item.author
+      ? {
+          ...item.author,
+          avatarUrl: sanitizeImageUrl(item.author.avatarUrl) ?? null,
+        }
+      : item.author,
+    coverImageUrl: sanitizeImageUrl(item.coverImageUrl ?? item.coverUrl) ?? null,
   };
+
+  if (Object.prototype.hasOwnProperty.call(item, "readChapterNumber")) {
+    story.readChapterNumber = item.readChapterNumber;
+  }
+
+  return story;
 }

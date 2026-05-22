@@ -1,6 +1,7 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 
 import { fetchJson } from "@/shared/api/fetch-json";
+import { sanitizeImageUrl } from "@/shared/lib/safe-url";
 
 import { getTagName, mapStoryListItem, type BackendStoriesResponse } from "./story-mappers";
 import { serializeStoriesQuery } from "../model/story-query";
@@ -48,6 +49,7 @@ interface BackendStoryDetails extends BackendStory {
   status?: StoryDetails["status"];
   likesCount?: number;
   likedByMe?: boolean;
+  coverUrl?: string | null;
   coverImageUrl?: string | null;
   author?: {
     id: number;
@@ -162,8 +164,13 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     likesCount: item.likesCount,
     aiHint: item.aiHint,
     viewerHasLiked: item.likedByMe,
-    author: item.author,
-    coverImageUrl: item.coverImageUrl ?? null,
+    author: item.author
+      ? {
+          ...item.author,
+          avatarUrl: sanitizeImageUrl(item.author.avatarUrl) ?? null,
+        }
+      : item.author,
+    coverImageUrl: sanitizeImageUrl(item.coverImageUrl ?? item.coverUrl) ?? null,
   };
 }
 

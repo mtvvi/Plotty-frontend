@@ -8,6 +8,7 @@ import { logout } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
+import { sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { profileAvatarPlaceholderSrc } from "@/widgets/profile/profile-avatar-placeholder";
 
@@ -28,7 +29,7 @@ function AccountAvatar({
   avatarUrl?: string | null;
   className?: string;
 }) {
-  const imageSrc = avatarUrl ?? profileAvatarPlaceholderSrc;
+  const imageSrc = sanitizeImageUrl(avatarUrl) ?? profileAvatarPlaceholderSrc;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -58,7 +59,17 @@ export function AuthStatus({
   });
 
   if (isLoading) {
-    return <span className="text-sm text-[var(--plotty-muted)]">Проверяем сессию...</span>;
+    return (
+      <span
+        data-auth-status-loading="true"
+        className={cn(
+          "inline-flex items-center text-sm text-[var(--plotty-muted)]",
+          variant === "compact" ? "min-h-[86px] w-[13rem]" : "min-h-10",
+        )}
+      >
+        Проверяем сессию...
+      </span>
+    );
   }
 
   if (!isAuthenticated || !user) {

@@ -34,6 +34,14 @@ export interface ApiErrorPayload {
   errors?: ApiValidationError[];
 }
 
+function getConfiguredDirectApiUrl() {
+  if (process.env.NODE_ENV === "production") {
+    return "";
+  }
+
+  return process.env.NEXT_PUBLIC_API_URL || "";
+}
+
 export class ApiError extends Error {
   status: number;
   data?: ApiErrorPayload | string;
@@ -46,7 +54,7 @@ export class ApiError extends Error {
   }
 }
 
-export function resolveApiInput(input: string, directApiUrl = process.env.NEXT_PUBLIC_API_URL || "") {
+export function resolveApiInput(input: string, directApiUrl = getConfiguredDirectApiUrl()) {
   if (/^https?:\/\//.test(input)) {
     return input;
   }
@@ -138,14 +146,17 @@ function getPayloadMessage(value: unknown, depth = 0): string | undefined {
 
 export async function fetchJson<T>(input: string, init?: RequestInit) {
   const url = resolveApiInput(input);
+  const headers = new Headers(init?.headers);
+
+  if (init?.body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
   const requestInit = withoutIncompatibleAbortSignal({
     cache: "no-store",
     credentials: "include",
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   const response = await fetch(url, requestInit);

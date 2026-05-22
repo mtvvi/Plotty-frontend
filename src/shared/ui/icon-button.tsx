@@ -36,7 +36,7 @@ export function iconButtonClassName({
   variant?: ButtonVariant;
 } = {}) {
   return cn(
-    "plotty-icon-motion inline-flex shrink-0 items-center justify-center border transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:scale-100 disabled:shadow-none disabled:opacity-60",
+    "plotty-icon-motion inline-flex shrink-0 items-center justify-center border transition-[background-color,border-color,color,box-shadow] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:shadow-none disabled:opacity-60",
     variantClasses[variant],
     sizeClasses[size],
     className,

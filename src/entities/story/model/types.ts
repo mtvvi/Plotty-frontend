@@ -33,6 +33,7 @@ export interface StoryListItem {
   aiHint?: string;
   author?: StoryAuthor | null;
   coverImageUrl?: string | null;
+  readChapterNumber?: number | null;
 }
 
 export interface ChapterListItem {

@@ -61,6 +61,8 @@ interface StoryRecord {
   updatedLabel: string;
 }
 
+type MockBackendStoryListItem = StoryListItem & { coverUrl?: string | null };
+
 interface CommentRecord {
   id: string;
   chapterId: string;
@@ -540,10 +542,15 @@ function toChapterListItem(chapter: ChapterRecord): ChapterListItem {
   };
 }
 
-function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListItem {
+function getStoryCoverUrl(story: StoryRecord, visibleChapters: ChapterRecord[]) {
+  return story.coverImageUrl ?? visibleChapters.find((chapter) => chapter.imageUrl)?.imageUrl ?? null;
+}
+
+function toStoryListItem(story: StoryRecord, viewerUserId?: number): MockBackendStoryListItem {
   const chapters = getChaptersForStory(story.id);
   const visibleChapters = story.status === "published" ? chapters.filter((ch) => isChapterPublishedMock(ch)) : chapters;
   const tags = resolveTags(story.tagSlugs);
+  const coverUrl = getStoryCoverUrl(story, visibleChapters);
 
   return {
     id: story.id,
@@ -562,6 +569,7 @@ function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListIt
     viewerHasLiked: viewerUserId ? story.likedByUserIds.includes(viewerUserId) : false,
     aiHint: story.aiHint,
     author: storyAuthors[story.authorId] ?? null,
+    ...(coverUrl ? { coverUrl } : {}),
   };
 }
 

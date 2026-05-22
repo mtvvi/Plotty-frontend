@@ -1,16 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Heart, List } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { chapterDetailsQueryOptions, chaptersViewedQueryOptions, storyDetailsQueryOptions } from "@/entities/story/api/stories-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
 import type { StoryListItem, StoryTag } from "@/entities/story/model/types";
-import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
@@ -27,59 +24,31 @@ export function StoryCard({
   storyHref,
   showShelfControl = true,
   showChapterActions = true,
+  priorityCover = false,
 }: {
   story: StoryListItem;
   storyHref?: string;
   showShelfControl?: boolean;
   showChapterActions?: boolean;
+  priorityCover?: boolean;
 }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const resolvedStoryHref = storyHref ?? routes.story(story.slug);
-  const storyDetailsQuery = useQuery({
-    ...storyDetailsQueryOptions(story.slug),
-    enabled: Boolean(story.slug),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
-  const readerChapters = useMemo(
-    () => (storyDetailsQuery.data ? publicChaptersForReader(storyDetailsQuery.data.chapters) : []),
-    [storyDetailsQuery.data],
-  );
-  const firstChapter = readerChapters[0];
-  const firstChapterQuery = useQuery({
-    ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
-    enabled: Boolean(firstChapter?.id && !story.coverImageUrl),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
-  const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
+  const hasDirectReadChapterNumber = Object.prototype.hasOwnProperty.call(story, "readChapterNumber");
+  const directReadChapterNumber = getPositiveChapterNumber(story.readChapterNumber);
+  const displayCoverImage = story.coverImageUrl ?? undefined;
   const revealCoverImage = displayCoverImage ?? storyCoverPlaceholderSrc;
-  const isCoverLoading = Boolean(!story.coverImageUrl && (storyDetailsQuery.isLoading || firstChapterQuery.isLoading));
   const chaptersHref = `${routes.story(story.slug)}?tab=chapters`;
-  const chaptersViewedQuery = useQuery({
-    ...chaptersViewedQueryOptions(story.slug),
-    enabled: Boolean(isAuthenticated && storyDetailsQuery.data && readerChapters.length),
-  });
-  const viewedByChapterId = useMemo(() => {
-    const items = chaptersViewedQuery.data?.items ?? [];
-
-    return new Map(items.map((item) => [item.chapterId, item.viewed]));
-  }, [chaptersViewedQuery.data?.items]);
-  const firstReadableChapter = useMemo(() => {
-    if (!readerChapters.length) {
-      return null;
-    }
-
-    if (!isAuthenticated || !chaptersViewedQuery.isSuccess) {
-      return readerChapters[0];
-    }
-
-    return readerChapters.find((chapter) => viewedByChapterId.get(chapter.id) !== true) ?? readerChapters[0];
-  }, [chaptersViewedQuery.isSuccess, isAuthenticated, readerChapters, viewedByChapterId]);
-  const readHref = firstReadableChapter ? routes.chapter(story.slug, firstReadableChapter.number ?? 1) : resolvedStoryHref;
-  const viewerHasLiked = Boolean(storyDetailsQuery.data?.viewerHasLiked ?? story.viewerHasLiked);
-  const likesCount = storyDetailsQuery.data?.likesCount ?? story.likesCount;
+  const readHref = hasDirectReadChapterNumber
+    ? directReadChapterNumber
+      ? routes.chapter(story.slug, directReadChapterNumber)
+      : resolvedStoryHref
+    : story.chaptersCount > 0
+      ? routes.chapter(story.slug, 1)
+      : resolvedStoryHref;
+  const viewerHasLiked = Boolean(story.viewerHasLiked);
+  const likesCount = story.likesCount;
   const likeMutation = useStoryLikeMutation({
     storyId: story.id,
     likesCount,
@@ -109,6 +78,7 @@ export function StoryCard({
       <div className="grid min-w-0 md:min-h-[15rem] md:grid-cols-[minmax(16rem,19rem)_minmax(0,1fr)_minmax(10rem,12rem)] xl:grid-cols-[20rem_minmax(0,1fr)_minmax(11rem,13rem)]">
         <Link
           href={resolvedStoryHref}
+          prefetch={false}
           aria-label={`Открыть историю ${story.title}`}
           className="relative block min-w-0 aspect-video overflow-hidden border-b border-[var(--plotty-line)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] md:aspect-auto md:min-h-[13.5rem] md:border-b-0 md:border-r"
         >
@@ -119,13 +89,15 @@ export function StoryCard({
             className="h-full rounded-none border-0"
             imageClassName="h-full min-h-[18rem] max-md:!min-h-0"
             fullHeight
-            isLoading={isCoverLoading}
+            priority={priorityCover}
+            sizes="(min-width: 1280px) 20rem, (min-width: 768px) 19rem, 100vw"
           />
         </Link>
 
         <div className="relative min-w-0 space-y-3 p-4 md:space-y-3.5 md:p-5">
           <Link
             href={resolvedStoryHref}
+            prefetch={false}
             aria-label={`Перейти на страницу истории ${story.title}`}
             className="plotty-story-card-body-link"
           />
@@ -140,6 +112,7 @@ export function StoryCard({
               {story.author?.username ? (
                 <Link
                   href={routes.user(story.author.username)}
+                  prefetch={false}
                   className="pointer-events-auto relative z-30 font-semibold transition-colors hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
                 >
                   Автор {story.author.username}
@@ -190,12 +163,13 @@ export function StoryCard({
                 aria-label="Читать историю"
                 revealTitle={story.title}
                 revealCoverUrl={revealCoverImage}
+                prefetch={false}
               >
                 <BookOpen className="size-4" aria-hidden="true" />
                 Читать
               </StoryRevealButtonLink>
               {showChapterActions ? (
-                <ButtonLink href={chaptersHref} variant="secondary" size="sm" className="w-full" aria-label="Открыть главы">
+                <ButtonLink href={chaptersHref} prefetch={false} variant="secondary" size="sm" className="w-full" aria-label="Открыть главы">
                   <List className="size-4" aria-hidden="true" />
                   Главы
                 </ButtonLink>
@@ -216,7 +190,7 @@ export function StoryCard({
                 {formatCount(likesCount)}
               </Button>
               {showChapterActions ? (
-                <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
+                <Link href={chaptersHref} prefetch={false} className="plotty-stat justify-center" aria-label="Количество глав">
                   <List className="size-4" aria-hidden="true" />
                   {story.chaptersCount}
                 </Link>
@@ -241,12 +215,13 @@ export function StoryCard({
             className="min-w-0 w-full"
             revealTitle={story.title}
             revealCoverUrl={revealCoverImage}
+            prefetch={false}
           >
             <BookOpen className="size-4" aria-hidden="true" />
             Читать
           </StoryRevealButtonLink>
           {showChapterActions ? (
-            <ButtonLink href={chaptersHref} variant="secondary" className="min-w-0 w-full">
+            <ButtonLink href={chaptersHref} prefetch={false} variant="secondary" className="min-w-0 w-full">
               <List className="size-4" aria-hidden="true" />
               Главы
             </ButtonLink>
@@ -266,7 +241,7 @@ export function StoryCard({
               {formatCount(likesCount)}
             </Button>
             {showChapterActions ? (
-              <Link href={chaptersHref} className="plotty-stat justify-center" aria-label="Количество глав">
+              <Link href={chaptersHref} prefetch={false} className="plotty-stat justify-center" aria-label="Количество глав">
                 <List className="size-4" aria-hidden="true" />
                 {story.chaptersCount}
               </Link>
@@ -353,6 +328,10 @@ function sortDisplayTags(tags: StoryTag[]) {
 
 function formatCount(value?: number) {
   return (value ?? 0).toLocaleString("ru-RU");
+}
+
+function getPositiveChapterNumber(value?: number | null) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function getChapterLabel(count: number) {

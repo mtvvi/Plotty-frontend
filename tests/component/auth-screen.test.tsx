@@ -207,4 +207,37 @@ describe("AuthScreen", () => {
       expect(screen.getByText("Пароли не совпадают.")).toBeInTheDocument();
     });
   });
+
+  it.each(["https://evil.test/steal", "//evil.test/steal", "javascript:alert(1)"])(
+    "falls back to the workshop when next is unsafe: %s",
+    async (next) => {
+      const user = userEvent.setup();
+
+      renderAuthScreen(`next=${encodeURIComponent(next)}`);
+
+      await screen.findByRole("heading", { name: "Войти в Plotty" });
+      await user.type(screen.getByLabelText("Email"), "writer@plotty.test");
+      await user.type(screen.getByLabelText("Пароль"), "password123");
+      await user.click(screen.getByRole("button", { name: "Войти" }));
+
+      await waitFor(() => {
+        expect(replace).toHaveBeenCalledWith("/write");
+      });
+    },
+  );
+
+  it("allows same-origin relative next URLs", async () => {
+    const user = userEvent.setup();
+
+    renderAuthScreen(`next=${encodeURIComponent("/library?x=1#section")}`);
+
+    await screen.findByRole("heading", { name: "Войти в Plotty" });
+    await user.type(screen.getByLabelText("Email"), "writer@plotty.test");
+    await user.type(screen.getByLabelText("Пароль"), "password123");
+    await user.click(screen.getByRole("button", { name: "Войти" }));
+
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith("/library?x=1#section");
+    });
+  });
 });

@@ -35,7 +35,7 @@ export function buttonClassName({
   className?: string;
 } = {}) {
   return cn(
-    "plotty-button-label inline-flex items-center justify-center gap-2 border transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:scale-100 disabled:shadow-none disabled:opacity-60",
+    "plotty-button-label inline-flex items-center justify-center gap-2 border transition-[background-color,border-color,color,box-shadow] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:shadow-none disabled:opacity-60",
     variantClasses[variant],
     sizeClasses[size],
     fullWidth && "w-full",

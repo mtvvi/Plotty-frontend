@@ -247,6 +247,7 @@ export function StoryCreateScreen() {
                   imageUrl={selectedStoryDisplayCover}
                   compact
                   enableLightbox
+                  priority
                   className="lg:aspect-square"
                 />
                 <div className="space-y-4">
@@ -403,24 +404,10 @@ function StorySidebarItem({
   selectedStoryDisplayCover?: string | null;
   onSelect: (slug: string) => void;
 }) {
-  const storyDetailsQuery = useQuery({
-    ...storyDetailsQueryOptions(story.slug),
-    enabled: Boolean(story.slug && !story.coverImageUrl),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
-  const firstChapterId = storyDetailsQuery.data?.chapters[0]?.id ?? "";
-  const firstChapterQuery = useQuery({
-    ...chapterDetailsQueryOptions(firstChapterId),
-    enabled: Boolean(firstChapterId && !story.coverImageUrl),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
   const sidebarCoverImage = getSidebarStoryCoverImageUrl({
     story,
     selectedStorySlug,
     selectedStoryDisplayCover,
-    storyFirstChapterImageUrl: firstChapterQuery.data?.imageUrl,
   });
 
   return (

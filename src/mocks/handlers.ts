@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, passthrough } from "msw";
 
 import { parseStoriesQuery } from "@/entities/story/model/story-query";
 import type { ReaderShelf } from "@/entities/library/model/types";
@@ -61,6 +61,12 @@ import {
   updateUserCollection,
 } from "./data/stories";
 import { getMockSession, loginMockUser, logoutMockUser, registerMockUser, updateMockUserProfile } from "./data/auth";
+
+function passthroughAppRouteRequest(request: Request) {
+  const url = new URL(request.url);
+
+  return !url.pathname.startsWith("/api/") && url.searchParams.has("_rsc");
+}
 
 export const handlers = [
   http.get("*/session", () => {
@@ -453,7 +459,11 @@ export const handlers = [
     return HttpResponse.json(response);
   }),
 
-  http.get("*/stories/:slug", ({ params }) => {
+  http.get("*/stories/:slug", ({ request, params }) => {
+    if (passthroughAppRouteRequest(request)) {
+      return passthrough();
+    }
+
     const session = getMockSession();
     const story = getStoryBySlug(String(params.slug), session?.user.id);
 
@@ -626,7 +636,11 @@ export const handlers = [
     return HttpResponse.json(result);
   }),
 
-  http.get("*/chapters/:chapterId", ({ params }) => {
+  http.get("*/chapters/:chapterId", ({ request, params }) => {
+    if (passthroughAppRouteRequest(request)) {
+      return passthrough();
+    }
+
     const chapter = getChapterById(String(params.chapterId));
 
     if (!chapter) {

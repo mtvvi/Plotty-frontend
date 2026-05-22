@@ -1,1 +1,1 @@
-export const profileAvatarPlaceholderSrc = "/profile-avatar-placeholder.png";
+export const profileAvatarPlaceholderSrc = "/profile-avatar-placeholder.jpg";

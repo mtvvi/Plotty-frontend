@@ -542,74 +542,6 @@ select {
   transform: translateX(2px);
 }
 
-.plotty-button-label[data-plotty-button],
-.plotty-icon-motion[data-plotty-icon-button] {
-  transform: translate3d(0, 0, 0) scale(1);
-  transform-origin: center;
-  backface-visibility: hidden;
-  will-change: transform;
-}
-
-.plotty-button-label[data-plotty-button] {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  transition-duration: var(--motion-slow);
-}
-
-.plotty-button-label[data-plotty-button]::after {
-  position: absolute;
-  inset: -35% -55%;
-  z-index: 0;
-  pointer-events: none;
-  background: linear-gradient(105deg, transparent 34%, rgba(255, 250, 244, 0.28) 48%, transparent 62%);
-  mix-blend-mode: soft-light;
-  opacity: 0;
-  transform: translate3d(-34%, 0, 0) skewX(-10deg);
-  transition:
-    opacity var(--motion-base) var(--ease-out-soft),
-    transform 520ms var(--ease-out-soft);
-  content: "";
-}
-
-.plotty-button-label[data-plotty-button]:hover:not(:disabled):not([aria-disabled="true"])::after,
-.plotty-button-label[data-plotty-button]:focus-visible:not(:disabled):not([aria-disabled="true"])::after {
-  opacity: 1;
-  transform: translate3d(34%, 0, 0) skewX(-10deg);
-}
-
-.plotty-button-label[data-plotty-button][data-variant="primary"]:hover:not(:disabled):not([aria-disabled="true"]) {
-  transform: translate3d(0, -2px, 0) scale(1.01);
-}
-
-.plotty-button-label[data-plotty-button][data-variant="secondary"]:hover:not(:disabled):not([aria-disabled="true"]),
-.plotty-button-label[data-plotty-button][data-variant="ghost"]:hover:not(:disabled):not([aria-disabled="true"]),
-.plotty-button-label[data-plotty-button][data-variant="destructive"]:hover:not(:disabled):not([aria-disabled="true"]) {
-  transform: translate3d(0, -1px, 0) scale(1.005);
-}
-
-.plotty-button-label[data-plotty-button]:active:not(:disabled):not([aria-disabled="true"]) {
-  transform: translate3d(0, 0, 0) scale(0.98);
-  transition-duration: var(--motion-fast);
-}
-
-.plotty-button-label[data-plotty-button][data-variant="primary"]:active:not(:disabled):not([aria-disabled="true"]) {
-  transform: translate3d(0, 0, 0) scale(0.97);
-}
-
-.plotty-icon-motion[data-plotty-icon-button]:hover:not(:disabled):not([aria-disabled="true"]) {
-  transform: translate3d(0, -1px, 0) scale(1.03);
-}
-
-.plotty-icon-motion[data-plotty-icon-button][data-variant="primary"]:hover:not(:disabled):not([aria-disabled="true"]) {
-  transform: translate3d(0, -2px, 0) scale(1.04);
-}
-
-.plotty-icon-motion[data-plotty-icon-button]:active:not(:disabled):not([aria-disabled="true"]) {
-  transform: translate3d(0, 0, 0) scale(0.95);
-  transition-duration: var(--motion-fast);
-}
-
 .plotty-chip-motion,
 .plotty-badge-motion {
   position: relative;
@@ -923,17 +855,12 @@ button:active .plotty-chip-motion {
 .plotty-catalog-filter-card {
   transform-origin: left top;
   transition:
-    opacity 260ms var(--ease-out-soft),
-    filter 420ms var(--ease-out-soft),
-    transform 520ms var(--ease-out-soft),
-    box-shadow 420ms var(--ease-out-soft);
-  will-change: opacity, filter, transform;
+    opacity 160ms var(--ease-out-soft),
+    box-shadow 160ms var(--ease-out-soft);
 }
 
 .plotty-catalog-filter-card > div > * {
-  transition:
-    opacity 280ms var(--ease-out-soft),
-    transform 440ms var(--ease-out-soft);
+  transition: opacity 160ms var(--ease-out-soft);
   transition-delay: calc(var(--plotty-filter-index, 0) * 28ms);
 }
 
@@ -967,9 +894,6 @@ button:active .plotty-chip-motion {
     column-gap: 1.75rem;
     row-gap: 1.75rem;
     align-items: start;
-    transition:
-      column-gap 520ms var(--ease-in-out-soft),
-      grid-template-columns 620ms var(--ease-in-out-soft);
   }
 
   .plotty-catalog-layout[data-filters-collapsed="true"] {
@@ -982,51 +906,24 @@ button:active .plotty-chip-motion {
     z-index: 2;
     overflow: clip;
     opacity: 1;
-    transition:
-      opacity 260ms var(--ease-out-soft),
-      transform 620ms var(--ease-in-out-soft);
+    transition: opacity 160ms var(--ease-out-soft);
   }
 
   .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-rail {
     opacity: 0;
     pointer-events: none;
-    transform: translateX(-1.25rem);
   }
 
   .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-card {
     opacity: 0;
-    filter: blur(10px);
-    transform: translateX(-1.1rem) scale(0.96);
     box-shadow: none;
   }
 
   .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-card > div > * {
     opacity: 0;
-    transform: translateY(0.75rem);
     transition-delay: 0ms;
   }
 
-  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-rail {
-    overflow: visible;
-    opacity: 1;
-    pointer-events: none;
-    transform: none;
-  }
-
-  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card {
-    width: 17rem;
-    opacity: 0;
-    filter: blur(10px);
-    transform: translateX(-1.1rem) scale(0.96);
-    box-shadow: none;
-    transition-delay: 190ms, 150ms, 150ms, 150ms;
-  }
-
-  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card > div > * {
-    opacity: 0;
-    transform: translateX(-0.25rem) translateY(0.75rem);
-    transition-delay: calc((7 - var(--plotty-filter-index, 0)) * 28ms);
-  }
 }
 
 @media (min-width: 1280px) {
@@ -1040,9 +937,6 @@ button:active .plotty-chip-motion {
     column-gap: 0;
   }
 
-  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card {
-    width: 18rem;
-  }
 }
 
 .plotty-info-row {
@@ -1665,22 +1559,18 @@ button:active .plotty-chip-motion {
 @keyframes plotty-header-enter {
   from {
     opacity: 0;
-    transform: translateY(-8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 @keyframes plotty-page-enter {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -1777,22 +1667,18 @@ button:active .plotty-chip-motion {
 @keyframes plotty-stagger-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 @keyframes plotty-motion-list-item-enter {
   0% {
     opacity: 0;
-    transform: translateY(10px) scale(0.992);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 

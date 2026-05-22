@@ -17,6 +17,7 @@ import {
 } from "@/entities/profile/api/profile-api";
 import { myStoriesQueryOptions } from "@/entities/story/api/stories-api";
 import { routes } from "@/shared/config/routes";
+import { sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { cn } from "@/shared/lib/utils";
 import { usernameValidationMessage } from "@/shared/lib/username";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
@@ -305,12 +306,12 @@ export function PublicProfileScreen({ username }: { username: string }) {
       <div className="space-y-5">
         <PlottySectionCard className="plotty-panel-enter overflow-hidden !p-0">
           <div className="grid gap-0 lg:min-h-80 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div>
+            <div className="lg:h-full">
               <div
                 data-profile-summary-frame="true"
-                className="p-0 lg:min-h-80"
+                className="h-full p-0 lg:min-h-80"
               >
-                <div className="flex w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid lg:min-h-80 lg:grid-cols-[20rem_minmax(0,1fr)_auto] lg:gap-0">
+                <div className="flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid lg:min-h-80 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-0">
                   {isOwnProfile ? (
                     <>
                       <input
@@ -322,10 +323,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         disabled={avatarMutation.isPending}
                         onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
                       />
-                      <div className="grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:h-full lg:w-auto lg:self-stretch">
+                      <div className="grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:aspect-square lg:h-full lg:min-h-full lg:w-auto lg:self-stretch">
                         <button
                           type="button"
-                          className="group relative w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:h-full lg:rounded-none lg:hover:translate-y-0"
+                          className="group relative h-full w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:aspect-square lg:min-h-full lg:w-auto lg:rounded-none lg:hover:translate-y-0"
                           onClick={() => avatarInputRef.current?.click()}
                           disabled={avatarMutation.isPending}
                           aria-label="Загрузить аватар"
@@ -552,12 +553,12 @@ export function ProfileAvatar({
 }) {
   const className =
     size === "hero"
-      ? "aspect-square w-full text-4xl sm:aspect-auto sm:h-full sm:min-h-40 lg:min-h-80 lg:text-5xl"
+      ? "aspect-square w-full text-4xl sm:h-full sm:min-h-40 lg:h-full lg:w-auto lg:min-h-80 lg:text-5xl"
       : size === "large"
         ? "size-28 text-4xl sm:size-36 lg:size-40"
         : "size-12 text-base";
   const radiusClassName = size === "hero" ? "rounded-none sm:rounded-[var(--plotty-radius-md)] lg:rounded-none" : "rounded-[var(--plotty-radius-md)]";
-  const imageSrc = avatarUrl ?? profileAvatarPlaceholderSrc;
+  const imageSrc = sanitizeImageUrl(avatarUrl) ?? profileAvatarPlaceholderSrc;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element

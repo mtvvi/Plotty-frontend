@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { http, HttpResponse } from "msw";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/entities/auth/model/auth-context";
 import { loginMockUser } from "@/mocks/data/auth";
+import { server } from "@/mocks/server";
 import { listStories } from "@/mocks/data/stories";
 import { StoryCard } from "@/widgets/stories/story-card";
 import { storyCoverPlaceholderSrc } from "@/widgets/stories/story-cover-preview";
@@ -16,8 +18,11 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-function renderStoryCard(index = 0) {
-  const story = listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items[index];
+function renderStoryCard(index = 0, storyOverride: Partial<ReturnType<typeof listStories>["items"][number]> = {}) {
+  const story = {
+    ...listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items[index],
+    ...storyOverride,
+  };
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -46,9 +51,8 @@ describe("StoryCard", () => {
     );
     expect(screen.getByText(`Автор ${story.author?.username}`)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: `Открыть историю ${story.title}` })).toBeInTheDocument();
-    expect(screen.getByAltText(`Обложка появится позже для истории «${story.title}»`)).toHaveAttribute(
-      "src",
-      storyCoverPlaceholderSrc,
+    expect(screen.getByAltText(`Обложка появится позже для истории «${story.title}»`).getAttribute("src")).toContain(
+      encodeURIComponent(storyCoverPlaceholderSrc),
     );
     expect(screen.getByLabelText("Действия карточки")).toBeInTheDocument();
     expect(screen.queryByText(/\+\d+/)).not.toBeInTheDocument();
@@ -68,27 +72,101 @@ describe("StoryCard", () => {
     expect(screen.getAllByRole("button", { name: "В подборку" })).not.toHaveLength(0);
   });
 
-  it("links authenticated readers to the first unread chapter", async () => {
+  it("links to the first chapter without fetching reader progress when the list has no direct read number", async () => {
     loginMockUser({ email: "writer@plotty.test", password: "password123" });
     renderStoryCard();
 
-    await waitFor(() =>
-      expect(screen.getAllByRole("link", { name: "Читать" })[0]).toHaveAttribute(
-        "href",
-        "/stories/after-midnight-the-snow-does-not-melt/chapters/2",
-      ),
+    expect(screen.getAllByRole("link", { name: "Читать" })[0]).toHaveAttribute(
+      "href",
+      "/stories/after-midnight-the-snow-does-not-melt/chapters/1",
     );
+  });
+
+  it("does not fetch story details or viewed chapters during initial catalog render", async () => {
+    let storyDetailsRequests = 0;
+    let chaptersViewedRequests = 0;
+
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    server.use(
+      http.get("*/stories/:slug/chapters/viewed", () => {
+        chaptersViewedRequests += 1;
+
+        return HttpResponse.json({ items: [] });
+      }),
+      http.get("*/stories/:slug", () => {
+        storyDetailsRequests += 1;
+
+        return HttpResponse.json({ message: "Unexpected story details fetch" }, { status: 500 });
+      }),
+    );
+
+    renderStoryCard();
+
+    await waitFor(() => expect(screen.getAllByRole("link", { name: "Читать" })[0]).toBeInTheDocument());
+    expect(storyDetailsRequests).toBe(0);
+    expect(chaptersViewedRequests).toBe(0);
   });
 
   it("renders a placeholder cover from list data instead of fetching chapter imagery", () => {
     const story = renderStoryCard();
     const placeholder = screen.getByAltText(`Обложка появится позже для истории «${story.title}»`);
 
-    expect(placeholder).toHaveAttribute("src", storyCoverPlaceholderSrc);
+    expect(placeholder.getAttribute("src")).toContain(encodeURIComponent(storyCoverPlaceholderSrc));
     expect(placeholder.closest('[data-cover-frame="true"]')).toHaveClass(
       "h-full",
       "min-h-[18rem]",
     );
     expect(placeholder).toHaveClass("object-cover");
+  });
+
+  it("does not fetch chapter details just to resolve catalog cover imagery", async () => {
+    let chapterDetailsRequests = 0;
+
+    server.use(
+      http.get("*/chapters/:chapterId", () => {
+        chapterDetailsRequests += 1;
+
+        return HttpResponse.json({
+          id: "chapter-1",
+          storyId: "story-after-midnight",
+          title: "Глава 1",
+          content: "Текст главы",
+          updatedAt: "2026-04-25T10:00:00.000Z",
+          status: "published",
+          imageUrl: "/chapter-cover.jpg",
+        });
+      }),
+    );
+
+    renderStoryCard();
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("link", { name: "Читать" })[0]).toHaveAttribute(
+        "href",
+        "/stories/after-midnight-the-snow-does-not-melt/chapters/1",
+      ),
+    );
+    expect(chapterDetailsRequests).toBe(0);
+  });
+
+  it("uses backend readChapterNumber without fetching story details", () => {
+    let storyDetailsRequests = 0;
+    const story = listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items[0];
+
+    server.use(
+      http.get("*/stories/:slug", () => {
+        storyDetailsRequests += 1;
+
+        return HttpResponse.json({ ...story, chapters: [] });
+      }),
+    );
+
+    renderStoryCard(0, { readChapterNumber: 2 });
+
+    expect(screen.getAllByRole("link", { name: "Читать" })[0]).toHaveAttribute(
+      "href",
+      "/stories/after-midnight-the-snow-does-not-melt/chapters/2",
+    );
+    expect(storyDetailsRequests).toBe(0);
   });
 });

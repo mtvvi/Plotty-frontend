@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
+import { isUnoptimizedImageUrl, sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { cn } from "@/shared/lib/utils";
 import { ImageLightbox, lightboxTriggerClassName } from "@/shared/ui/image-lightbox";
 
-export const storyCoverPlaceholderSrc = "/story-cover-placeholder.png";
+export const storyCoverPlaceholderSrc = "/story-cover-placeholder.jpg";
 
 export function StoryCoverPreview({
   title,
@@ -17,6 +18,8 @@ export function StoryCoverPreview({
   fullHeight = false,
   enableLightbox = false,
   isLoading = false,
+  priority = false,
+  sizes = "100vw",
 }: {
   title: string;
   imageUrl?: string;
@@ -27,40 +30,21 @@ export function StoryCoverPreview({
   fullHeight?: boolean;
   enableLightbox?: boolean;
   isLoading?: boolean;
+  priority?: boolean;
+  sizes?: string;
 }) {
+  const safeImageUrl = sanitizeImageUrl(imageUrl);
   const [hasImageError, setHasImageError] = useState(false);
-  const [isImageLoading, setIsImageLoading] = useState(Boolean(imageUrl));
+  const [isImageLoading, setIsImageLoading] = useState(Boolean(safeImageUrl));
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const fallbackAspectRatio = "1 / 1";
 
   useEffect(() => {
     setHasImageError(false);
-    setIsImageLoading(Boolean(imageUrl));
-  }, [imageUrl]);
+    setIsImageLoading(Boolean(safeImageUrl));
+  }, [safeImageUrl]);
 
-  useEffect(() => {
-    if (!imageUrl) {
-      return;
-    }
-
-    const probe = new window.Image();
-
-    probe.onload = () => {
-      setHasImageError(false);
-    };
-    probe.onerror = () => {
-      setHasImageError(true);
-      setIsImageLoading(false);
-    };
-    probe.src = imageUrl;
-
-    return () => {
-      probe.onload = null;
-      probe.onerror = null;
-    };
-  }, [imageUrl]);
-
-  const hasCover = Boolean(imageUrl && !hasImageError);
+  const hasCover = Boolean(safeImageUrl && !hasImageError);
   const coverStyle = hasCover && !fullHeight ? { aspectRatio: fallbackAspectRatio } : undefined;
   const showLoadingIndicator = isLoading || isImageLoading;
 
@@ -84,11 +68,12 @@ export function StoryCoverPreview({
             onClick={() => setIsLightboxOpen(true)}
           >
             <Image
-              src={imageUrl ?? ""}
+              src={safeImageUrl ?? ""}
               alt={`Обложка истории «${title}»`}
               fill
-              sizes="100vw"
-              unoptimized
+              sizes={sizes}
+              priority={priority}
+              unoptimized={safeImageUrl ? isUnoptimizedImageUrl(safeImageUrl) : undefined}
               className="object-cover"
               onLoad={() => setIsImageLoading(false)}
               onError={() => {
@@ -105,11 +90,12 @@ export function StoryCoverPreview({
             style={coverStyle}
           >
             <Image
-              src={imageUrl ?? ""}
+              src={safeImageUrl ?? ""}
               alt={`Обложка истории «${title}»`}
               fill
-              sizes="100vw"
-              unoptimized
+              sizes={sizes}
+              priority={priority}
+              unoptimized={safeImageUrl ? isUnoptimizedImageUrl(safeImageUrl) : undefined}
               className="object-cover"
               onLoad={() => setIsImageLoading(false)}
               onError={() => {
@@ -134,9 +120,8 @@ export function StoryCoverPreview({
             src={storyCoverPlaceholderSrc}
             alt={`Обложка появится позже для истории «${title}»`}
             fill
-            sizes="100vw"
-            unoptimized
-            priority
+            sizes={sizes}
+            priority={priority}
             className="object-cover"
           />
           {isLoading ? <CoverLoadingIndicator /> : null}
@@ -152,9 +137,9 @@ export function StoryCoverPreview({
         </div>
       ) : null}
 
-      {hasCover && enableLightbox && imageUrl ? (
+      {hasCover && enableLightbox && safeImageUrl ? (
         <ImageLightbox
-          src={imageUrl}
+          src={safeImageUrl}
           alt={`Обложка истории «${title}»`}
           title={title}
           open={isLightboxOpen}

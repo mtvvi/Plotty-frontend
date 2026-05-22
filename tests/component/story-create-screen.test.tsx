@@ -9,6 +9,7 @@ import { StoryCreateScreen } from "@/widgets/stories/story-create-screen";
 
 const push = vi.fn();
 let currentSearchParams = new URLSearchParams();
+let storyDetailsRequests: string[] = [];
 const emeraldWolfChapters = [
   {
     id: "chapter-1",
@@ -94,18 +95,22 @@ vi.mock("@/entities/story/api/stories-api", async () => {
     }),
     storyDetailsQueryOptions: (slug: string) => ({
       queryKey: ["test", "story-details", slug],
-      queryFn: async () => ({
-        id: slug === "silent-rain" ? "story-silent-rain" : "story-emerald-wolf",
-        slug,
-        title: slug === "silent-rain" ? "Тихий дождь" : "Изумрудная волчица",
-        tags: [],
-        chapters: slug === "silent-rain" ? [] : emeraldWolfChapters,
-        chaptersCount: slug === "silent-rain" ? 0 : emeraldWolfChapters.length,
-        status: "draft",
-        coverImageUrl: slug === "silent-rain" ? null : "/cover.png",
-        createdAt: "2026-04-25T10:00:00.000Z",
-        updatedAt: "2026-04-25T10:00:00.000Z",
-      }),
+      queryFn: async () => {
+        storyDetailsRequests.push(slug);
+
+        return {
+          id: slug === "silent-rain" ? "story-silent-rain" : "story-emerald-wolf",
+          slug,
+          title: slug === "silent-rain" ? "Тихий дождь" : "Изумрудная волчица",
+          tags: [],
+          chapters: slug === "silent-rain" ? [] : emeraldWolfChapters,
+          chaptersCount: slug === "silent-rain" ? 0 : emeraldWolfChapters.length,
+          status: "draft",
+          coverImageUrl: slug === "silent-rain" ? null : "/cover.png",
+          createdAt: "2026-04-25T10:00:00.000Z",
+          updatedAt: "2026-04-25T10:00:00.000Z",
+        };
+      },
       enabled: Boolean(slug),
     }),
   };
@@ -127,6 +132,7 @@ function renderStoryCreateScreen() {
 
 afterEach(() => {
   currentSearchParams = new URLSearchParams();
+  storyDetailsRequests = [];
   push.mockClear();
 });
 
@@ -181,6 +187,14 @@ describe("StoryCreateScreen sidebar", () => {
 
     expect(screen.getByText("Тихий дождь", { selector: ".plotty-card-title" })).toBeInTheDocument();
     expect(screen.queryByText("Изумрудная волчица", { selector: ".plotty-card-title" })).not.toBeInTheDocument();
+  });
+
+  it("does not fetch details for unselected sidebar stories just to resolve cover images", async () => {
+    renderStoryCreateScreen();
+
+    await screen.findByText("Главы истории");
+
+    expect(storyDetailsRequests).toEqual(["emerald-wolf"]);
   });
 
   it("shows a story settings saved message from the redirect flag", async () => {

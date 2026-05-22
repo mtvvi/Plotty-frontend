@@ -50,4 +50,17 @@ describe("AuthStatus", () => {
     expect(screen.getByText("ilya@gmail.com")).toHaveClass("leading-[1.35]");
     expect(screen.getByAltText("Аватар ilyaa")).toHaveAttribute("src", profileAvatarPlaceholderSrc);
   });
+
+  it("reserves compact header space while the session is loading", () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: null,
+      isAuthenticated: false,
+      isLoading: true,
+      isError: false,
+    });
+
+    renderAuthStatus();
+
+    expect(screen.getByText("Проверяем сессию...")).toHaveClass("min-h-[86px]", "w-[13rem]");
+  });
 });

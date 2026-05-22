@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, FormEvent, HTMLAttributes, MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { createContext, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   BookOpen,
   Feather,
@@ -76,6 +76,7 @@ function shouldHandlePrimaryNavClick(event: ReactMouseEvent<HTMLAnchorElement>) 
 function useOptimisticPrimaryNav(pathname: string, actualActiveHref: PrimaryNavHref | null) {
   const router = useRouter();
   const [pendingNav, setPendingNav] = useState<{ href: PrimaryNavHref; fromPathname: string } | null>(null);
+  const [, startPrimaryNavTransition] = useTransition();
 
   useEffect(() => {
     if (!pendingNav) {
@@ -111,9 +112,11 @@ function useOptimisticPrimaryNav(pathname: string, actualActiveHref: PrimaryNavH
 
       event.preventDefault();
       setPendingNav({ href, fromPathname: pathname });
-      router.push(href);
+      startPrimaryNavTransition(() => {
+        router.push(href);
+      });
     },
-    [pathname, router],
+    [pathname, router, startPrimaryNavTransition],
   );
 
   return {
@@ -452,7 +455,7 @@ function PlottyPageShellFallback({
 
               <GlobalSearch className="hidden min-w-0 flex-1 lg:flex" />
 
-              <div className="hidden shrink-0 items-center gap-3 lg:flex">
+              <div className="hidden min-w-[16.5rem] shrink-0 items-center justify-end gap-3 lg:flex">
                 {desktopActions}
                 <ThemeToggle />
               </div>
@@ -567,7 +570,7 @@ function PersistentPlottyHeader({
 
           <GlobalSearch className="hidden min-w-0 flex-1 lg:flex" />
 
-          <div className="hidden shrink-0 items-center gap-3 lg:flex">
+          <div className="hidden min-w-[16.5rem] shrink-0 items-center justify-end gap-3 lg:flex">
             {showDesktopActions ? (
               <DefaultDesktopActions profileIndicatorRef={(node) => setPrimaryNavItemRef("profile", node)} />
             ) : null}

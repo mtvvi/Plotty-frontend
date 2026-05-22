@@ -16,6 +16,7 @@ import {
 import Link, { type LinkProps } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { buttonClassName, type ButtonSize, type ButtonVariant } from "@/shared/ui/button";
 
 type RevealRequest = {
@@ -132,12 +133,14 @@ function resolveRevealPathname(href: string) {
 }
 
 function StoryRevealOverlay({ reveal }: { reveal: RevealRequest }) {
+  const safeCoverUrl = sanitizeImageUrl(reveal.coverUrl);
+
   return (
     <div className="plotty-story-reveal-overlay" aria-hidden="true">
       <div className="plotty-story-reveal-book">
         <div className="plotty-story-reveal-cover">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {reveal.coverUrl ? <img src={reveal.coverUrl} alt="" /> : null}
+          {safeCoverUrl ? <img src={safeCoverUrl} alt="" /> : null}
           <div className="plotty-story-reveal-cover-vignette" />
           {reveal.title ? <div className="plotty-story-reveal-cover-title">{reveal.title}</div> : null}
         </div>

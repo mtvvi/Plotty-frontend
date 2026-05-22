@@ -13,6 +13,7 @@ import type { ApiErrorPayload, ApiFieldError, ApiValidationError } from "@/share
 import { isApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
+import { sanitizeInternalNextUrl } from "@/shared/lib/safe-url";
 import { Button } from "@/shared/ui/button";
 import { Field, FieldError, FieldHint, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -46,7 +47,7 @@ export function AuthScreen() {
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading } = useAuth();
   const mode = getMode(new URLSearchParams(searchParams));
-  const nextUrl = searchParams.get("next") || routes.write;
+  const nextUrl = sanitizeInternalNextUrl(searchParams.get("next"), routes.write);
   const [values, setValues] = useState<RegisterPayload>({
     email: "",
     password: "",
