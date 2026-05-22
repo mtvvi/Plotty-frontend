@@ -26,7 +26,9 @@ import { StoryTagChip } from "./story-tag-chip";
 const multiSelectCategories = new Set(["rating", "completion", "size"]);
 const singleSelectCategories = new Set(["directionality"]);
 const searchDebounceMs = 300;
+const catalogFilterExitMs = 180;
 type CatalogSort = StoriesSort | "popular-desc";
+type CatalogFiltersState = "expanded" | "collapsing" | "collapsed";
 
 const sortOptions: Array<{ value: CatalogSort; label: string }> = [
   { value: "popular-desc", label: "Популярное" },
@@ -53,9 +55,10 @@ export function StoriesCatalogShell() {
   const [searchDraft, setSearchDraft] = useState(appliedQuery.q);
   const [localSort, setLocalSort] = useState<CatalogSort>(appliedQuery.sort ?? defaultStoriesSort);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [filtersState, setFiltersState] = useState<CatalogFiltersState>("expanded");
   const lastRequestedSearchRef = useRef(appliedQuery.q);
-  const filtersAreHidden = filtersCollapsed;
+  const filtersCollapseTimeoutRef = useRef<number | null>(null);
+  const filtersAreHidden = filtersState !== "expanded";
 
   const navigateToQuery = useCallback(
     (nextQuery: StoriesQuery) => {
@@ -75,6 +78,14 @@ export function StoriesCatalogShell() {
       lastRequestedSearchRef.current = appliedQuery.q;
     }
   }, [appliedQuery.q]);
+
+  useEffect(() => {
+    return () => {
+      if (filtersCollapseTimeoutRef.current !== null) {
+        window.clearTimeout(filtersCollapseTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const normalizedSearchDraft = searchDraft.trim();
   const isSearchDirty = normalizedSearchDraft !== appliedQuery.q;
@@ -161,7 +172,21 @@ export function StoriesCatalogShell() {
   }
 
   function toggleDesktopFilters() {
-    setFiltersCollapsed((current) => !current);
+    if (filtersCollapseTimeoutRef.current !== null) {
+      window.clearTimeout(filtersCollapseTimeoutRef.current);
+      filtersCollapseTimeoutRef.current = null;
+    }
+
+    if (filtersState === "expanded") {
+      setFiltersState("collapsing");
+      filtersCollapseTimeoutRef.current = window.setTimeout(() => {
+        filtersCollapseTimeoutRef.current = null;
+        setFiltersState("collapsed");
+      }, catalogFilterExitMs);
+      return;
+    }
+
+    setFiltersState("expanded");
   }
 
   function setSingleSelectTag(currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) {
@@ -238,7 +263,8 @@ export function StoriesCatalogShell() {
     >
       <div
         className="plotty-catalog-layout"
-        data-filters-collapsed={filtersCollapsed ? "true" : "false"}
+        data-filters-collapsed={filtersState === "collapsed" ? "true" : "false"}
+        data-filters-state={filtersState}
       >
         <aside className="plotty-catalog-filter-rail hidden lg:block" aria-hidden={filtersAreHidden}>
           <PlottySectionCard variant="sidebar" className="plotty-catalog-filter-card plotty-lift-panel sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">

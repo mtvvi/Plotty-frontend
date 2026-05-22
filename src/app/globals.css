@@ -854,13 +854,17 @@ button:active .plotty-chip-motion {
 
 .plotty-catalog-filter-card {
   transform-origin: left top;
+  opacity: 1;
+  transform: translateZ(0) scale(1);
   transition:
-    opacity 160ms var(--ease-out-soft),
-    box-shadow 160ms var(--ease-out-soft);
+    opacity var(--motion-base) var(--ease-out-soft),
+    transform var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-base) var(--ease-out-soft);
 }
 
 .plotty-catalog-filter-card > div > * {
-  transition: opacity 160ms var(--ease-out-soft);
+  opacity: 1;
+  transition: opacity var(--motion-base) var(--ease-out-soft);
   transition-delay: calc(var(--plotty-filter-index, 0) * 28ms);
 }
 
@@ -896,7 +900,7 @@ button:active .plotty-chip-motion {
     align-items: start;
   }
 
-  .plotty-catalog-layout[data-filters-collapsed="true"] {
+  .plotty-catalog-layout[data-filters-state="collapsed"] {
     grid-template-columns: 0 minmax(0, 1fr);
     column-gap: 0;
   }
@@ -909,17 +913,21 @@ button:active .plotty-chip-motion {
     transition: opacity 160ms var(--ease-out-soft);
   }
 
-  .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-rail {
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-rail,
+  .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-rail {
     opacity: 0;
     pointer-events: none;
   }
 
-  .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-card {
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card,
+  .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-card {
     opacity: 0;
+    transform: translateZ(0) scale(0.985);
     box-shadow: none;
   }
 
-  .plotty-catalog-layout[data-filters-collapsed="true"] .plotty-catalog-filter-card > div > * {
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card > div > *,
+  .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-card > div > * {
     opacity: 0;
     transition-delay: 0ms;
   }
@@ -932,7 +940,7 @@ button:active .plotty-chip-motion {
     column-gap: 2rem;
   }
 
-  .plotty-catalog-layout[data-filters-collapsed="true"] {
+  .plotty-catalog-layout[data-filters-state="collapsed"] {
     grid-template-columns: 0 minmax(0, 1fr);
     column-gap: 0;
   }

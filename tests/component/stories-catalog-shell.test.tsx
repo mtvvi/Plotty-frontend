@@ -333,6 +333,27 @@ describe("StoriesCatalogShell", () => {
     expect(screen.queryByRole("button", { name: "Применить" })).not.toBeInTheDocument();
   });
 
+  it("fades desktop filters out before collapsing the catalog rail", async () => {
+    const user = userEvent.setup();
+    renderCatalogShell();
+
+    const layout = document.querySelector(".plotty-catalog-layout");
+
+    expect(layout).not.toBeNull();
+    expect(layout).toHaveAttribute("data-filters-state", "expanded");
+
+    await user.click(screen.getByRole("button", { name: "Скрыть фильтры" }));
+
+    expect(layout).toHaveAttribute("data-filters-state", "collapsing");
+    expect(screen.getByRole("button", { name: "Показать фильтры" })).toHaveAttribute("aria-pressed", "true");
+
+    await waitFor(() => expect(layout).toHaveAttribute("data-filters-state", "collapsed"), { timeout: 500 });
+
+    await user.click(screen.getByRole("button", { name: "Показать фильтры" }));
+
+    expect(layout).toHaveAttribute("data-filters-state", "expanded");
+  });
+
   it("renders catalog pagination and navigates to the next page", async () => {
     const user = userEvent.setup();
 
