@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 
@@ -42,5 +43,32 @@ describe("ChapterReaderScreen", () => {
 
     expect(screen.queryByText("Комментариев пока нет")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+  });
+
+  it("uses theme-aware surfaces for the chapter wiki drawer", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("*/chapters/:chapterId/wiki", () =>
+        HttpResponse.json({
+          characters: [{ name: "Санса Старк", state: "Первокурсница школы чародейства и волшебства Хогвартс." }],
+          locations: [],
+          items: [],
+        }),
+      ),
+    );
+
+    renderChapterReader();
+
+    await user.click(await screen.findByRole("button", { name: "Справочник" }));
+    await screen.findByRole("heading", { name: "Персонажи" });
+
+    expect(document.querySelector(".plotty-motion-drawer")).toHaveClass(
+      "bg-[var(--plotty-surface-strong)]",
+      "border-[var(--plotty-line)]",
+    );
+    expect(screen.getByText("Санса Старк").parentElement).toHaveClass(
+      "bg-[var(--plotty-surface-soft)]",
+      "border-[var(--plotty-line)]",
+    );
   });
 });

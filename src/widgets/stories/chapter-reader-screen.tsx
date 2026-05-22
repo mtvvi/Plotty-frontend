@@ -518,7 +518,7 @@ function ChapterWikiDrawer({
         className="absolute inset-0 bg-[rgba(35,33,30,0.38)] backdrop-blur-sm animate-[plotty-reveal-overlay_var(--motion-base)_var(--ease-out-soft)_both]"
         onClick={onClose}
       />
-      <aside className="plotty-motion-drawer absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col border-l border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-5 shadow-[var(--plotty-shadow)] sm:p-6">
+      <aside className="plotty-motion-drawer absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col border-l border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] p-5 text-[var(--plotty-ink)] shadow-[var(--plotty-shadow)] backdrop-blur-xl sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="plotty-kicker">Бесспойлерно</div>
@@ -533,9 +533,9 @@ function ChapterWikiDrawer({
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {isLoading ? (
             <div className="space-y-3">
-              <div className="h-24 rounded-[18px] bg-white/60" />
-              <div className="h-24 rounded-[18px] bg-white/60" />
-              <div className="h-24 rounded-[18px] bg-white/60" />
+              <div className="h-24 rounded-[18px] bg-[var(--plotty-surface-soft)]" />
+              <div className="h-24 rounded-[18px] bg-[var(--plotty-surface-soft)]" />
+              <div className="h-24 rounded-[18px] bg-[var(--plotty-surface-soft)]" />
             </div>
           ) : isError ? (
             <EmptyState title="Справочник недоступен" description="Не удалось загрузить состояние персонажей для этой главы." />
@@ -549,7 +549,7 @@ function ChapterWikiDrawer({
                       {section.items.map((item, index) => (
                         <div
                           key={`${section.title}-${item.name}-${index}`}
-                          className="rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4"
+                          className="rounded-[18px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4"
                         >
                           <div className="text-sm font-semibold text-[var(--plotty-ink)]">{item.name}</div>
                           {item.state ? <p className="mt-2 text-sm leading-6 text-[var(--plotty-muted)]">{item.state}</p> : null}
