@@ -26,7 +26,7 @@ import { StoryTagChip } from "./story-tag-chip";
 const multiSelectCategories = new Set(["rating", "completion", "size"]);
 const singleSelectCategories = new Set(["directionality"]);
 const searchDebounceMs = 300;
-const catalogFilterExitMs = 180;
+const catalogFilterExitMs = 260;
 type CatalogSort = StoriesSort | "popular-desc";
 type CatalogFiltersState = "expanded" | "collapsing" | "collapsed";
 
@@ -267,7 +267,7 @@ export function StoriesCatalogShell() {
         data-filters-state={filtersState}
       >
         <aside className="plotty-catalog-filter-rail hidden lg:block" aria-hidden={filtersAreHidden}>
-          <PlottySectionCard variant="sidebar" className="plotty-catalog-filter-card plotty-lift-panel sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
+          <PlottySectionCard variant="sidebar" className="plotty-catalog-filter-card sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
             {filters}
           </PlottySectionCard>
         </aside>
@@ -317,7 +317,7 @@ export function StoriesCatalogShell() {
             <AnimatedList
               items={catalogStories}
               getKey={(story) => story.id}
-              className="space-y-4"
+              className="plotty-catalog-story-list space-y-4"
               ariaLive="polite"
               renderItem={(story, index) => <StoryCard story={story} showChapterActions={false} priorityCover={index === 0} />}
             />

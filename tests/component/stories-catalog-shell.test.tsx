@@ -354,6 +354,14 @@ describe("StoriesCatalogShell", () => {
     expect(layout).toHaveAttribute("data-filters-state", "expanded");
   });
 
+  it("does not use the lift hover treatment on the desktop filter card", async () => {
+    renderCatalogShell();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Скрыть фильтры" })).toBeInTheDocument());
+
+    expect(document.querySelector(".plotty-catalog-filter-card")).not.toHaveClass("plotty-lift-panel");
+  });
+
   it("renders catalog pagination and navigates to the next page", async () => {
     const user = userEvent.setup();
 

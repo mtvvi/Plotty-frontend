@@ -158,7 +158,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
   return (
     <PlottyPageShell suppressPageIntro>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
+      <div className="plotty-story-details-layout grid gap-5 min-[1331px]:grid-cols-[minmax(0,1fr)_21rem]">
         <main className="min-w-0 space-y-5">
           <PlottySectionCard className="plotty-panel-enter overflow-hidden p-0">
             <div className="grid lg:grid-cols-[minmax(18rem,28rem)_minmax(0,1fr)]">

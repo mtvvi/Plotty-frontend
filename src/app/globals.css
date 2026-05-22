@@ -620,6 +620,74 @@ button:active .plotty-chip-motion {
   transform: translateX(2px);
 }
 
+.plotty-button-label[data-plotty-button],
+.plotty-icon-motion[data-plotty-icon-button] {
+  transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: center;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+.plotty-button-label[data-plotty-button] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition-duration: var(--motion-slow);
+}
+
+.plotty-button-label[data-plotty-button]::after {
+  position: absolute;
+  inset: -35% -55%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 34%, rgba(255, 250, 244, 0.28) 48%, transparent 62%);
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  transform: translate3d(-34%, 0, 0) skewX(-10deg);
+  transition:
+    opacity var(--motion-base) var(--ease-out-soft),
+    transform 520ms var(--ease-out-soft);
+  content: "";
+}
+
+.plotty-button-label[data-plotty-button]:hover:not(:disabled):not([aria-disabled="true"])::after,
+.plotty-button-label[data-plotty-button]:focus-visible:not(:disabled):not([aria-disabled="true"])::after {
+  opacity: 1;
+  transform: translate3d(34%, 0, 0) skewX(-10deg);
+}
+
+.plotty-button-label[data-plotty-button][data-variant="primary"]:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, -2px, 0) scale(1.01);
+}
+
+.plotty-button-label[data-plotty-button][data-variant="secondary"]:hover:not(:disabled):not([aria-disabled="true"]),
+.plotty-button-label[data-plotty-button][data-variant="ghost"]:hover:not(:disabled):not([aria-disabled="true"]),
+.plotty-button-label[data-plotty-button][data-variant="destructive"]:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, -1px, 0) scale(1.005);
+}
+
+.plotty-button-label[data-plotty-button]:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, 0, 0) scale(0.98);
+  transition-duration: var(--motion-fast);
+}
+
+.plotty-button-label[data-plotty-button][data-variant="primary"]:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, 0, 0) scale(0.97);
+}
+
+.plotty-icon-motion[data-plotty-icon-button]:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, -1px, 0) scale(1.03);
+}
+
+.plotty-icon-motion[data-plotty-icon-button][data-variant="primary"]:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, -2px, 0) scale(1.04);
+}
+
+.plotty-icon-motion[data-plotty-icon-button]:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translate3d(0, 0, 0) scale(0.95);
+  transition-duration: var(--motion-fast);
+}
+
 .plotty-tab-panel-enter {
   animation: plotty-stagger-enter 260ms var(--ease-out-soft) both;
 }
@@ -894,39 +962,66 @@ button:active .plotty-chip-motion {
 
 @media (min-width: 1024px) {
   .plotty-catalog-layout {
-    grid-template-columns: 17rem minmax(0, 1fr);
-    column-gap: 1.75rem;
-    row-gap: 1.75rem;
+    display: flex;
+    gap: 1.75rem;
     align-items: start;
+    transition: gap var(--motion-slow) var(--ease-out-soft);
   }
 
+  .plotty-catalog-layout[data-filters-state="collapsing"],
   .plotty-catalog-layout[data-filters-state="collapsed"] {
-    grid-template-columns: 0 minmax(0, 1fr);
-    column-gap: 0;
+    gap: 0rem;
   }
 
   .plotty-catalog-filter-rail {
     position: relative;
     z-index: 2;
+    flex-grow: 0;
+    flex-shrink: 0;
+    flex-basis: 17rem;
+    width: 17rem;
     overflow: clip;
     opacity: 1;
-    transition: opacity 160ms var(--ease-out-soft);
+    transition:
+      opacity var(--motion-base) var(--ease-out-soft),
+      flex-basis var(--motion-slow) var(--ease-out-soft),
+      width var(--motion-slow) var(--ease-out-soft);
   }
 
-  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-rail,
+  .plotty-catalog-filter-card {
+    min-width: 17rem;
+  }
+
+  .plotty-catalog-layout > section {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-rail {
+    flex-basis: 0rem;
+    width: 0rem;
+    pointer-events: none;
+  }
+
   .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-rail {
+    flex-basis: 0rem;
+    width: 0rem;
     opacity: 0;
     pointer-events: none;
   }
 
-  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card,
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card {
+    opacity: 0.96;
+    transform: translateZ(0) scale(0.995);
+    box-shadow: none;
+  }
+
   .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-card {
     opacity: 0;
     transform: translateZ(0) scale(0.985);
     box-shadow: none;
   }
 
-  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card > div > *,
   .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-card > div > * {
     opacity: 0;
     transition-delay: 0ms;
@@ -934,15 +1029,46 @@ button:active .plotty-chip-motion {
 
 }
 
+.plotty-catalog-story-list .plotty-motion-list-item {
+  animation-name: plotty-catalog-story-tile-enter;
+  animation-duration: 340ms;
+  transform-origin: top center;
+}
+
+@keyframes plotty-catalog-story-tile-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.992);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (min-width: 1280px) {
   .plotty-catalog-layout {
-    grid-template-columns: 18rem minmax(0, 1fr);
-    column-gap: 2rem;
+    gap: 2rem;
   }
 
+  .plotty-catalog-layout[data-filters-state="collapsing"],
   .plotty-catalog-layout[data-filters-state="collapsed"] {
-    grid-template-columns: 0 minmax(0, 1fr);
-    column-gap: 0;
+    gap: 0rem;
+  }
+
+  .plotty-catalog-filter-rail {
+    flex-basis: 18rem;
+    width: 18rem;
+  }
+
+  .plotty-catalog-filter-card {
+    min-width: 18rem;
+  }
+
+  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-rail,
+  .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-rail {
+    flex-basis: 0rem;
+    width: 0rem;
   }
 
 }

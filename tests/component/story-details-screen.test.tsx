@@ -60,6 +60,20 @@ describe("StoryDetailsScreen", () => {
     expect(screen.queryByRole("link", { name: "Редактировать главу" })).not.toBeInTheDocument();
   });
 
+  it("keeps the 1279px story layout through 1330px before enabling the wide sidebar", async () => {
+    renderStoryDetails();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "После полуночи снег не тает" })).toBeInTheDocument(),
+    );
+
+    const layout = document.querySelector(".plotty-story-details-layout");
+
+    expect(layout).not.toBeNull();
+    expect(layout?.className).not.toContain("xl:grid-cols-[minmax(0,1fr)_21rem]");
+    expect(layout?.className).toContain("min-[1331px]:grid-cols-[minmax(0,1fr)_21rem]");
+  });
+
   it("opens the chapters tab from the tab query param", async () => {
     currentSearchParams = new URLSearchParams("tab=chapters");
 

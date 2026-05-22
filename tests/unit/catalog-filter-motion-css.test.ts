@@ -14,14 +14,16 @@ describe("catalog filter motion CSS", () => {
     return css.slice(start, end);
   }
 
-  it("does not animate layout-affecting catalog grid columns", () => {
-    const css = readFileSync(path.resolve("src/app/globals.css"), "utf8");
-    const mediaRule = css.match(/@media \(min-width: 1024px\) \{(?<body>[\s\S]*?)\n\}/)?.groups?.body;
+  it("animates the catalog rail width with a short transition so filters and story tiles do not jump", () => {
+    const css = getCatalogFilterCss();
 
-    expect(mediaRule).toBeDefined();
-    expect(mediaRule).not.toMatch(/transition:[^;]*(grid-template-columns|column-gap)/);
-    expect(mediaRule).not.toContain("filter: blur");
-    expect(mediaRule).not.toContain("translateX");
+    expect(css).toContain("flex-basis: 17rem");
+    expect(css).toContain("flex-basis var(--motion-slow) var(--ease-out-soft)");
+    expect(css).toContain("width var(--motion-slow) var(--ease-out-soft)");
+    expect(css).toContain("flex-basis: 0rem");
+    expect(css).toContain("gap: 0rem");
+    expect(css).not.toContain("filter: blur");
+    expect(css).not.toContain("translateX");
   });
 
   it("uses compositor-friendly fade and scale states for catalog filters", () => {
@@ -33,5 +35,25 @@ describe("catalog filter motion CSS", () => {
     expect(css).toContain("transform: translateZ(0) scale(0.985)");
     expect(css).not.toContain("filter: blur");
     expect(css).not.toContain("translateX");
+  });
+
+  it("keeps the filter rail visible while collapsing so closing does not teleport", () => {
+    const css = getCatalogFilterCss();
+    const collapsingRailRule = css.match(
+      /\.plotty-catalog-layout\[data-filters-state="collapsing"\] \.plotty-catalog-filter-rail\s*{(?<body>[\s\S]*?)\n\s*}/,
+    )?.groups?.body;
+
+    expect(css).toContain('.plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-rail');
+    expect(collapsingRailRule).toBeDefined();
+    expect(css).toContain("min-width: 17rem");
+    expect(collapsingRailRule).not.toContain("opacity: 0");
+  });
+
+  it("adds a catalog-specific story tile enter animation", () => {
+    const css = getCatalogFilterCss();
+
+    expect(css).toContain(".plotty-catalog-story-list .plotty-motion-list-item");
+    expect(css).toContain("plotty-catalog-story-tile-enter");
+    expect(css).toContain("transform: translateY(8px) scale(0.992)");
   });
 });
