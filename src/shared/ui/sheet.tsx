@@ -137,7 +137,7 @@ export function Sheet({
         aria-label={closeLabel}
         onClick={onClose}
         data-state={motionState}
-        className="plotty-mobile-sheet-overlay absolute inset-0 bg-[rgba(31,26,22,0.4)] backdrop-blur-sm"
+        className="plotty-mobile-sheet-overlay absolute inset-0 bg-[rgba(31,26,22,0.46)]"
       />
       <div
         role="dialog"
@@ -145,7 +145,7 @@ export function Sheet({
         aria-labelledby={title ? titleId : undefined}
         data-state={motionState}
         className={cn(
-          "plotty-mobile-sheet-panel absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto overscroll-contain rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] px-5 pt-5 pb-[calc(6.75rem+env(safe-area-inset-bottom))] shadow-[var(--plotty-shadow)] backdrop-blur-xl",
+          "plotty-mobile-sheet-panel absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto overscroll-contain rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] px-5 pt-5 pb-[calc(6.75rem+env(safe-area-inset-bottom))] shadow-[var(--plotty-shadow)]",
           className,
         )}
       >

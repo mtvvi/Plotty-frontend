@@ -62,4 +62,14 @@ describe("PublicCollectionScreen", () => {
 
     await waitFor(() => expect(screen.getByText("Не удалось скопировать ссылку")).toBeInTheDocument());
   });
+
+  it("marks the edit panel as a GSAP presence surface", async () => {
+    const user = userEvent.setup();
+
+    renderPublicCollection();
+
+    await user.click(await screen.findByRole("button", { name: "Изменить" }));
+
+    expect(document.querySelector("[data-gsap-presence='collection-edit']")).not.toBeNull();
+  });
 });

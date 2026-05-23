@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 
 import { cn } from "@/shared/lib/utils";
+import { gsap, useGsapFlipList, useGsapPresence } from "@/shared/lib/gsap-motion";
 
 export type AsyncJobStatusValue = "idle" | "queued" | "processing" | "completed" | "failed";
 type MotionListItemStyle = CSSProperties & { "--plotty-motion-index": number };
@@ -25,13 +26,35 @@ export function AnimatedList<TItem>({
   ariaLive?: "off" | "polite" | "assertive";
 }) {
   const listKey = useMemo(() => items.map(getKey).join("|"), [getKey, items]);
+  const internalListRef = useRef<HTMLDivElement | null>(null);
+  useGsapFlipList(internalListRef, listKey);
+
+  function setListNode(node: HTMLDivElement | null) {
+    internalListRef.current = node;
+
+    if (typeof listRef === "function") {
+      listRef(node);
+      return;
+    }
+
+    if (listRef && "current" in listRef) {
+      listRef.current = node;
+    }
+  }
 
   return (
-    <div key={listKey} ref={listRef} className={cn("plotty-motion-list", className)} aria-live={ariaLive}>
+    <div
+      ref={setListNode}
+      className={cn("plotty-motion-list", className)}
+      aria-live={ariaLive}
+      data-gsap-flip-list="true"
+      data-motion-key={listKey}
+    >
       {items.map((item, index) => (
         <div
           key={getKey(item)}
           className={cn("plotty-motion-list-item", itemClassName)}
+          data-gsap-flip-id={getKey(item)}
           style={{ "--plotty-motion-index": index } as MotionListItemStyle}
         >
           {renderItem(item, index)}
@@ -55,6 +78,8 @@ export function AnimatedTabPanel<TKey extends string>({
   keepMounted?: boolean;
 }) {
   const isActive = activeKey === panelKey;
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useGsapPresence(panelRef, [activeKey, panelKey]);
 
   if (!keepMounted && !isActive) {
     return null;
@@ -62,9 +87,11 @@ export function AnimatedTabPanel<TKey extends string>({
 
   return (
     <div
+      ref={panelRef}
       key={panelKey}
       className={cn("plotty-motion-tab-panel", className)}
       data-active={isActive ? "true" : "false"}
+      data-gsap-presence="tab-panel"
       hidden={keepMounted && !isActive}
     >
       {children}
@@ -88,6 +115,7 @@ export function AsyncJobStatus({
   className?: string;
 }) {
   const previousStatusRef = useRef(status);
+  const statusRef = useRef<HTMLDivElement | null>(null);
   const [showCompletedPulse, setShowCompletedPulse] = useState(false);
   const isBusy = status === "queued" || status === "processing";
   const isFailed = status === "failed";
@@ -106,12 +134,29 @@ export function AsyncJobStatus({
     return undefined;
   }, [status]);
 
+  useEffect(() => {
+    const node = statusRef.current;
+
+    if (!node || status === "idle" || process.env.NODE_ENV === "test") {
+      return;
+    }
+
+    const tween = status === "failed"
+      ? gsap.fromTo(node, { x: -4 }, { clearProps: "transform", duration: 0.34, ease: "elastic.out(1, 0.45)", x: 0 })
+      : gsap.fromTo(node, { opacity: 0, y: 6 }, { opacity: 1, clearProps: "opacity,transform", duration: 0.28, ease: "power3.out", y: 0 });
+
+    return () => {
+      tween.kill();
+    };
+  }, [status]);
+
   if (status === "idle") {
     return null;
   }
 
   return (
     <div
+      ref={statusRef}
       className={cn(
         "plotty-async-status",
         compact && "plotty-async-status-compact",

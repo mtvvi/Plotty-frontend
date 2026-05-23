@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Coins, CreditCard, RefreshCw } from "lucide-react";
 
@@ -18,6 +18,7 @@ import {
 } from "@/entities/credits/model/credit-utils";
 import type { CreditPackage, CreditTransaction } from "@/entities/credits/model/types";
 import { isApiError } from "@/shared/api/fetch-json";
+import { useGsapCounter } from "@/shared/lib/gsap-motion";
 import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -166,6 +167,12 @@ export function CreditsScreen() {
 }
 
 function BalanceSummary({ balance, isLoading }: { balance?: number; isLoading: boolean }) {
+  const balanceRef = useRef<HTMLDivElement | null>(null);
+  const numericBalance = typeof balance === "number" && !isLoading ? balance : null;
+  const formatBalance = useCallback((value: number) => formatCreditsAmount(value), []);
+
+  useGsapCounter(balanceRef, numericBalance, formatBalance);
+
   return (
     <Card variant="default" className="p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -173,7 +180,11 @@ function BalanceSummary({ balance, isLoading }: { balance?: number; isLoading: b
           <div className="plotty-kicker">Баланс</div>
           <div className="flex items-center gap-3">
             <Coins className="size-7 text-[var(--plotty-accent)]" aria-hidden="true" />
-            <div className="text-3xl font-semibold text-[var(--plotty-ink)]">
+            <div
+              ref={balanceRef}
+              data-gsap-counter="credits-balance"
+              className="text-3xl font-semibold text-[var(--plotty-ink)]"
+            >
               {isLoading ? "..." : formatCreditsAmount(balance ?? 0)}
             </div>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -23,6 +23,7 @@ import { isAuthError } from "@/shared/api/fetch-json";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { routes } from "@/shared/config/routes";
 import { cn, pluralizeRu } from "@/shared/lib/utils";
+import { gsap, registerPlottyGsapPlugins, useReducedMotion } from "@/shared/lib/gsap-motion";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
@@ -37,8 +38,6 @@ import {
 } from "./chapter-list-sort";
 import { ChapterImageFrame } from "./chapter-image-frame";
 import { PlottyShell, ShellCard } from "./plotty-shell";
-
-type ReaderProgressStyle = CSSProperties & { "--plotty-reader-progress": number };
 
 export function ChapterReaderScreen({
   slug,
@@ -67,6 +66,8 @@ export function ChapterReaderScreen({
     [chapterSortDirection, readerChapters],
   );
   const chaptersScrollRef = useRef<HTMLDivElement | null>(null);
+  const readerProgressBarRef = useRef<HTMLDivElement | null>(null);
+  const reducedMotion = useReducedMotion();
   const chapterId = useMemo(() => {
     if (chapterIdFromRoute) {
       return chapterIdFromRoute;
@@ -89,7 +90,6 @@ export function ChapterReaderScreen({
   });
   const [commentDraft, setCommentDraft] = useState("");
   const [wikiOpen, setWikiOpen] = useState(false);
-  const [readingProgress, setReadingProgress] = useState(0);
   const wikiQuery = useQuery(chapterWikiQueryOptions(chapterId, { enabled: wikiOpen && Boolean(chapterId) }));
 
   const addCommentMutation = useMutation({
@@ -134,11 +134,26 @@ export function ChapterReaderScreen({
   const readingProgressContentKey = chapterQuery.data?.publishedContent ?? chapterQuery.data?.content ?? "";
 
   useEffect(() => {
+    const progressBar = readerProgressBarRef.current;
+
+    if (!progressBar) {
+      return;
+    }
+
+    registerPlottyGsapPlugins();
+
+    const updateProgress = reducedMotion
+      ? (value: number) => progressBar.style.setProperty("--plotty-reader-progress", String(value))
+      : gsap.quickTo(progressBar, "--plotty-reader-progress", {
+          duration: 0.18,
+          ease: "power2.out",
+        });
+
     function updateReadingProgress() {
       const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
       const nextProgress = scrollableHeight > 0 ? window.scrollY / scrollableHeight : 0;
 
-      setReadingProgress(Math.min(1, Math.max(0, nextProgress)));
+      updateProgress(Math.min(1, Math.max(0, nextProgress)));
     }
 
     updateReadingProgress();
@@ -149,7 +164,7 @@ export function ChapterReaderScreen({
       window.removeEventListener("scroll", updateReadingProgress);
       window.removeEventListener("resize", updateReadingProgress);
     };
-  }, [chapterId, readingProgressContentKey]);
+  }, [chapterId, readingProgressContentKey, reducedMotion]);
 
   if (storyQuery.isLoading || (chapterId && chapterQuery.isLoading)) {
     return (
@@ -267,8 +282,9 @@ export function ChapterReaderScreen({
     >
       <div className="plotty-reader-progress" aria-hidden="true">
         <div
+          ref={readerProgressBarRef}
           className="plotty-reader-progress-bar"
-          style={{ "--plotty-reader-progress": readingProgress } as ReaderProgressStyle}
+          data-gsap-reader-progress="true"
         />
       </div>
       <div className="plotty-stagger mx-auto max-w-4xl space-y-5">
@@ -515,10 +531,10 @@ function ChapterWikiDrawer({
       <button
         type="button"
         aria-label="Закрыть справочник"
-        className="absolute inset-0 bg-[rgba(35,33,30,0.38)] backdrop-blur-sm animate-[plotty-reveal-overlay_var(--motion-base)_var(--ease-out-soft)_both]"
+        className="absolute inset-0 bg-[rgba(35,33,30,0.48)] animate-[plotty-reveal-overlay_var(--motion-base)_var(--ease-out-soft)_both]"
         onClick={onClose}
       />
-      <aside className="plotty-motion-drawer absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col border-l border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] p-5 text-[var(--plotty-ink)] shadow-[var(--plotty-shadow)] backdrop-blur-xl sm:p-6">
+      <aside className="plotty-motion-drawer absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col border-l border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] p-5 text-[var(--plotty-ink)] shadow-[var(--plotty-shadow)] sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="plotty-kicker">Бесспойлерно</div>

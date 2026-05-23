@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, ListFilter, LoaderCircle, Search, SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -10,6 +10,7 @@ import { defaultStoriesSort, isStoryInPublicCatalog, parseStoriesQuery, serializ
 import type { StoriesQuery, StoriesSort, StoryListItem, StoryTag } from "@/entities/story/model/types";
 import { getStoryTagCategoryLabel, groupStoryTags, storyTagCategoryOrder } from "@/shared/config/story-tags";
 import { cn } from "@/shared/lib/utils";
+import { Flip, registerPlottyGsapPlugins, useReducedMotion } from "@/shared/lib/gsap-motion";
 import { Button } from "@/shared/ui/button";
 import { Surface } from "@/shared/ui/card";
 import { Chip } from "@/shared/ui/chip";
@@ -58,6 +59,9 @@ export function StoriesCatalogShell() {
   const [filtersState, setFiltersState] = useState<CatalogFiltersState>("expanded");
   const lastRequestedSearchRef = useRef(appliedQuery.q);
   const filtersCollapseTimeoutRef = useRef<number | null>(null);
+  const catalogLayoutRef = useRef<HTMLDivElement | null>(null);
+  const catalogFlipStateRef = useRef<ReturnType<typeof Flip.getState> | null>(null);
+  const reducedMotion = useReducedMotion();
   const filtersAreHidden = filtersState !== "expanded";
 
   const navigateToQuery = useCallback(
@@ -86,6 +90,50 @@ export function StoriesCatalogShell() {
       }
     };
   }, []);
+
+  useLayoutEffect(() => {
+    const flipState = catalogFlipStateRef.current;
+
+    if (!flipState || reducedMotion) {
+      catalogFlipStateRef.current = null;
+      return;
+    }
+
+    registerPlottyGsapPlugins();
+
+    const timeline = Flip.from(flipState, {
+      absolute: false,
+      duration: 0.44,
+      ease: "power3.out",
+      nested: true,
+      prune: true,
+    });
+
+    catalogFlipStateRef.current = null;
+
+    return () => {
+      timeline.kill();
+    };
+  }, [filtersState, reducedMotion]);
+
+  function captureCatalogLayoutFlip() {
+    if (reducedMotion) {
+      return;
+    }
+
+    const layout = catalogLayoutRef.current;
+
+    if (!layout) {
+      return;
+    }
+
+    registerPlottyGsapPlugins();
+
+    catalogFlipStateRef.current = Flip.getState([
+      layout,
+      ...Array.from(layout.querySelectorAll<HTMLElement>("[data-gsap-layout-target='catalog']")),
+    ]);
+  }
 
   const normalizedSearchDraft = searchDraft.trim();
   const isSearchDirty = normalizedSearchDraft !== appliedQuery.q;
@@ -178,6 +226,7 @@ export function StoriesCatalogShell() {
     }
 
     if (filtersState === "expanded") {
+      captureCatalogLayoutFlip();
       setFiltersState("collapsing");
       filtersCollapseTimeoutRef.current = window.setTimeout(() => {
         filtersCollapseTimeoutRef.current = null;
@@ -186,6 +235,7 @@ export function StoriesCatalogShell() {
       return;
     }
 
+    captureCatalogLayoutFlip();
     setFiltersState("expanded");
   }
 
@@ -262,17 +312,19 @@ export function StoriesCatalogShell() {
       contentClassName="pt-5 lg:pt-10"
     >
       <div
+        ref={catalogLayoutRef}
         className="plotty-catalog-layout"
+        data-gsap-layout="catalog"
         data-filters-collapsed={filtersState === "collapsed" ? "true" : "false"}
         data-filters-state={filtersState}
       >
-        <aside className="plotty-catalog-filter-rail hidden lg:block" aria-hidden={filtersAreHidden}>
-          <PlottySectionCard variant="sidebar" className="plotty-catalog-filter-card sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
+        <aside className="plotty-catalog-filter-rail hidden lg:block" aria-hidden={filtersAreHidden} data-gsap-layout-target="catalog">
+          <PlottySectionCard variant="sidebar" className="plotty-catalog-filter-card sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.82)] p-4 shadow-none xl:p-5">
             {filters}
           </PlottySectionCard>
         </aside>
 
-        <section className="min-w-0 space-y-5">
+        <section className="min-w-0 space-y-5" data-gsap-layout-target="catalog">
           <div className="flex flex-wrap items-center gap-2">
             {appliedQuery.q ? (
               <ActiveFilter label={`Поиск: ${appliedQuery.q}`} onClear={() => navigateToQuery({ ...appliedQuery, q: "", page: 1 })} />

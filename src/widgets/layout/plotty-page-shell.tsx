@@ -813,7 +813,7 @@ function PlottyBottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-3 bottom-3 z-40 rounded-[22px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] px-2 py-1.5 shadow-[var(--plotty-shadow-soft)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-3 bottom-3 z-40 rounded-[22px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] px-2 py-1.5 shadow-[var(--plotty-shadow-soft)] lg:hidden"
       aria-label="Нижняя навигация"
       style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
     >

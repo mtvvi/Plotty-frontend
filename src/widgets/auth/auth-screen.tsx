@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff } from "lucide-react";
@@ -14,6 +14,7 @@ import { isApiError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { sanitizeInternalNextUrl } from "@/shared/lib/safe-url";
+import { useGsapIntro } from "@/shared/lib/gsap-motion";
 import { Button } from "@/shared/ui/button";
 import { Field, FieldError, FieldHint, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -57,6 +58,7 @@ export function AuthScreen() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const authFormRef = useRef<HTMLDivElement | null>(null);
   const authMutation = useMutation({
     mutationFn: async () => {
       const payload: LoginPayload = {
@@ -116,6 +118,12 @@ export function AuthScreen() {
     }
   }, [isAuthenticated, isLoading, nextUrl, router]);
 
+  useGsapIntro(authFormRef, [mode], {
+    selector: "[data-gsap-intro-item='auth-form']",
+    stagger: 0.045,
+    y: 10,
+  });
+
   function handleClose() {
     if (window.history.length > 1) {
       router.back();
@@ -145,8 +153,9 @@ export function AuthScreen() {
 
   return (
     <PlottyPageShell showBottomNav={false} desktopHeaderActions={null} contentClassName="py-4 lg:py-7" suppressPageIntro>
-      <PlottySectionCard className="mx-auto max-w-[32rem] space-y-6 p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
+      <div ref={authFormRef} data-gsap-intro="auth-form" className="mx-auto max-w-[32rem]">
+      <PlottySectionCard className="space-y-6 p-5 sm:p-6">
+        <div data-gsap-intro-item="auth-form" className="flex items-center justify-between gap-3">
           <span className="plotty-meta text-xs font-bold uppercase tracking-[0.14em]">
             {mode === "register" ? "Регистрация" : "Вход"}
           </span>
@@ -155,12 +164,12 @@ export function AuthScreen() {
           </Button>
         </div>
 
-        <div className="space-y-1.5">
+        <div data-gsap-intro-item="auth-form" className="space-y-1.5">
           <h1 className="plotty-page-title text-[2rem] sm:text-[2.4rem]">{pageCopy.title}</h1>
           <p className="plotty-body text-[var(--plotty-muted)]">{pageCopy.description}</p>
         </div>
 
-        <div className="grid gap-4">
+        <div data-gsap-intro-item="auth-form" className="grid gap-4">
           <Field>
             <FieldLabel htmlFor="auth-email">Email</FieldLabel>
             <Input
@@ -222,6 +231,7 @@ export function AuthScreen() {
           </Link>
         </p>
       </PlottySectionCard>
+      </div>
     </PlottyPageShell>
   );
 }

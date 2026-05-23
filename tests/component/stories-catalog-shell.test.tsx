@@ -88,6 +88,8 @@ describe("StoriesCatalogShell", () => {
     resolveStories?.();
 
     expect(await screen.findAllByText("История 1")).not.toHaveLength(0);
+    expect(container.querySelector("[data-gsap-layout='catalog']")).not.toBeNull();
+    expect(container.querySelector("[data-gsap-flip-list='true']")).not.toBeNull();
     expect(screen.queryByRole("status", { name: "Загружаем каталог" })).not.toBeInTheDocument();
   });
 
