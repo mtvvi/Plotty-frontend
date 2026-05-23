@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
@@ -9,10 +9,12 @@ import { deleteCollection, libraryKeys, removeStoryFromCollection, updateCollect
 import { profileKeys, publicUserCollectionQueryOptions } from "@/entities/profile/api/profile-api";
 import { routes } from "@/shared/config/routes";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
+import { useGsapPresence } from "@/shared/lib/gsap-motion";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { AnimatedList } from "@/shared/ui/motion";
 import { Textarea } from "@/shared/ui/textarea";
 import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
@@ -36,6 +38,7 @@ export function PublicCollectionScreen({
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const editPanelRef = useRef<HTMLDivElement | null>(null);
   const updateMutation = useMutation({
     mutationFn: ({ title, description }: { title: string; description: string }) =>
       updateCollection(collectionId, { title, description }),
@@ -75,6 +78,8 @@ export function PublicCollectionScreen({
   function handleMutationError(error: unknown) {
     setLocalError(toUserFacingErrorMessage(error, "Не удалось обновить подборку"));
   }
+
+  useGsapPresence(editPanelRef, [editOpen ? "open" : "closed"], { y: 8 });
 
   if (collectionQuery.isLoading) {
     return (
@@ -183,40 +188,42 @@ export function PublicCollectionScreen({
       }
     >
       {isOwner && editOpen ? (
-        <PlottySectionCard className="mb-4">
-          <form className="grid gap-4" onSubmit={handleUpdate}>
-            <Field>
-              <FieldLabel htmlFor="public-collection-title">Название</FieldLabel>
-              <Input
-                id="public-collection-title"
-                value={titleDraft}
-                onChange={(event) => setTitleDraft(event.target.value)}
-                maxLength={200}
-                disabled={updateMutation.isPending}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="public-collection-description">Описание</FieldLabel>
-              <Textarea
-                id="public-collection-description"
-                value={descriptionDraft}
-                onChange={(event) => setDescriptionDraft(event.target.value)}
-                maxLength={5000}
-                className="min-h-28"
-                disabled={updateMutation.isPending}
-              />
-            </Field>
-            {localError ? <FieldError>{localError}</FieldError> : null}
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" variant="primary" disabled={updateMutation.isPending}>
-                Сохранить
-              </Button>
-              <Button type="button" variant="secondary" onClick={() => setEditOpen(false)} disabled={updateMutation.isPending}>
-                Отмена
-              </Button>
-            </div>
-          </form>
-        </PlottySectionCard>
+        <div ref={editPanelRef} data-gsap-presence="collection-edit">
+          <PlottySectionCard className="mb-4">
+            <form className="grid gap-4" onSubmit={handleUpdate}>
+              <Field>
+                <FieldLabel htmlFor="public-collection-title">Название</FieldLabel>
+                <Input
+                  id="public-collection-title"
+                  value={titleDraft}
+                  onChange={(event) => setTitleDraft(event.target.value)}
+                  maxLength={200}
+                  disabled={updateMutation.isPending}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="public-collection-description">Описание</FieldLabel>
+                <Textarea
+                  id="public-collection-description"
+                  value={descriptionDraft}
+                  onChange={(event) => setDescriptionDraft(event.target.value)}
+                  maxLength={5000}
+                  className="min-h-28"
+                  disabled={updateMutation.isPending}
+                />
+              </Field>
+              {localError ? <FieldError>{localError}</FieldError> : null}
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" variant="primary" disabled={updateMutation.isPending}>
+                  Сохранить
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setEditOpen(false)} disabled={updateMutation.isPending}>
+                  Отмена
+                </Button>
+              </div>
+            </form>
+          </PlottySectionCard>
+        </div>
       ) : localError ? (
         <FieldError>{localError}</FieldError>
       ) : null}
@@ -226,9 +233,12 @@ export function PublicCollectionScreen({
         description={`Обновлена ${new Date(collection.updatedAt).toLocaleDateString("ru-RU")}`}
       >
         {collection.stories.length ? (
-          <div className="space-y-4">
-            {collection.stories.map((story) => (
-              <div key={story.id} className="space-y-2">
+          <AnimatedList
+            items={collection.stories}
+            getKey={(story) => story.id}
+            className="space-y-4"
+            renderItem={(story) => (
+              <div className="space-y-2">
                 <StoryCard story={story} showChapterActions={false} />
                 {isOwner ? (
                   <div className="flex justify-end">
@@ -244,8 +254,8 @@ export function PublicCollectionScreen({
                   </div>
                 ) : null}
               </div>
-            ))}
-          </div>
+            )}
+          />
         ) : (
           <EmptyState title="В подборке пока нет историй" description="Автор подборки еще не добавил публичные работы." />
         )}

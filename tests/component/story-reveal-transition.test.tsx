@@ -40,6 +40,7 @@ describe("StoryRevealProvider", () => {
 
     expect(push).toHaveBeenCalledWith("/stories/after-midnight-the-snow-does-not-melt/chapters/1");
     expect(document.querySelector(".plotty-story-reveal-overlay")).not.toBeNull();
+    expect(document.querySelector("[data-gsap-intro='story-reveal']")).not.toBeNull();
 
     act(() => vi.advanceTimersByTime(940));
     expect(document.querySelector(".plotty-story-reveal-overlay")).not.toBeNull();

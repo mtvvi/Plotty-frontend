@@ -44,6 +44,7 @@ describe("AuthScreen", () => {
     renderAuthScreen();
 
     await screen.findByRole("heading", { name: "Создать аккаунт" });
+    expect(document.querySelector("[data-gsap-intro='auth-form']")).not.toBeNull();
     await user.type(screen.getByLabelText("Email"), "shaker@shaker.global.game");
     await user.type(screen.getByLabelText("Пароль"), "password123");
     await user.type(screen.getByLabelText("Подтверждение пароля"), "password123");

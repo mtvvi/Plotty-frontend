@@ -195,8 +195,7 @@ select {
 .plotty-header {
   width: 100vw;
   margin-inline: calc(50% - 50vw);
-  background: color-mix(in srgb, var(--plotty-paper-strong) 78%, transparent);
-  backdrop-filter: blur(22px);
+  background: color-mix(in srgb, var(--plotty-paper-strong) 94%, transparent);
   animation: plotty-header-enter 320ms var(--ease-out-soft) both;
 }
 
@@ -492,7 +491,6 @@ select {
   background:
     radial-gradient(circle at center, rgba(255, 253, 249, 0.7), rgba(255, 253, 249, 0.16) 48%, transparent 72%),
     rgba(35, 30, 24, 0.08);
-  backdrop-filter: blur(2px);
   transition: opacity var(--motion-base) var(--ease-out-soft);
 }
 
@@ -877,10 +875,8 @@ button:active .plotty-chip-motion {
   opacity: 0;
   pointer-events: none;
   transition:
-    height var(--motion-slow) var(--ease-out-soft),
     opacity var(--motion-base) var(--ease-out-soft),
-    transform var(--motion-slow) var(--ease-out-soft),
-    width var(--motion-slow) var(--ease-out-soft);
+    transform var(--motion-slow) var(--ease-out-soft);
 }
 
 .plotty-segmented > .plotty-tab-indicator ~ .plotty-tab-button[data-active="true"] {
@@ -912,6 +908,7 @@ button:active .plotty-chip-motion {
 }
 
 .plotty-catalog-layout {
+  --plotty-catalog-filter-rail-width: 0rem;
   display: grid;
   gap: 1.25rem;
 }
@@ -924,10 +921,10 @@ button:active .plotty-chip-motion {
   transform-origin: left top;
   opacity: 1;
   transform: translateZ(0) scale(1);
+  will-change: transform, opacity;
   transition:
     opacity var(--motion-base) var(--ease-out-soft),
-    transform var(--motion-base) var(--ease-out-soft),
-    box-shadow var(--motion-base) var(--ease-out-soft);
+    transform var(--motion-base) var(--ease-out-soft);
 }
 
 .plotty-catalog-filter-card > div > * {
@@ -962,50 +959,43 @@ button:active .plotty-chip-motion {
 
 @media (min-width: 1024px) {
   .plotty-catalog-layout {
-    display: flex;
+    --plotty-catalog-filter-rail-width: 17rem;
+    display: grid;
+    grid-template-columns: minmax(0, var(--plotty-catalog-filter-rail-width)) minmax(0, 1fr);
     gap: 1.75rem;
     align-items: start;
-    transition: gap var(--motion-slow) var(--ease-out-soft);
   }
 
   .plotty-catalog-layout[data-filters-state="collapsing"],
-  .plotty-catalog-layout[data-filters-state="collapsed"] {
+  .plotty-catalog-layout[data-filters-state="collapsed"],
+  .plotty-catalog-layout[data-filters-collapsed="true"] {
+    --plotty-catalog-filter-rail-width: 0rem;
     gap: 0rem;
   }
 
   .plotty-catalog-filter-rail {
     position: relative;
     z-index: 2;
-    flex-grow: 0;
-    flex-shrink: 0;
-    flex-basis: 17rem;
-    width: 17rem;
+    width: var(--plotty-catalog-filter-rail-width);
     overflow: clip;
     opacity: 1;
-    transition:
-      opacity var(--motion-base) var(--ease-out-soft),
-      flex-basis var(--motion-slow) var(--ease-out-soft),
-      width var(--motion-slow) var(--ease-out-soft);
+    transition: opacity var(--motion-base) var(--ease-out-soft);
+    will-change: transform, opacity;
   }
 
   .plotty-catalog-filter-card {
-    min-width: 17rem;
+    width: 17rem;
   }
 
   .plotty-catalog-layout > section {
-    flex: 1 1 0;
     min-width: 0;
   }
 
   .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-rail {
-    flex-basis: 0rem;
-    width: 0rem;
     pointer-events: none;
   }
 
   .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-rail {
-    flex-basis: 0rem;
-    width: 0rem;
     opacity: 0;
     pointer-events: none;
   }
@@ -1013,13 +1003,11 @@ button:active .plotty-chip-motion {
   .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-card {
     opacity: 0.96;
     transform: translateZ(0) scale(0.995);
-    box-shadow: none;
   }
 
   .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-card {
     opacity: 0;
     transform: translateZ(0) scale(0.985);
-    box-shadow: none;
   }
 
   .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-card > div > * {
@@ -1048,27 +1036,19 @@ button:active .plotty-chip-motion {
 
 @media (min-width: 1280px) {
   .plotty-catalog-layout {
+    --plotty-catalog-filter-rail-width: 18rem;
     gap: 2rem;
   }
 
   .plotty-catalog-layout[data-filters-state="collapsing"],
-  .plotty-catalog-layout[data-filters-state="collapsed"] {
+  .plotty-catalog-layout[data-filters-state="collapsed"],
+  .plotty-catalog-layout[data-filters-collapsed="true"] {
+    --plotty-catalog-filter-rail-width: 0rem;
     gap: 0rem;
   }
 
-  .plotty-catalog-filter-rail {
-    flex-basis: 18rem;
-    width: 18rem;
-  }
-
   .plotty-catalog-filter-card {
-    min-width: 18rem;
-  }
-
-  .plotty-catalog-layout[data-filters-state="collapsing"] .plotty-catalog-filter-rail,
-  .plotty-catalog-layout[data-filters-state="collapsed"] .plotty-catalog-filter-rail {
-    flex-basis: 0rem;
-    width: 0rem;
+    width: 18rem;
   }
 
 }
@@ -1271,17 +1251,37 @@ button:active .plotty-chip-motion {
 }
 
 .plotty-story-card {
+  position: relative;
   transition:
     background-color var(--motion-base) var(--ease-out-soft),
     border-color var(--motion-base) var(--ease-out-soft),
-    box-shadow var(--motion-slow) var(--ease-out-soft),
     transform var(--motion-slow) var(--ease-out-soft);
+  will-change: transform;
+}
+
+.plotty-story-card::before {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 0 34%, rgba(255, 255, 255, 0.34) 45%, transparent 58% 100%);
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  transform: translate3d(-34%, 0, 0);
+  transition:
+    opacity var(--motion-base) var(--ease-out-soft),
+    transform 620ms var(--ease-out-soft);
 }
 
 .plotty-story-card:hover {
   transform: translateY(-3px);
   border-color: rgba(195, 79, 50, 0.22);
-  box-shadow: 0 24px 58px rgba(58, 43, 27, 0.13);
+}
+
+.plotty-story-card:hover::before,
+.plotty-story-card:focus-within::before {
+  opacity: 1;
+  transform: translate3d(34%, 0, 0);
 }
 
 .plotty-story-card-body-link {
@@ -1488,9 +1488,8 @@ button:active .plotty-chip-motion {
   place-items: center;
   padding: 1.5rem;
   background:
-    radial-gradient(circle at 50% 42%, rgba(255, 250, 244, 0.34), transparent 21rem),
-    rgba(48, 35, 27, 0.34);
-  backdrop-filter: blur(9px);
+    radial-gradient(circle at 50% 42%, rgba(255, 250, 244, 0.28), transparent 21rem),
+    rgba(48, 35, 27, 0.48);
   animation: plotty-reveal-overlay 180ms var(--ease-out-soft) both;
 }
 
@@ -1580,7 +1579,6 @@ button:active .plotty-chip-motion {
   background:
     radial-gradient(circle at 50% 46%, rgba(255, 250, 244, 0.2), transparent 28rem),
     rgba(31, 26, 22, 0.82);
-  backdrop-filter: blur(10px);
   animation: plotty-reveal-overlay var(--motion-base) var(--ease-out-soft) both;
 }
 
@@ -1722,17 +1720,14 @@ button:active .plotty-chip-motion {
 @keyframes plotty-profile-settings-enter {
   0% {
     opacity: 0;
-    filter: blur(6px);
     transform: translateY(-10px) scale(0.992);
   }
   72% {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(1px) scale(1);
   }
   100% {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0) scale(1);
   }
 }
@@ -1740,12 +1735,10 @@ button:active .plotty-chip-motion {
 @keyframes plotty-profile-settings-exit {
   0% {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0) scale(1);
   }
   100% {
     opacity: 0;
-    filter: blur(8px);
     transform: translateY(-10px) scale(0.985);
   }
 }

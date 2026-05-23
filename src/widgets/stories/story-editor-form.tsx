@@ -766,14 +766,14 @@ function SpellcheckIssueBottomSheet({
         type="button"
         aria-label="Закрыть исправление"
         onClick={onClose}
-        className="absolute inset-0 bg-[rgba(31,26,22,0.4)] backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgba(31,26,22,0.48)]"
       />
       <div
         ref={contentRef}
         role="dialog"
         aria-modal="true"
         aria-label="Исправление ошибки"
-        className="absolute inset-x-0 bottom-0 min-w-0 max-h-[82vh] overflow-y-auto overflow-x-hidden rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] px-5 pt-5 shadow-[var(--plotty-shadow)] backdrop-blur-xl"
+        className="absolute inset-x-0 bottom-0 min-w-0 max-h-[82vh] overflow-y-auto overflow-x-hidden rounded-t-[var(--plotty-radius-xl)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] px-5 pt-5 shadow-[var(--plotty-shadow)]"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.25rem)" }}
       >
         <div className="mb-4 flex items-center justify-between gap-3">

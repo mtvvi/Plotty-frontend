@@ -17,6 +17,7 @@ import Link, { type LinkProps } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { sanitizeImageUrl } from "@/shared/lib/safe-url";
+import { useGsapIntro } from "@/shared/lib/gsap-motion";
 import { buttonClassName, type ButtonSize, type ButtonVariant } from "@/shared/ui/button";
 
 type RevealRequest = {
@@ -134,10 +135,17 @@ function resolveRevealPathname(href: string) {
 
 function StoryRevealOverlay({ reveal }: { reveal: RevealRequest }) {
   const safeCoverUrl = sanitizeImageUrl(reveal.coverUrl);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  useGsapIntro(overlayRef, [reveal.href], {
+    selector: "[data-gsap-intro-item='story-reveal']",
+    stagger: 0.06,
+    y: 18,
+  });
 
   return (
-    <div className="plotty-story-reveal-overlay" aria-hidden="true">
-      <div className="plotty-story-reveal-book">
+    <div ref={overlayRef} className="plotty-story-reveal-overlay" data-gsap-intro="story-reveal" aria-hidden="true">
+      <div className="plotty-story-reveal-book" data-gsap-intro-item="story-reveal">
         <div className="plotty-story-reveal-cover">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {safeCoverUrl ? <img src={safeCoverUrl} alt="" /> : null}

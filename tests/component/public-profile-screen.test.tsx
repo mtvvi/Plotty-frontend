@@ -70,7 +70,9 @@ describe("PublicProfileScreen", () => {
     expect(within(summary).getByAltText("Аватар writer")).toHaveAttribute("src", profileAvatarPlaceholderSrc);
     expect(within(summary).getByAltText("Аватар writer")).toHaveClass("aspect-square", "w-full", "lg:w-auto", "lg:min-h-80");
     expect(summary).toHaveClass("h-full", "lg:min-h-80");
+    expect(summary).toHaveAttribute("data-gsap-intro", "profile-hero");
     expect(summary.firstElementChild).toHaveClass("h-full", "lg:grid-cols-[auto_minmax(0,1fr)_auto]");
+    expect(screen.getByText("Работ").previousElementSibling).toHaveAttribute("data-gsap-counter", "profile-stat");
 
     await user.click(screen.getByRole("button", { name: "Редактировать ник" }));
 

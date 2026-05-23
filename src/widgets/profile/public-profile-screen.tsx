@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Coins, Plus } from "lucide-react";
 import Link from "next/link";
@@ -21,6 +21,7 @@ import { sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { cn } from "@/shared/lib/utils";
 import { usernameValidationMessage } from "@/shared/lib/username";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
+import { useGsapCounter, useGsapIntro } from "@/shared/lib/gsap-motion";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { FieldError } from "@/shared/ui/field";
@@ -76,6 +77,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const [avatarOffsetX, setAvatarOffsetX] = useState(0);
   const [avatarOffsetY, setAvatarOffsetY] = useState(0);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const profileHeroRef = useRef<HTMLDivElement | null>(null);
   const profileQuery = useQuery(publicProfileQueryOptions(normalizedUsername));
   const publicStoriesQuery = useQuery(publicUserStoriesQueryOptions(normalizedUsername));
   const ownStories = useQuery(myStoriesQueryOptions(ownStoriesQuery, { userId: isOwnProfile ? user?.id : null }));
@@ -142,6 +144,12 @@ export function PublicProfileScreen({ username }: { username: string }) {
       }
     };
   }, [avatarPreviewUrl]);
+
+  useGsapIntro(profileHeroRef, [profileQuery.data?.id ?? normalizedUsername], {
+    selector: "[data-gsap-intro-item='profile-hero']",
+    stagger: 0.055,
+    y: 14,
+  });
 
   if (profileQuery.isLoading) {
     return (
@@ -308,7 +316,9 @@ export function PublicProfileScreen({ username }: { username: string }) {
           <div className="grid gap-0 lg:min-h-80 lg:grid-cols-[minmax(0,1fr)_280px]">
             <div className="lg:h-full">
               <div
+                ref={profileHeroRef}
                 data-profile-summary-frame="true"
+                data-gsap-intro="profile-hero"
                 className="h-full p-0 lg:min-h-80"
               >
                 <div className="flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid lg:min-h-80 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-0">
@@ -323,7 +333,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         disabled={avatarMutation.isPending}
                         onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
                       />
-                      <div className="grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:aspect-square lg:h-full lg:min-h-full lg:w-auto lg:self-stretch">
+                      <div data-gsap-intro-item="profile-hero" className="grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:aspect-square lg:h-full lg:min-h-full lg:w-auto lg:self-stretch">
                         <button
                           type="button"
                           className="group relative h-full w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:aspect-square lg:min-h-full lg:w-auto lg:rounded-none lg:hover:translate-y-0"
@@ -346,9 +356,11 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       </div>
                     </>
                   ) : (
-                    <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="hero" />
+                    <div data-gsap-intro-item="profile-hero">
+                      <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="hero" />
+                    </div>
                   )}
-                  <div className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 lg:self-center lg:px-7 lg:py-7">
+                  <div data-gsap-intro-item="profile-hero" className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 lg:self-center lg:px-7 lg:py-7">
                     <ProfileInlineTextField
                       field="username"
                       label="Ник"
@@ -396,7 +408,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 </div>
               </div>
             </div>
-            <div className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 lg:border-l lg:border-t-0 lg:p-7">
+            <div data-gsap-intro-item="profile-hero" className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 lg:border-l lg:border-t-0 lg:p-7">
               <ProfileStat
                 label="Работ"
                 value={worksCount}
@@ -836,7 +848,7 @@ function AvatarCropDialog({
       <button
         type="button"
         aria-label="Закрыть обрезку аватара"
-        className="absolute inset-0 bg-[rgba(31,26,22,0.42)] backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgba(31,26,22,0.5)]"
         onClick={onCancel}
       />
       <div
@@ -1022,13 +1034,18 @@ function ProfileTitle({ icon, children }: { icon: ReactNode; children: ReactNode
 }
 
 function ProfileStat({ label, value, icon }: { label: string; value: number | string; icon: ReactNode }) {
+  const valueRef = useRef<HTMLDivElement | null>(null);
+  const numericValue = typeof value === "number" ? value : null;
+  const formatValue = useCallback((nextValue: number) => nextValue.toLocaleString("ru-RU"), []);
   const displayValue = typeof value === "number" ? value.toLocaleString("ru-RU") : value;
+
+  useGsapCounter(valueRef, numericValue, formatValue);
 
   return (
     <div className="plotty-lift-panel h-full rounded-[18px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-2xl font-bold text-[var(--plotty-ink)]">{displayValue}</div>
+          <div ref={valueRef} data-gsap-counter="profile-stat" className="text-2xl font-bold text-[var(--plotty-ink)]">{displayValue}</div>
           <div className="plotty-meta">{label}</div>
         </div>
         <span className="mt-1 inline-flex shrink-0 text-[var(--plotty-muted)]">{icon}</span>
