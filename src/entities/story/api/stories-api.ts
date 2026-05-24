@@ -29,6 +29,7 @@ import type {
   StoryListItem,
   StoryTag,
   StoryTagsResponse,
+  UpdateStoryCommentPayload,
   UpdateChapterPayload,
   UpdateStoryPayload,
 } from "../model/types";
@@ -261,6 +262,15 @@ async function fetchMyStoriesPage(query: StoriesQuery, signal?: AbortSignal) {
   return fetchJson<BackendStoriesResponse>(appendQueryString("/stories/mine", params), { signal });
 }
 
+export async function fetchMyStories(query: StoriesQuery, signal?: AbortSignal): Promise<StoriesResponse> {
+  const response = await fetchMyStoriesPage(query, signal);
+
+  return {
+    items: response.items.map(mapStoryListItem),
+    pagination: response.pagination,
+  };
+}
+
 async function fetchStoryDetails(slug: string) {
   const story = await fetchJson<BackendStoryDetails>(`/stories/${slug}`);
 
@@ -318,14 +328,7 @@ export function myStoriesQueryOptions(query: StoriesQuery, options?: { userId?: 
 
   return queryOptions({
     queryKey: [...storyKeys.list(query), "mine", userKey] as const,
-    queryFn: async ({ signal }): Promise<StoriesResponse> => {
-      const response = await fetchMyStoriesPage(query, signal);
-
-      return {
-        items: response.items.map(mapStoryListItem),
-        pagination: response.pagination,
-      };
-    },
+    queryFn: ({ signal }): Promise<StoriesResponse> => fetchMyStories(query, signal),
     enabled: Boolean(options?.userId),
   });
 }
@@ -523,6 +526,13 @@ export function unlikeStory(storyId: string) {
 export function addChapterComment(storyId: string, chapterId: string, payload: CreateStoryCommentPayload) {
   return fetchJson<BackendChapterComment>(`/chapters/${chapterId}/comments`, {
     method: "POST",
+    body: JSON.stringify(payload),
+  }).then((comment) => mapChapterComment(comment, storyId));
+}
+
+export function updateStoryComment(storyId: string, commentId: string, payload: UpdateStoryCommentPayload) {
+  return fetchJson<BackendChapterComment>(`/comments/${commentId}`, {
+    method: "PATCH",
     body: JSON.stringify(payload),
   }).then((comment) => mapChapterComment(comment, storyId));
 }

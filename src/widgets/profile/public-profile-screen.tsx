@@ -1,8 +1,8 @@
 "use client";
 
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Coins, Plus } from "lucide-react";
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, Coins, ListFilter, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -11,11 +11,12 @@ import { useAuth } from "@/entities/auth/model/auth-context";
 import { formatCreditsAmount } from "@/entities/credits/model/credit-utils";
 import { myShelfQueryOptions } from "@/entities/library/api/library-api";
 import {
+  fetchPublicUserStories,
   publicProfileQueryOptions,
   publicUserCollectionsQueryOptions,
-  publicUserStoriesQueryOptions,
 } from "@/entities/profile/api/profile-api";
-import { myStoriesQueryOptions } from "@/entities/story/api/stories-api";
+import { fetchMyStories } from "@/entities/story/api/stories-api";
+import type { StoriesQuery, StoriesResponse, StoriesSort } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
 import { sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { cn } from "@/shared/lib/utils";
@@ -28,6 +29,7 @@ import { FieldError } from "@/shared/ui/field";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Input } from "@/shared/ui/input";
 import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
+import { Select } from "@/shared/ui/select";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { Textarea } from "@/shared/ui/textarea";
 import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
@@ -51,12 +53,15 @@ type ProfileInlineField = "username" | "bio";
 
 export { profileAvatarPlaceholderSrc } from "./profile-avatar-placeholder";
 
-const ownStoriesQuery = {
-  tags: [],
-  q: "",
-  page: 1,
-  pageSize: 100,
-};
+const profileWorksPageSize = 8;
+const profileWorksSearchDebounceMs = 250;
+const defaultProfileWorksSort: StoriesSort = "updated-desc";
+const profileWorksSortOptions: Array<{ value: StoriesSort; label: string }> = [
+  { value: "updated-desc", label: "Сначала новые" },
+  { value: "updated-asc", label: "Сначала старые" },
+  { value: "title-asc", label: "Название А-Я" },
+  { value: "title-desc", label: "Название Я-А" },
+];
 
 export function PublicProfileScreen({ username }: { username: string }) {
   const router = useRouter();
@@ -68,6 +73,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const initialTab = getInitialTab(searchParams.get("tab"));
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [editingField, setEditingField] = useState<ProfileInlineField | null>(null);
+  const [worksSearchDraft, setWorksSearchDraft] = useState("");
+  const [worksSearch, setWorksSearch] = useState("");
+  const [worksSort, setWorksSort] = useState<StoriesSort>(defaultProfileWorksSort);
+  const [worksTotalCount, setWorksTotalCount] = useState<number | null>(null);
   const [usernameDraft, setUsernameDraft] = useState("");
   const [bioDraft, setBioDraft] = useState("");
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -78,11 +87,44 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const [avatarOffsetY, setAvatarOffsetY] = useState(0);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const profileHeroRef = useRef<HTMLDivElement | null>(null);
+  const deferredWorksSearchDraft = useDeferredValue(worksSearchDraft);
+  const worksQueryBase = useMemo<Omit<StoriesQuery, "page">>(
+    () => ({
+      tags: [],
+      q: worksSearch,
+      pageSize: profileWorksPageSize,
+      ...(worksSort === defaultProfileWorksSort ? {} : { sort: worksSort }),
+    }),
+    [worksSearch, worksSort],
+  );
   const profileQuery = useQuery(publicProfileQueryOptions(normalizedUsername));
-  const publicStoriesQuery = useQuery(publicUserStoriesQueryOptions(normalizedUsername));
-  const ownStories = useQuery(myStoriesQueryOptions(ownStoriesQuery, { userId: isOwnProfile ? user?.id : null }));
+  const worksQuery = useInfiniteQuery({
+    queryKey: [
+      "profile-works",
+      isOwnProfile ? "mine" : "public",
+      isOwnProfile ? user?.id ?? "anonymous" : normalizedUsername,
+      worksQueryBase,
+    ] as const,
+    queryFn: ({ pageParam, signal }): Promise<StoriesResponse> => {
+      const query = {
+        ...worksQueryBase,
+        page: pageParam,
+      };
+
+      return isOwnProfile ? fetchMyStories(query, signal) : fetchPublicUserStories(normalizedUsername, query, signal);
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const { page, pageSize, total } = lastPage.pagination;
+
+      return page * pageSize < total ? page + 1 : undefined;
+    },
+    enabled: isOwnProfile ? Boolean(user?.id) : Boolean(normalizedUsername),
+    staleTime: 30_000,
+  });
   const collectionsQuery = useQuery(publicUserCollectionsQueryOptions(normalizedUsername));
   const shelfQuery = useQuery(myShelfQueryOptions(null, { enabled: isOwnProfile }));
+  const firstWorksPageTotal = worksQuery.data?.pages[0]?.pagination.total;
 
   const updateProfileMutation = useMutation({
     mutationFn: updateProfile,
@@ -125,6 +167,33 @@ export function PublicProfileScreen({ username }: { username: string }) {
 
     setActiveTab(nextTab);
   }, [searchParams]);
+
+  useEffect(() => {
+    setWorksSearchDraft("");
+    setWorksSearch("");
+    setWorksSort(defaultProfileWorksSort);
+    setWorksTotalCount(null);
+  }, [normalizedUsername]);
+
+  useEffect(() => {
+    if (!worksSearch && typeof firstWorksPageTotal === "number") {
+      setWorksTotalCount(firstWorksPageTotal);
+    }
+  }, [firstWorksPageTotal, worksSearch]);
+
+  useEffect(() => {
+    const nextSearch = deferredWorksSearchDraft.trim();
+
+    if (nextSearch === worksSearch) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setWorksSearch(nextSearch);
+    }, profileWorksSearchDebounceMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [deferredWorksSearchDraft, worksSearch]);
 
   useEffect(() => {
     const profile = profileQuery.data;
@@ -174,10 +243,15 @@ export function PublicProfileScreen({ username }: { username: string }) {
   }
 
   const profile = profileQuery.data;
-  const worksQuery = isOwnProfile ? ownStories : publicStoriesQuery;
-  const stories = worksQuery.data?.items ?? [];
+  const stories = worksQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const worksPagination = worksQuery.data?.pages[worksQuery.data.pages.length - 1]?.pagination;
+  const worksTotal = worksPagination?.total ?? 0;
+  const visibleWorksCount = stories.length;
+  const nextWorksCount = Math.min(profileWorksPageSize, Math.max(worksTotal - visibleWorksCount, 0));
+  const isWorksSearchPending = deferredWorksSearchDraft.trim() !== worksSearch;
+  const hasWorksSearch = Boolean(worksSearch);
   const collections = collectionsQuery.data?.items ?? [];
-  const worksCount = worksQuery.isError ? "—" : worksQuery.data?.pagination.total ?? stories.length;
+  const worksCount = worksQuery.isError ? "—" : (worksTotalCount ?? (worksTotal || visibleWorksCount));
   const secondaryCount = isOwnProfile
     ? shelfQuery.isError
       ? "—"
@@ -189,6 +263,19 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const serverError = updateProfileMutation.error
     ? toUserFacingErrorMessage(updateProfileMutation.error, "Не удалось обновить профиль")
     : null;
+
+  function handleWorksSearchChange(value: string) {
+    setWorksSearchDraft(value);
+  }
+
+  function clearWorksSearch() {
+    setWorksSearchDraft("");
+    setWorksSearch("");
+  }
+
+  function handleWorksSortChange(sort: StoriesSort) {
+    setWorksSort(sort);
+  }
 
   function handleStartInlineEdit(field: ProfileInlineField) {
     if (!isOwnProfile || updateProfileMutation.isPending) {
@@ -451,6 +538,16 @@ export function PublicProfileScreen({ username }: { username: string }) {
             title={<ProfileTitle icon={<CreativityIcon className="size-5" />}>{"Творчество"}</ProfileTitle>}
             description={isOwnProfile ? "Ваши работы" : "Публичный список опубликованных работ автора."}
           >
+            <ProfileWorksToolbar
+              searchValue={worksSearchDraft}
+              sort={worksSort}
+              total={worksTotal}
+              visibleCount={visibleWorksCount}
+              isPending={isWorksSearchPending || (worksQuery.isFetching && !worksQuery.isFetchingNextPage)}
+              onSearchChange={handleWorksSearchChange}
+              onSearchClear={clearWorksSearch}
+              onSortChange={handleWorksSortChange}
+            />
             {worksQuery.isLoading ? (
               <div className="space-y-3">
                 <div className="h-44 rounded-[22px] bg-white/50" />
@@ -464,20 +561,53 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 onAction={() => void worksQuery.refetch()}
               />
             ) : stories.length ? (
-              <AnimatedList
-                items={stories}
-                getKey={(story) => story.id}
-                className="space-y-4"
-                renderItem={(story) => (
-                  <StoryCard
-                    story={story}
-                    showShelfControl
-                    showChapterActions={false}
-                  />
-                )}
-              />
+              <div className="space-y-4">
+                <AnimatedList
+                  items={stories}
+                  getKey={(story) => story.id}
+                  className="space-y-4"
+                  ariaLive="polite"
+                  renderItem={(story, index) => (
+                    <StoryCard
+                      story={story}
+                      showShelfControl
+                      showChapterActions={false}
+                      priorityCover={index === 0}
+                    />
+                  )}
+                />
+                {worksQuery.hasNextPage ? (
+                  <div className="flex flex-col gap-3 border-t border-[var(--plotty-line)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="plotty-meta">
+                      Показано {visibleWorksCount} из {worksTotal}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => void worksQuery.fetchNextPage()}
+                      disabled={worksQuery.isFetchingNextPage}
+                      isLoading={worksQuery.isFetchingNextPage}
+                      className="sm:min-w-48"
+                    >
+                      <ChevronDown className="size-4" aria-hidden="true" />
+                      Показать ещё {nextWorksCount}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
             ) : (
-              <EmptyState title="Работ пока нет" description={isOwnProfile ? "Создайте первую историю в мастерской." : "У пользователя нет опубликованных историй."} />
+              <EmptyState
+                title={hasWorksSearch ? "Работы не найдены" : "Работ пока нет"}
+                description={
+                  hasWorksSearch
+                    ? "По текущему поиску ничего не нашлось."
+                    : isOwnProfile
+                      ? "Создайте первую историю в мастерской."
+                      : "У пользователя нет опубликованных историй."
+                }
+                actionLabel={hasWorksSearch ? "Очистить поиск" : undefined}
+                onAction={hasWorksSearch ? clearWorksSearch : undefined}
+              />
             )}
           </PlottySectionCard>
         </AnimatedTabPanel>
@@ -1030,6 +1160,93 @@ function ProfileTitle({ icon, children }: { icon: ReactNode; children: ReactNode
       <span className="inline-flex shrink-0 text-[var(--plotty-muted)]">{icon}</span>
       {children}
     </span>
+  );
+}
+
+function ProfileWorksToolbar({
+  isPending,
+  onSearchChange,
+  onSearchClear,
+  onSortChange,
+  searchValue,
+  sort,
+  total,
+  visibleCount,
+}: {
+  isPending?: boolean;
+  onSearchChange: (value: string) => void;
+  onSearchClear: () => void;
+  onSortChange: (sort: StoriesSort) => void;
+  searchValue: string;
+  sort: StoriesSort;
+  total: number;
+  visibleCount: number;
+}) {
+  const statusText = isPending
+    ? "Обновляем список..."
+    : total > 0
+      ? `Показано ${visibleCount} из ${total}`
+      : "Нет работ для отображения";
+
+  return (
+    <div className="mb-5 grid gap-3 border-b border-[var(--plotty-line)] pb-4">
+      <div className="grid gap-3 lg:grid-cols-3">
+        <label className="grid min-w-0 gap-2 lg:col-span-2">
+          <span className="plotty-label">Поиск по работам</span>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--plotty-muted)]"
+              aria-hidden="true"
+            />
+            <Input
+              value={searchValue}
+              onChange={(event) => onSearchChange(event.target.value)}
+              aria-label="Поиск по работам автора"
+              placeholder="Название истории"
+              className="pl-10 pr-11"
+            />
+            {searchValue ? (
+              <IconButton
+                type="button"
+                aria-label="Очистить поиск по работам"
+                title="Очистить поиск"
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 min-h-8 w-8 -translate-y-1/2 rounded-[var(--plotty-radius-sm)] p-0"
+                onClick={onSearchClear}
+              >
+                <X className="size-4" aria-hidden="true" />
+              </IconButton>
+            ) : null}
+          </div>
+        </label>
+
+        <label className="grid min-w-0 gap-2">
+          <span className="plotty-label">Сортировка</span>
+          <div className="relative">
+            <ListFilter
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--plotty-muted)]"
+              aria-hidden="true"
+            />
+            <Select
+              value={sort}
+              onChange={(event) => onSortChange(event.target.value as StoriesSort)}
+              aria-label="Сортировка работ автора"
+              className="pl-10"
+            >
+              {profileWorksSortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </label>
+      </div>
+      <p className="plotty-meta min-h-5" role="status" aria-live="polite">
+        {statusText}
+      </p>
+    </div>
   );
 }
 

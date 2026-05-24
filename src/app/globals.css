@@ -1123,9 +1123,46 @@ button:active .plotty-chip-motion {
   -webkit-overflow-scrolling: touch;
 }
 
+.plotty-workshop-story-list {
+  max-height: min(18rem, max(12rem, calc(100vh - 28rem)));
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  padding-right: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.plotty-workshop-story-card {
+  grid-template-columns: 3.75rem minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.plotty-workshop-story-cover {
+  border-radius: 10px;
+}
+
+.plotty-workshop-story-title {
+  font-size: 0.98rem;
+  line-height: 1.25rem;
+}
+
+.plotty-workshop-story-date {
+  margin-top: 0.125rem;
+}
+
+.plotty-workshop-story-status {
+  margin-top: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  font-size: 10px;
+}
+
 @supports (height: 100dvh) {
   .plotty-workshop-chapter-list {
     max-height: min(28rem, calc(100dvh - 22rem));
+  }
+
+  .plotty-workshop-story-list {
+    max-height: min(18rem, max(12rem, calc(100dvh - 28rem)));
   }
 }
 
@@ -1137,6 +1174,30 @@ button:active .plotty-chip-motion {
 }
 
 @media (min-width: 1024px) {
+  .plotty-workshop-story-card {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.625rem;
+  }
+
+  .plotty-workshop-story-cover {
+    border-radius: 12px;
+  }
+
+  .plotty-workshop-story-title {
+    font-size: 1.04rem;
+  }
+
+  .plotty-workshop-story-date {
+    margin-top: 0.25rem;
+  }
+
+  .plotty-workshop-story-status {
+    margin-top: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 11px;
+  }
+
   .plotty-workshop-story-list {
     max-height: min(36rem, calc(100vh - 16rem));
     overflow-y: auto;

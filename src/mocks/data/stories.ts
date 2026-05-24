@@ -1256,6 +1256,20 @@ export function addChapterCommentRecord(chapterId: string, payload: CreateStoryC
   return toStoryComment(comment, user.id);
 }
 
+export function updateStoryCommentRecord(commentId: string, payload: CreateStoryCommentPayload, viewerUserId: number) {
+  const comment = db.comments.find((item) => item.id === commentId && item.authorId === viewerUserId);
+  const content = payload.content.trim();
+
+  if (!comment || !content) {
+    return null;
+  }
+
+  comment.content = content;
+  comment.updatedAt = nowIso();
+
+  return toStoryComment(comment, viewerUserId);
+}
+
 export function deleteStoryCommentRecord(commentId: string, viewerUserId: number) {
   const commentIndex = db.comments.findIndex((comment) => comment.id === commentId && comment.authorId === viewerUserId);
 

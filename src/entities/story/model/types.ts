@@ -230,6 +230,8 @@ export interface CreateStoryCommentPayload {
   content: string;
 }
 
+export type UpdateStoryCommentPayload = CreateStoryCommentPayload;
+
 export interface ToggleLikeResult {
   storyId: string;
   likesCount: number;

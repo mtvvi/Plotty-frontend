@@ -57,6 +57,7 @@ import {
   unlikeStoryRecord,
   publishChapterRecord,
   updateChapterRecord,
+  updateStoryCommentRecord,
   updateStoryRecord,
   updateUserCollection,
 } from "./data/stories";
@@ -520,6 +521,23 @@ export const handlers = [
     }
 
     return HttpResponse.json(comment, { status: 201 });
+  }),
+
+  http.patch("*/comments/:commentId", async ({ params, request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as CreateStoryCommentPayload;
+    const comment = updateStoryCommentRecord(String(params.commentId), payload, session.user.id);
+
+    if (!comment) {
+      return HttpResponse.json({ message: "Comment not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(comment);
   }),
 
   http.delete("*/comments/:commentId", ({ params }) => {

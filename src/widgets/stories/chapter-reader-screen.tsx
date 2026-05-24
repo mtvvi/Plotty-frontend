@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, Ellipsis, Pencil, Trash2, X } from "lucide-react";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
 import {
@@ -17,8 +17,9 @@ import {
   markChapterViewed,
   storyDetailsQueryOptions,
   storyKeys,
+  updateStoryComment,
 } from "@/entities/story/api/stories-api";
-import type { ChapterWiki, ChapterWikiEntity, StoryCommentsResponse } from "@/entities/story/model/types";
+import type { ChapterWiki, ChapterWikiEntity, StoryComment, StoryCommentsResponse } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { routes } from "@/shared/config/routes";
@@ -29,6 +30,7 @@ import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { IconButton } from "@/shared/ui/icon-button";
 import { AnimatedList } from "@/shared/ui/motion";
+import { PopoverContent, usePopover } from "@/shared/ui/popover";
 import { Textarea } from "@/shared/ui/textarea";
 
 import {
@@ -89,6 +91,8 @@ export function ChapterReaderScreen({
     enabled: Boolean(storyQuery.data?.id && chapterId && chapterPublished),
   });
   const [commentDraft, setCommentDraft] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentDraft, setEditingCommentDraft] = useState("");
   const [wikiOpen, setWikiOpen] = useState(false);
   const wikiQuery = useQuery(chapterWikiQueryOptions(chapterId, { enabled: wikiOpen && Boolean(chapterId) }));
 
@@ -105,6 +109,17 @@ export function ChapterReaderScreen({
   });
   const deleteCommentMutation = useMutation({
     mutationFn: deleteStoryComment,
+  });
+  const updateCommentMutation = useMutation({
+    mutationFn: ({
+      commentId,
+      content,
+      storyId,
+    }: {
+      commentId: string;
+      content: string;
+      storyId: string;
+    }) => updateStoryComment(storyId, commentId, { content }),
   });
 
   useEffect(() => {
@@ -235,12 +250,73 @@ export function ChapterReaderScreen({
   async function handleDeleteComment(commentId: string) {
     const currentComments = commentsQuery.data?.items ?? [];
 
+    if (editingCommentId === commentId) {
+      handleCancelEditComment();
+    }
+
     queryClient.setQueryData<StoryCommentsResponse | undefined>(storyKeys.chapterComments(chapterId), {
       items: currentComments.filter((c) => c.id !== commentId),
     });
 
     try {
       await deleteCommentMutation.mutateAsync(commentId);
+    } catch (error) {
+      queryClient.setQueryData(storyKeys.chapterComments(chapterId), { items: currentComments });
+
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: `${pathname}#comments` }));
+      }
+    }
+  }
+
+  function handleStartEditComment(comment: StoryComment) {
+    setEditingCommentId(comment.id);
+    setEditingCommentDraft(comment.content);
+  }
+
+  function handleCancelEditComment() {
+    setEditingCommentId(null);
+    setEditingCommentDraft("");
+  }
+
+  async function handleSaveEditedComment(comment: StoryComment) {
+    const content = editingCommentDraft.trim();
+
+    if (!content || updateCommentMutation.isPending) {
+      return;
+    }
+
+    if (content === comment.content) {
+      handleCancelEditComment();
+      return;
+    }
+
+    const currentComments = commentsQuery.data?.items ?? [];
+    const updatedAt = new Date().toISOString();
+
+    queryClient.setQueryData<StoryCommentsResponse | undefined>(storyKeys.chapterComments(chapterId), {
+      items: currentComments.map((item) =>
+        item.id === comment.id
+          ? {
+              ...item,
+              content,
+              updatedAt,
+            }
+          : item,
+      ),
+    });
+
+    try {
+      const updatedComment = await updateCommentMutation.mutateAsync({
+        storyId: story.id,
+        commentId: comment.id,
+        content,
+      });
+
+      queryClient.setQueryData<StoryCommentsResponse | undefined>(storyKeys.chapterComments(chapterId), (current) => ({
+        items: (current?.items ?? []).map((item) => (item.id === updatedComment.id ? updatedComment : item)),
+      }));
+      handleCancelEditComment();
     } catch (error) {
       queryClient.setQueryData(storyKeys.chapterComments(chapterId), { items: currentComments });
 
@@ -428,35 +504,75 @@ export function ChapterReaderScreen({
               />
             ) : commentsQuery.data?.items.length ? (
               <div className="space-y-3">
-                {commentsQuery.data.items.map((comment) => (
-                  <div key={comment.id} className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <Link
-                        href={routes.user(comment.author.username)}
-                        className="flex min-w-0 items-start gap-3 rounded-[14px] transition-colors hover:bg-[rgba(41,38,34,0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-                      >
-                        <CommentAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} />
-                        <span className="min-w-0 space-y-1">
-                          <span className="block truncate text-sm font-semibold text-[var(--plotty-ink)]">
-                            {comment.author.username}
-                          </span>
-                          <span className="plotty-meta block">{new Date(comment.createdAt).toLocaleString("ru-RU")}</span>
-                        </span>
-                      </Link>
-                      {(comment.viewerCanDelete ?? Boolean(user?.id === comment.author.id)) ? (
-                        <Button
-                          variant="ghost"
-                          className="min-h-9 px-2.5 text-sm"
-                          onClick={() => handleDeleteComment(comment.id)}
-                          disabled={deleteCommentMutation.isPending}
+                {commentsQuery.data.items.map((comment) => {
+                  const canManageComment = comment.viewerCanDelete ?? Boolean(user?.id === comment.author.id);
+                  const isEditingComment = editingCommentId === comment.id;
+                  const editDraftIsEmpty = !editingCommentDraft.trim();
+                  const editedAtLabel = comment.updatedAt !== comment.createdAt
+                    ? `Изменён ${new Date(comment.updatedAt).toLocaleString("ru-RU")}`
+                    : null;
+
+                  return (
+                    <div key={comment.id} className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <Link
+                          href={routes.user(comment.author.username)}
+                          className="flex min-w-0 items-start gap-3 rounded-[14px] transition-colors hover:bg-[rgba(41,38,34,0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                         >
-                          Удалить
-                        </Button>
-                      ) : null}
+                          <CommentAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} />
+                          <span className="min-w-0 space-y-1">
+                            <span className="block truncate text-sm font-semibold text-[var(--plotty-ink)]">
+                              {comment.author.username}
+                            </span>
+                            <span className="plotty-meta block">{new Date(comment.createdAt).toLocaleString("ru-RU")}</span>
+                            {editedAtLabel ? <span className="plotty-meta block">{editedAtLabel}</span> : null}
+                          </span>
+                        </Link>
+                        {canManageComment ? (
+                          <CommentActionsMenu
+                            commentId={comment.id}
+                            disabled={deleteCommentMutation.isPending || updateCommentMutation.isPending}
+                            onDelete={() => handleDeleteComment(comment.id)}
+                            onEdit={() => handleStartEditComment(comment)}
+                          />
+                        ) : null}
+                      </div>
+                      {isEditingComment ? (
+                        <div className="mt-4 space-y-3">
+                          <Textarea
+                            value={editingCommentDraft}
+                            onChange={(event) => setEditingCommentDraft(event.target.value)}
+                            aria-label="Текст комментария"
+                            className="min-h-28"
+                            disabled={updateCommentMutation.isPending}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleSaveEditedComment(comment)}
+                              disabled={editDraftIsEmpty || updateCommentMutation.isPending}
+                            >
+                              {updateCommentMutation.isPending ? "Сохраняем..." : "Сохранить"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={handleCancelEditComment}
+                              disabled={updateCommentMutation.isPending}
+                            >
+                              Отмена
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--plotty-ink)]">{comment.content}</p>
+                      )}
                     </div>
-                    <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--plotty-ink)]">{comment.content}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <EmptyState title="Комментариев пока нет" description="Станьте первым, кто откликнется на эту главу." />
@@ -583,6 +699,72 @@ function ChapterWikiDrawer({
       </aside>
     </div>,
     document.body,
+  );
+}
+
+function CommentActionsMenu({
+  commentId,
+  disabled,
+  onDelete,
+  onEdit,
+}: {
+  commentId: string;
+  disabled?: boolean;
+  onDelete: () => void;
+  onEdit: () => void;
+}) {
+  const popover = usePopover({ minWidth: 180 });
+
+  return (
+    <div ref={popover.triggerRef} className="relative">
+      <IconButton
+        type="button"
+        variant="ghost"
+        size="sm"
+        aria-label="Действия с комментарием"
+        aria-controls={`comment-actions-${commentId}`}
+        aria-expanded={popover.open}
+        aria-haspopup="menu"
+        disabled={disabled}
+        onClick={popover.toggle}
+      >
+        <Ellipsis className="size-5" aria-hidden="true" />
+      </IconButton>
+      <PopoverContent
+        id={`comment-actions-${commentId}`}
+        open={popover.open}
+        contentRef={popover.contentRef}
+        position={popover.position}
+        role="menu"
+        aria-label="Действия с комментарием"
+        className="rounded-[var(--plotty-radius-md)] p-2"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          className="plotty-popover-item flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)]"
+          onClick={() => {
+            popover.close();
+            onEdit();
+          }}
+        >
+          <Pencil className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
+          Редактировать
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className="plotty-popover-item mt-1 flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm font-semibold text-[var(--plotty-danger)] transition-colors hover:bg-[var(--plotty-danger-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-danger)]"
+          onClick={() => {
+            popover.close();
+            onDelete();
+          }}
+        >
+          <Trash2 className="size-4" aria-hidden="true" />
+          Удалить
+        </button>
+      </PopoverContent>
+    </div>
   );
 }
 
