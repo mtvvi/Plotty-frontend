@@ -23,6 +23,7 @@ import type { ChapterWiki, ChapterWikiEntity, StoryComment, StoryCommentsRespons
 import { isAuthError } from "@/shared/api/fetch-json";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { routes } from "@/shared/config/routes";
+import { sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { cn, pluralizeRu } from "@/shared/lib/utils";
 import { gsap, registerPlottyGsapPlugins, useReducedMotion } from "@/shared/lib/gsap-motion";
 import { Button, ButtonLink } from "@/shared/ui/button";
@@ -32,6 +33,7 @@ import { IconButton } from "@/shared/ui/icon-button";
 import { AnimatedList } from "@/shared/ui/motion";
 import { PopoverContent, usePopover } from "@/shared/ui/popover";
 import { Textarea } from "@/shared/ui/textarea";
+import { profileAvatarPlaceholderSrc } from "@/widgets/profile/profile-avatar-placeholder";
 
 import {
   ChapterSortButton,
@@ -776,18 +778,11 @@ function CommentAvatar({
   avatarUrl?: string | null;
 }) {
   const className = "size-10 shrink-0 rounded-full border border-[rgba(41,38,34,0.08)]";
-
-  if (avatarUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={avatarUrl} alt={`Аватар ${username}`} className={`${className} object-cover`} />
-    );
-  }
+  const imageSrc = sanitizeImageUrl(avatarUrl) ?? profileAvatarPlaceholderSrc;
 
   return (
-    <span className={`${className} flex items-center justify-center bg-[rgba(188,95,61,0.12)] text-sm font-bold text-[var(--plotty-accent)]`}>
-      {username.slice(0, 1).toUpperCase()}
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={imageSrc} alt={`Аватар ${username}`} className={`${className} object-cover`} />
   );
 }
 

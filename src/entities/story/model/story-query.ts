@@ -102,7 +102,7 @@ export function serializeStoriesQuery(query: StoriesQuery) {
     params.set("pageSize", String(query.pageSize));
   }
 
-  if (query.sort && query.sort !== defaultStoriesSort) {
+  if (query.sort) {
     params.set("sort", query.sort);
   }
 

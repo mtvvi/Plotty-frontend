@@ -29,7 +29,7 @@ import { FieldError } from "@/shared/ui/field";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Input } from "@/shared/ui/input";
 import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
-import { Select } from "@/shared/ui/select";
+import { PopoverContent, usePopover } from "@/shared/ui/popover";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { Textarea } from "@/shared/ui/textarea";
 import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
@@ -93,7 +93,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
       tags: [],
       q: worksSearch,
       pageSize: profileWorksPageSize,
-      ...(worksSort === defaultProfileWorksSort ? {} : { sort: worksSort }),
+      sort: worksSort,
     }),
     [worksSearch, worksSort],
   );
@@ -1221,31 +1221,77 @@ function ProfileWorksToolbar({
           </div>
         </label>
 
-        <label className="grid min-w-0 gap-2">
+        <div className="grid min-w-0 gap-2">
           <span className="plotty-label">Сортировка</span>
-          <div className="relative">
-            <ListFilter
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--plotty-muted)]"
-              aria-hidden="true"
-            />
-            <Select
-              value={sort}
-              onChange={(event) => onSortChange(event.target.value as StoriesSort)}
-              aria-label="Сортировка работ автора"
-              className="pl-10"
-            >
-              {profileWorksSortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </label>
+          <ProfileWorksSortSelect value={sort} onChange={onSortChange} />
+        </div>
       </div>
       <p className="plotty-meta min-h-5" role="status" aria-live="polite">
         {statusText}
       </p>
+    </div>
+  );
+}
+
+function ProfileWorksSortSelect({
+  onChange,
+  value,
+}: {
+  onChange: (sort: StoriesSort) => void;
+  value: StoriesSort;
+}) {
+  const popover = usePopover({ minWidth: 220 });
+  const selectedOption = profileWorksSortOptions.find((option) => option.value === value) ?? profileWorksSortOptions[0];
+
+  return (
+    <div ref={popover.triggerRef} className="relative">
+      <Button
+        type="button"
+        variant="secondary"
+        fullWidth
+        aria-label="Сортировка работ автора"
+        aria-haspopup="listbox"
+        aria-expanded={popover.open}
+        onClick={popover.toggle}
+        className="justify-between px-3 text-left"
+      >
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <ListFilter className="size-4 shrink-0 text-[var(--plotty-muted)]" aria-hidden="true" />
+          <span className="min-w-0 truncate">{selectedOption.label}</span>
+        </span>
+        <ChevronDown
+          className={cn("size-4 shrink-0 text-[var(--plotty-muted)] transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")}
+          aria-hidden="true"
+        />
+      </Button>
+
+      <PopoverContent
+        open={popover.open}
+        contentRef={popover.contentRef}
+        position={popover.position}
+        role="listbox"
+        aria-label="Сортировка работ автора"
+        className="rounded-[var(--plotty-radius-md)] p-2"
+      >
+        {profileWorksSortOptions.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="option"
+            aria-selected={option.value === value}
+            onClick={() => {
+              onChange(option.value);
+              popover.close();
+            }}
+            className={cn(
+              "plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
+              option.value === value ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </PopoverContent>
     </div>
   );
 }
