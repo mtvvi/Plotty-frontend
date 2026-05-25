@@ -16,7 +16,7 @@ import {
   publicUserCollectionsQueryOptions,
 } from "@/entities/profile/api/profile-api";
 import { fetchMyStories } from "@/entities/story/api/stories-api";
-import type { StoriesQuery, StoriesResponse, StoriesSort } from "@/entities/story/model/types";
+import type { StoriesQuery, StoriesResponse, StoriesSort, StoryListItem } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
 import { sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { cn } from "@/shared/lib/utils";
@@ -54,6 +54,7 @@ type ProfileInlineField = "username" | "bio";
 export { profileAvatarPlaceholderSrc } from "./profile-avatar-placeholder";
 
 const profileWorksPageSize = 8;
+const profileWorksSearchPageSize = 100;
 const profileWorksSearchDebounceMs = 250;
 const defaultProfileWorksSort: StoriesSort = "updated-desc";
 const profileWorksSortOptions: Array<{ value: StoriesSort; label: string }> = [
@@ -62,6 +63,16 @@ const profileWorksSortOptions: Array<{ value: StoriesSort; label: string }> = [
   { value: "title-asc", label: "Название А-Я" },
   { value: "title-desc", label: "Название Я-А" },
 ];
+
+function filterProfileWorksByTitle(stories: StoryListItem[], search: string) {
+  const normalizedSearch = search.trim().toLocaleLowerCase("ru-RU");
+
+  if (!normalizedSearch) {
+    return stories;
+  }
+
+  return stories.filter((story) => story.title.toLocaleLowerCase("ru-RU").includes(normalizedSearch));
+}
 
 export function PublicProfileScreen({ username }: { username: string }) {
   const router = useRouter();
@@ -88,14 +99,15 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const profileHeroRef = useRef<HTMLDivElement | null>(null);
   const deferredWorksSearchDraft = useDeferredValue(worksSearchDraft);
+  const hasAppliedWorksSearch = Boolean(worksSearch);
   const worksQueryBase = useMemo<Omit<StoriesQuery, "page">>(
     () => ({
       tags: [],
-      q: worksSearch,
-      pageSize: profileWorksPageSize,
+      q: "",
+      pageSize: hasAppliedWorksSearch ? profileWorksSearchPageSize : profileWorksPageSize,
       sort: worksSort,
     }),
-    [worksSearch, worksSort],
+    [hasAppliedWorksSearch, worksSort],
   );
   const profileQuery = useQuery(publicProfileQueryOptions(normalizedUsername));
   const worksQuery = useInfiniteQuery({
@@ -122,6 +134,13 @@ export function PublicProfileScreen({ username }: { username: string }) {
     enabled: isOwnProfile ? Boolean(user?.id) : Boolean(normalizedUsername),
     staleTime: 30_000,
   });
+  const {
+    fetchNextPage: fetchNextWorksPage,
+    hasNextPage: hasNextWorksPage,
+    isError: isWorksQueryError,
+    isFetching: isWorksQueryFetching,
+    isFetchingNextPage: isFetchingNextWorksPage,
+  } = worksQuery;
   const collectionsQuery = useQuery(publicUserCollectionsQueryOptions(normalizedUsername));
   const shelfQuery = useQuery(myShelfQueryOptions(null, { enabled: isOwnProfile }));
   const firstWorksPageTotal = worksQuery.data?.pages[0]?.pagination.total;
@@ -196,6 +215,27 @@ export function PublicProfileScreen({ username }: { username: string }) {
   }, [deferredWorksSearchDraft, worksSearch]);
 
   useEffect(() => {
+    if (
+      !hasAppliedWorksSearch ||
+      !hasNextWorksPage ||
+      isWorksQueryFetching ||
+      isFetchingNextWorksPage ||
+      isWorksQueryError
+    ) {
+      return;
+    }
+
+    void fetchNextWorksPage();
+  }, [
+    fetchNextWorksPage,
+    hasAppliedWorksSearch,
+    hasNextWorksPage,
+    isFetchingNextWorksPage,
+    isWorksQueryError,
+    isWorksQueryFetching,
+  ]);
+
+  useEffect(() => {
     const profile = profileQuery.data;
 
     if (!profile || !isOwnProfile || editingField) {
@@ -243,13 +283,15 @@ export function PublicProfileScreen({ username }: { username: string }) {
   }
 
   const profile = profileQuery.data;
-  const stories = worksQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const fetchedStories = worksQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const stories = hasAppliedWorksSearch ? filterProfileWorksByTitle(fetchedStories, worksSearch) : fetchedStories;
   const worksPagination = worksQuery.data?.pages[worksQuery.data.pages.length - 1]?.pagination;
-  const worksTotal = worksPagination?.total ?? 0;
+  const worksTotal = hasAppliedWorksSearch ? stories.length : (worksPagination?.total ?? 0);
   const visibleWorksCount = stories.length;
   const nextWorksCount = Math.min(profileWorksPageSize, Math.max(worksTotal - visibleWorksCount, 0));
-  const isWorksSearchPending = deferredWorksSearchDraft.trim() !== worksSearch;
-  const hasWorksSearch = Boolean(worksSearch);
+  const isWorksSearchCollecting = hasAppliedWorksSearch && Boolean(hasNextWorksPage);
+  const isWorksSearchPending = deferredWorksSearchDraft.trim() !== worksSearch || isWorksSearchCollecting;
+  const hasWorksSearch = hasAppliedWorksSearch;
   const collections = collectionsQuery.data?.items ?? [];
   const worksCount = worksQuery.isError ? "—" : (worksTotalCount ?? (worksTotal || visibleWorksCount));
   const secondaryCount = isOwnProfile
@@ -548,7 +590,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
               onSearchClear={clearWorksSearch}
               onSortChange={handleWorksSortChange}
             />
-            {worksQuery.isLoading ? (
+            {worksQuery.isLoading || (isWorksSearchCollecting && !stories.length) ? (
               <div className="space-y-3">
                 <div className="h-44 rounded-[22px] bg-white/50" />
                 <div className="h-44 rounded-[22px] bg-white/50" />
@@ -576,7 +618,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                     />
                   )}
                 />
-                {worksQuery.hasNextPage ? (
+                {!hasWorksSearch && worksQuery.hasNextPage ? (
                   <div className="flex flex-col gap-3 border-t border-[var(--plotty-line)] pt-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="plotty-meta">
                       Показано {visibleWorksCount} из {worksTotal}
