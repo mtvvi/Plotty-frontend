@@ -355,6 +355,36 @@ select {
   letter-spacing: 0;
 }
 
+.plotty-profile-bio-text {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.plotty-profile-hero-grid,
+.plotty-profile-hero-avatar-frame {
+  min-width: 0;
+}
+
+.plotty-profile-hero-avatar {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
+}
+
+@media (min-width: 1024px) {
+  .plotty-profile-hero-grid {
+    grid-template-columns: minmax(18rem, 32rem) minmax(0, 1fr) auto;
+  }
+
+  .plotty-profile-hero-avatar-frame {
+    width: clamp(18rem, 38vw, 32rem);
+    max-width: 100%;
+  }
+}
+
 .plotty-avatar-upload {
   display: flex;
   min-height: 5.25rem;

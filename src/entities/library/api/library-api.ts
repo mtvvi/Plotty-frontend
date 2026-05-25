@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 
+import { mapStoryListItem, type BackendStoryListItem } from "@/entities/story/api/story-mappers";
 import { fetchJson } from "@/shared/api/fetch-json";
 
 import type {
@@ -10,6 +11,15 @@ import type {
 } from "@/entities/profile/model/types";
 
 import type { CreateCollectionPayload, ReaderShelf, ReaderShelfResponse, UpdateCollectionPayload } from "../model/types";
+
+interface BackendReaderShelfResponse {
+  items: Array<{
+    storyId: string;
+    shelf: ReaderShelf;
+    updatedAt: string;
+    story: BackendStoryListItem;
+  }>;
+}
 
 export const readerShelfLabels: Record<ReaderShelf, string> = {
   reading: "Читаю",
@@ -38,7 +48,7 @@ export const libraryKeys = {
 export function myShelfQueryOptions(shelf?: ReaderShelf | null, options?: { enabled?: boolean }) {
   return queryOptions({
     queryKey: libraryKeys.shelf(shelf),
-    queryFn: () => {
+    queryFn: async () => {
       const params = new URLSearchParams();
 
       if (shelf) {
@@ -47,7 +57,14 @@ export function myShelfQueryOptions(shelf?: ReaderShelf | null, options?: { enab
 
       const query = params.toString();
 
-      return fetchJson<ReaderShelfResponse>(`/me/library/shelf${query ? `?${query}` : ""}`);
+      const response = await fetchJson<BackendReaderShelfResponse>(`/me/library/shelf${query ? `?${query}` : ""}`);
+
+      return {
+        items: response.items.map((entry) => ({
+          ...entry,
+          story: mapStoryListItem(entry.story),
+        })),
+      } satisfies ReaderShelfResponse;
     },
     enabled: options?.enabled ?? true,
   });

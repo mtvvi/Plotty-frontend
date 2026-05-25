@@ -56,6 +56,7 @@ export { profileAvatarPlaceholderSrc } from "./profile-avatar-placeholder";
 const profileWorksPageSize = 8;
 const profileWorksSearchPageSize = 100;
 const profileWorksSearchDebounceMs = 250;
+const profileBioMaxLength = 500;
 const defaultProfileWorksSort: StoriesSort = "updated-desc";
 const profileWorksSortOptions: Array<{ value: StoriesSort; label: string }> = [
   { value: "updated-desc", label: "Сначала новые" },
@@ -302,6 +303,12 @@ export function PublicProfileScreen({ username }: { username: string }) {
       ? "—"
       : collections.length;
   const clientUsernameError = usernameValidationMessage(usernameDraft);
+  const clientBioError =
+    bioDraft.length > profileBioMaxLength
+      ? `Описание не должно быть длиннее ${profileBioMaxLength} символов.`
+      : null;
+  const activeInlineFieldError =
+    editingField === "username" ? clientUsernameError : editingField === "bio" ? clientBioError : null;
   const serverError = updateProfileMutation.error
     ? toUserFacingErrorMessage(updateProfileMutation.error, "Не удалось обновить профиль")
     : null;
@@ -342,6 +349,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
     }
 
     if (field === "username" && clientUsernameError) {
+      return;
+    }
+
+    if (field === "bio" && clientBioError) {
       return;
     }
 
@@ -450,7 +461,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 data-gsap-intro="profile-hero"
                 className="h-full p-0 lg:min-h-80"
               >
-                <div className="flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid lg:min-h-80 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-0">
+                <div className="plotty-profile-hero-grid flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid lg:min-h-80 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-0">
                   {isOwnProfile ? (
                     <>
                       <input
@@ -462,7 +473,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         disabled={avatarMutation.isPending}
                         onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
                       />
-                      <div data-gsap-intro-item="profile-hero" className="grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:aspect-square lg:h-full lg:min-h-full lg:w-auto lg:self-stretch">
+                      <div data-gsap-intro-item="profile-hero" className="plotty-profile-hero-avatar-frame grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:aspect-square lg:h-full lg:min-h-full lg:w-auto lg:self-stretch">
                         <button
                           type="button"
                           className="group relative h-full w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:aspect-square lg:min-h-full lg:w-auto lg:rounded-none lg:hover:translate-y-0"
@@ -485,7 +496,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       </div>
                     </>
                   ) : (
-                    <div data-gsap-intro-item="profile-hero">
+                    <div data-gsap-intro-item="profile-hero" className="plotty-profile-hero-avatar-frame">
                       <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="hero" />
                     </div>
                   )}
@@ -500,6 +511,8 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       isSaving={updateProfileMutation.isPending}
                       placeholder="Новый ник"
                       variant="title"
+                      characterLimit={40}
+                      error={editingField === "username" ? clientUsernameError : null}
                       onDraftChange={setUsernameDraft}
                       onKeyDown={(event) => handleInlineFieldKeyDown(event, "username")}
                       onSave={() => saveInlineEdit("username")}
@@ -517,13 +530,14 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       multiline
                       placeholder="Описание профиля"
                       variant="body"
+                      characterLimit={profileBioMaxLength}
+                      error={editingField === "bio" ? clientBioError : null}
                       onDraftChange={setBioDraft}
                       onKeyDown={(event) => handleInlineFieldKeyDown(event, "bio")}
                       onSave={() => saveInlineEdit("bio")}
                       onStartEdit={() => handleStartInlineEdit("bio")}
                     />
-                    {editingField === "username" && clientUsernameError ? <FieldError>{clientUsernameError}</FieldError> : null}
-                    {!clientUsernameError && serverError ? <FieldError>{serverError}</FieldError> : null}
+                    {!activeInlineFieldError && serverError ? <FieldError>{serverError}</FieldError> : null}
                     {avatarError ? <FieldError>{avatarError}</FieldError> : null}
                   </div>
                   {isOwnProfile ? (
@@ -737,7 +751,7 @@ export function ProfileAvatar({
 }) {
   const className =
     size === "hero"
-      ? "aspect-square w-full text-4xl sm:h-full sm:min-h-40 lg:h-full lg:w-auto lg:min-h-80 lg:text-5xl"
+      ? "plotty-profile-hero-avatar aspect-square w-full text-4xl sm:h-full sm:min-h-40 lg:h-full lg:w-auto lg:min-h-80 lg:text-5xl"
       : size === "large"
         ? "size-28 text-4xl sm:size-36 lg:size-40"
         : "size-12 text-base";
@@ -759,8 +773,10 @@ export function ProfileAvatar({
 }
 
 function ProfileInlineTextField({
+  characterLimit,
   draftValue,
   editable,
+  error,
   fallback,
   field,
   isEditing,
@@ -775,8 +791,10 @@ function ProfileInlineTextField({
   value,
   variant,
 }: {
+  characterLimit?: number;
   draftValue: string;
   editable: boolean;
+  error?: string | null;
   fallback?: string;
   field: ProfileInlineField;
   isEditing: boolean;
@@ -795,6 +813,10 @@ function ProfileInlineTextField({
   const displayText = value.trim() || fallback || "";
   const editLabel = field === "username" ? "Редактировать ник" : "Редактировать описание";
   const iconLabel = field === "username" ? "Изменить ник" : "Изменить описание";
+  const counterId = characterLimit ? `${fieldId}-counter` : undefined;
+  const errorId = error ? `${fieldId}-error` : undefined;
+  const describedBy = [errorId, counterId].filter(Boolean).join(" ") || undefined;
+  const isOverLimit = Boolean(characterLimit && draftValue.length > characterLimit);
   const labelClassName = cn(
     "flex items-center gap-1.5",
     variant === "title" ? "mb-0.5" : "mb-1",
@@ -806,7 +828,7 @@ function ProfileInlineTextField({
     }
 
     return value.trim() ? (
-      <p className="plotty-body max-w-3xl text-[var(--plotty-muted)]">{displayText}</p>
+      <p className="plotty-profile-bio-text plotty-body max-w-3xl text-[var(--plotty-muted)]">{displayText}</p>
     ) : (
       <p className="plotty-meta">{displayText}</p>
     );
@@ -836,12 +858,13 @@ function ProfileInlineTextField({
           <Textarea
             id={fieldId}
             aria-label={label}
+            aria-describedby={describedBy}
+            aria-invalid={Boolean(error)}
             autoFocus
             value={draftValue}
             placeholder={placeholder}
             disabled={isSaving}
             className="h-24 min-h-24 max-h-24 max-w-3xl resize-none overflow-auto animate-in fade-in-0 zoom-in-95 duration-200"
-            maxLength={5000}
             onBlur={onSave}
             onChange={(event) => onDraftChange(event.target.value)}
             onKeyDown={onKeyDown}
@@ -850,6 +873,8 @@ function ProfileInlineTextField({
           <Input
             id={fieldId}
             aria-label={label}
+            aria-describedby={describedBy}
+            aria-invalid={Boolean(error)}
             autoFocus
             value={draftValue}
             placeholder={placeholder}
@@ -860,39 +885,62 @@ function ProfileInlineTextField({
             onKeyDown={onKeyDown}
           />
         )
-      ) : variant === "title" ? (
-        <div className="group relative -mx-2 inline-block max-w-full rounded-[var(--plotty-radius-sm)] transition-[background-color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-[var(--plotty-accent-wash)]">
-          <h1 className="plotty-page-title px-2 py-0.5">{displayText}</h1>
-          <button
-            type="button"
-            className="absolute inset-0 rounded-[var(--plotty-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
-            onClick={onStartEdit}
-            disabled={isSaving}
-            aria-label={editLabel}
-          >
-            <span className="sr-only">{editLabel}</span>
-          </button>
-        </div>
-      ) : (
-        <div
-          className={cn(
-            "group relative -mx-2 max-w-3xl rounded-[var(--plotty-radius-sm)] transition-[background-color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-[var(--plotty-accent-wash)]",
+      ) : null}
+      {isEditing && (characterLimit || error) ? (
+        <div className="mt-2 flex min-h-5 flex-wrap items-start justify-between gap-2">
+          {error ? (
+            <FieldError id={errorId} className="min-w-0 flex-1">
+              {error}
+            </FieldError>
+          ) : (
+            <span aria-hidden="true" />
           )}
-        >
-          <p className={cn("px-2 py-1", value.trim() ? "plotty-body text-[var(--plotty-muted)]" : "plotty-meta")}>
-            {displayText}
-          </p>
-          <button
-            type="button"
-            className="absolute inset-0 rounded-[var(--plotty-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
-            onClick={onStartEdit}
-            disabled={isSaving}
-            aria-label={editLabel}
-          >
-            <span className="sr-only">{editLabel}</span>
-          </button>
+          {characterLimit ? (
+            <p
+              id={counterId}
+              className={cn("plotty-meta shrink-0 text-xs", isOverLimit && "font-semibold text-[var(--plotty-accent)]")}
+              aria-live="polite"
+            >
+              {draftValue.length}/{characterLimit}
+            </p>
+          ) : null}
         </div>
-      )}
+      ) : null}
+      {!isEditing ? (
+        variant === "title" ? (
+          <div className="group relative -mx-2 inline-block max-w-full rounded-[var(--plotty-radius-sm)] transition-[background-color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-[var(--plotty-accent-wash)]">
+            <h1 className="plotty-page-title px-2 py-0.5">{displayText}</h1>
+            <button
+              type="button"
+              className="absolute inset-0 rounded-[var(--plotty-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+              onClick={onStartEdit}
+              disabled={isSaving}
+              aria-label={editLabel}
+            >
+              <span className="sr-only">{editLabel}</span>
+            </button>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "group relative -mx-2 max-w-3xl rounded-[var(--plotty-radius-sm)] transition-[background-color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-[var(--plotty-accent-wash)]",
+            )}
+          >
+            <p className={cn("plotty-profile-bio-text px-2 py-1", value.trim() ? "plotty-body text-[var(--plotty-muted)]" : "plotty-meta")}>
+              {displayText}
+            </p>
+            <button
+              type="button"
+              className="absolute inset-0 rounded-[var(--plotty-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+              onClick={onStartEdit}
+              disabled={isSaving}
+              aria-label={editLabel}
+            >
+              <span className="sr-only">{editLabel}</span>
+            </button>
+          </div>
+        )
+      ) : null}
     </div>
   );
 }
