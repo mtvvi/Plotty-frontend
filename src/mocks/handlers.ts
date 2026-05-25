@@ -53,7 +53,11 @@ import {
   removeStoryFromUserCollection,
   addChapterCommentRecord,
   addStoryToUserCollection,
+  approveSuggestedFandom,
+  createSuggestedFandom,
   setReaderShelf,
+  listPendingSuggestedFandoms,
+  rejectSuggestedFandom,
   unlikeStoryRecord,
   publishChapterRecord,
   updateChapterRecord,
@@ -236,6 +240,86 @@ export const handlers = [
 
   http.get("*/tags", () => {
     return HttpResponse.json(listTags());
+  }),
+
+  http.post("*/fandoms/suggest", async ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as { name?: string; description?: string };
+    const result = createSuggestedFandom(
+      {
+        name: payload.name ?? "",
+        description: payload.description ?? "",
+      },
+      session.user.id,
+    );
+
+    if ("error" in result) {
+      return HttpResponse.json(
+        { error: result.error === "exists" ? "fandom already exists" : "invalid input" },
+        { status: result.error === "exists" ? 409 : 400 },
+      );
+    }
+
+    return HttpResponse.json(result, { status: 201 });
+  }),
+
+  http.get("*/admin/fandoms/pending", () => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    if (!session.user.isAdmin) {
+      return HttpResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    return HttpResponse.json(listPendingSuggestedFandoms());
+  }),
+
+  http.post("*/admin/fandoms/:fandomId/approve", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    if (!session.user.isAdmin) {
+      return HttpResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    const result = approveSuggestedFandom(String(params.fandomId));
+
+    if (!result) {
+      return HttpResponse.json({ message: "Fandom not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(result);
+  }),
+
+  http.post("*/admin/fandoms/:fandomId/reject", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    if (!session.user.isAdmin) {
+      return HttpResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    const result = rejectSuggestedFandom(String(params.fandomId));
+
+    if (!result) {
+      return HttpResponse.json({ message: "Fandom not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(result);
   }),
 
   http.get("*/stories", ({ request }) => {

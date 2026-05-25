@@ -15,6 +15,7 @@ export const routes = {
   },
   write: "/write",
   writeNew: "/write/new",
+  fandoms: "/fandoms",
   credits: "/credits",
   library: "/library",
   user: (username: string) => `/users/${username}`,

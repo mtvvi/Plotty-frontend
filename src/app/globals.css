@@ -737,7 +737,7 @@ button:active .plotty-chip-motion {
 
 .plotty-async-status-completed {
   border-color: rgba(63, 93, 69, 0.18);
-  background: rgba(220, 230, 216, 0.52);
+  background: var(--plotty-olive-soft);
 }
 
 .plotty-async-status-failed {
@@ -1095,6 +1095,16 @@ button:active .plotty-chip-motion {
 .plotty-scroll-panel::-webkit-scrollbar-thumb:hover {
   background: rgba(112, 102, 91, 0.48);
   background-clip: padding-box;
+}
+
+.plotty-editor-content-textarea {
+  min-height: 26.25rem;
+}
+
+@media (min-width: 1280px) {
+  .plotty-editor-content-textarea {
+    min-height: clamp(40rem, calc(100vh - 18rem), 56rem);
+  }
 }
 
 .plotty-editor-chapter-nav-list {

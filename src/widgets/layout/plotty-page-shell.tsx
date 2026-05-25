@@ -8,6 +8,7 @@ import {
   Library,
   PenLine,
   Search,
+  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -26,12 +27,13 @@ export const plottyPrimaryNavItems = [
   { href: routes.home, label: "Каталог" },
   { href: routes.write, label: "Мастерская" },
   { href: routes.library, label: "Моя полка" },
+  { href: routes.fandoms, label: "Фандомы", adminOnly: true },
 ] as const;
 
 type PrimaryNavItem = (typeof plottyPrimaryNavItems)[number];
 type PrimaryNavHref = PrimaryNavItem["href"];
 type HeaderNavKey = PrimaryNavHref | "profile";
-type BottomNavKey = "catalog" | "library" | "write" | "profile";
+type BottomNavKey = "catalog" | "library" | "write" | "fandoms" | "profile";
 type BottomNavItem = {
   key: BottomNavKey;
   href: string;
@@ -58,6 +60,10 @@ function isPrimaryNavItemActive(pathname: string, href: string) {
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function getVisiblePrimaryNavItems(isAdmin: boolean) {
+  return plottyPrimaryNavItems.filter((item) => !("adminOnly" in item) || !item.adminOnly || isAdmin);
 }
 
 function shouldHandlePrimaryNavClick(event: ReactMouseEvent<HTMLAnchorElement>) {
@@ -392,7 +398,8 @@ function PlottyPageShellFallback({
 }: PlottyPageShellProps) {
   const pathname = usePathname();
   const { user, isAuthenticated } = useAuth();
-  const actualActivePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const visiblePrimaryNavItems = getVisiblePrimaryNavItems(Boolean(user?.isAdmin));
+  const actualActivePrimaryNavHref = visiblePrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
   const { activePrimaryNavHref, handlePrimaryNavClick } = useOptimisticPrimaryNav(
     pathname,
     actualActivePrimaryNavHref,
@@ -436,7 +443,7 @@ function PlottyPageShellFallback({
               </Link>
 
               <nav className="relative hidden shrink-0 items-stretch gap-1 lg:flex" aria-label="Основная навигация">
-                {plottyPrimaryNavItems.map((item) => {
+                {visiblePrimaryNavItems.map((item) => {
                   const isCurrent = isPrimaryNavItemActive(pathname, item.href);
                   const isActive = activePrimaryNavHref === item.href;
 
@@ -521,12 +528,13 @@ function PersistentPlottyHeader({
   showDesktopActions: boolean;
 }) {
   const pathname = usePathname();
-  const actualActivePrimaryNavHref = plottyPrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
+  const { user, isAuthenticated } = useAuth();
+  const visiblePrimaryNavItems = getVisiblePrimaryNavItems(Boolean(user?.isAdmin));
+  const actualActivePrimaryNavHref = visiblePrimaryNavItems.find((item) => isPrimaryNavItemActive(pathname, item.href))?.href ?? null;
   const { activePrimaryNavHref, handlePrimaryNavClick } = useOptimisticPrimaryNav(
     pathname,
     actualActivePrimaryNavHref,
   );
-  const { user, isAuthenticated } = useAuth();
   const profileHref = isAuthenticated && user?.username ? routes.user(user.username) : null;
   const isProfileActive = Boolean(profileHref && (pathname === profileHref || pathname.startsWith(`${profileHref}/`)));
   const activeHeaderNavKey: HeaderNavKey | null =
@@ -551,7 +559,7 @@ function PersistentPlottyHeader({
           </Link>
 
           <nav className="relative hidden shrink-0 items-stretch gap-1 lg:flex" aria-label="Primary navigation">
-            {plottyPrimaryNavItems.map((item) => {
+            {visiblePrimaryNavItems.map((item) => {
               const isCurrent = isPrimaryNavItemActive(pathname, item.href);
               const isActive = activePrimaryNavHref === item.href;
 
@@ -755,14 +763,36 @@ function PlottyBottomNav() {
   const profileHref = isAuthenticated && user?.username ? routes.user(user.username) : routes.auth({ next: currentUrl });
   const libraryHref = isAuthenticated ? routes.library : routes.auth({ next: routes.library });
   const writeHref = isAuthenticated ? routes.write : routes.auth({ next: routes.write });
+  const isAdmin = Boolean(user?.isAdmin);
   const items = useMemo<BottomNavItem[]>(
-    () => [
-      { key: "catalog", href: routes.home, label: "Каталог", icon: BookOpen, active: pathname === routes.home },
-      { key: "library", href: libraryHref, label: "Моя полка", icon: Library, active: pathname.startsWith(routes.library) },
-      { key: "write", href: writeHref, label: "Мастерская", icon: PenLine, active: pathname.startsWith(routes.write) },
-      { key: "profile", href: profileHref, label: "Профиль", icon: UserRound, active: pathname.startsWith("/users/") },
-    ],
-    [libraryHref, pathname, profileHref, writeHref],
+    () => {
+      const navItems: BottomNavItem[] = [
+        { key: "catalog", href: routes.home, label: "Каталог", icon: BookOpen, active: pathname === routes.home },
+        { key: "library", href: libraryHref, label: "Моя полка", icon: Library, active: pathname.startsWith(routes.library) },
+        { key: "write", href: writeHref, label: "Мастерская", icon: PenLine, active: pathname.startsWith(routes.write) },
+      ];
+
+      if (isAdmin) {
+        navItems.push({
+          key: "fandoms",
+          href: routes.fandoms,
+          label: "Фандомы",
+          icon: ShieldCheck,
+          active: pathname.startsWith(routes.fandoms),
+        });
+      }
+
+      navItems.push({
+        key: "profile",
+        href: profileHref,
+        label: "Профиль",
+        icon: UserRound,
+        active: pathname.startsWith("/users/"),
+      });
+
+      return navItems;
+    },
+    [isAdmin, libraryHref, pathname, profileHref, writeHref],
   );
   const actualActiveBottomNavKey = items.find((item) => item.active)?.key ?? null;
   const activeBottomNavKey = pendingBottomNav?.key ?? actualActiveBottomNavKey;
@@ -817,7 +847,7 @@ function PlottyBottomNav() {
       aria-label="Нижняя навигация"
       style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
     >
-      <div ref={bottomNavRef} className="relative grid grid-cols-4 gap-1">
+      <div ref={bottomNavRef} className={cn("relative grid gap-1", items.length === 5 ? "grid-cols-5" : "grid-cols-4")}>
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === activeBottomNavKey;

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 
 import { cn } from "@/shared/lib/utils";
-import { gsap, useGsapFlipList, useGsapPresence } from "@/shared/lib/gsap-motion";
+import { gsap, useGsapFlipList, useGsapPresence, useReducedMotion } from "@/shared/lib/gsap-motion";
 
 export type AsyncJobStatusValue = "idle" | "queued" | "processing" | "completed" | "failed";
 type MotionListItemStyle = CSSProperties & { "--plotty-motion-index": number };
@@ -99,6 +99,97 @@ export function AnimatedTabPanel<TKey extends string>({
   );
 }
 
+export function AnimatedDisclosurePanel({
+  open,
+  children,
+  className,
+}: {
+  open: boolean;
+  children: ReactNode;
+  className?: string;
+}) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const reducedMotion = useReducedMotion();
+  const [shouldRender, setShouldRender] = useState(open);
+
+  useEffect(() => {
+    if (open) {
+      setShouldRender(true);
+    }
+  }, [open]);
+
+  useLayoutEffect(() => {
+    const node = panelRef.current;
+
+    if (!node || !shouldRender) {
+      return;
+    }
+
+    if (reducedMotion || process.env.NODE_ENV === "test") {
+      if (!open) {
+        setShouldRender(false);
+      }
+
+      return;
+    }
+
+    gsap.killTweensOf(node);
+
+    if (open) {
+      const targetHeight = node.scrollHeight;
+      const tween = gsap.fromTo(
+        node,
+        { height: 0, opacity: 0, overflow: "hidden", y: -6 },
+        {
+          clearProps: "height,overflow,opacity,transform",
+          duration: 0.32,
+          ease: "power3.out",
+          height: targetHeight,
+          opacity: 1,
+          y: 0,
+        },
+      );
+
+      return () => {
+        tween.kill();
+      };
+    }
+
+    const startHeight = node.scrollHeight;
+    const tween = gsap.fromTo(
+      node,
+      { height: startHeight, opacity: 1, overflow: "hidden", y: 0 },
+      {
+        duration: 0.24,
+        ease: "power2.inOut",
+        height: 0,
+        opacity: 0,
+        y: -6,
+        onComplete: () => setShouldRender(false),
+      },
+    );
+
+    return () => {
+      tween.kill();
+    };
+  }, [open, reducedMotion, shouldRender]);
+
+  if (!shouldRender) {
+    return null;
+  }
+
+  return (
+    <div
+      ref={panelRef}
+      className={cn("overflow-hidden", className)}
+      aria-hidden={!open}
+      data-gsap-disclosure-panel="true"
+    >
+      {children}
+    </div>
+  );
+}
+
 export function AsyncJobStatus({
   status,
   label,
@@ -169,7 +260,7 @@ export function AsyncJobStatus({
       role={isFailed ? "alert" : "status"}
       aria-live={isFailed ? "assertive" : "polite"}
     >
-      <span className="plotty-async-status-icon" aria-hidden="true" />
+      {isBusy ? <span className="plotty-async-status-icon" aria-hidden="true" /> : null}
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-[var(--plotty-ink)]">{label}</span>
         {description || error ? (

@@ -1,7 +1,5 @@
-import { redirect } from "next/navigation";
-
-import { routes } from "@/shared/config/routes";
+import { FandomsAdminScreen } from "@/widgets/fandoms/fandoms-admin-screen";
 
 export default function FandomsPage() {
-  redirect(routes.home);
+  return <FandomsAdminScreen />;
 }

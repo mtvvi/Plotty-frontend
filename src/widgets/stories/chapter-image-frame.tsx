@@ -33,7 +33,7 @@ export function ChapterImageFrame({ title, imageUrl, enableLightbox = true }: Ch
           </div>
           <div className="plotty-serif text-3xl font-semibold tracking-[-0.03em]">{title}</div>
           <p className="text-sm leading-6 text-[var(--plotty-muted)]">
-            Для этой главы ещё нет готового изображения. Его можно сгенерировать прямо из редактора главы.
+            Для этой главы ещё нет готового изображения.
           </p>
         </div>
       </div>

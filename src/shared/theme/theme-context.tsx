@@ -20,15 +20,23 @@ function isPlottyTheme(value: string | null): value is PlottyTheme {
   return value === "light" || value === "dark";
 }
 
-function getInitialTheme(): PlottyTheme {
+function getStoredTheme(): PlottyTheme | null {
   if (typeof window === "undefined") {
-    return "light";
+    return null;
   }
 
   const storedTheme = window.localStorage.getItem(themeStorageKey);
 
   if (isPlottyTheme(storedTheme)) {
     return storedTheme;
+  }
+
+  return null;
+}
+
+function getPreferredTheme(): PlottyTheme {
+  if (typeof window === "undefined") {
+    return "light";
   }
 
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -44,12 +52,25 @@ function applyTheme(theme: PlottyTheme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<PlottyTheme>(getInitialTheme);
+  const [theme, setTheme] = useState<PlottyTheme>("light");
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
+    const initialTheme = getStoredTheme() ?? getPreferredTheme();
+
+    setTheme(initialTheme);
+    applyTheme(initialTheme);
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
     applyTheme(theme);
     window.localStorage.setItem(themeStorageKey, theme);
-  }, [theme]);
+  }, [hasHydrated, theme]);
 
   const toggleTheme = useCallback(() => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));

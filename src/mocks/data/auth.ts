@@ -20,6 +20,7 @@ function createInitialDb(): MockAuthDb {
         username: "writer",
         password: "password123",
         avatar_url: null,
+        isAdmin: true,
         created_at: "2026-03-01T10:00:00.000Z",
         updated_at: "2026-03-01T10:00:00.000Z",
       },
@@ -107,6 +108,7 @@ export function registerMockUser(payload: RegisterPayload) {
     username: payload.email.split("@")[0],
     password: payload.password,
     avatar_url: null,
+    isAdmin: false,
     created_at: timestamp,
     updated_at: timestamp,
   };

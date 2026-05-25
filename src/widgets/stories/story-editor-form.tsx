@@ -53,7 +53,6 @@ export interface StoryEditorFormProps {
   logicStatusError?: string;
   logicDisabledReason?: string;
   canonCheckResult?: CanonCheckResult;
-  canonStatusLabel?: string;
   canonCheckStatus?: AsyncJobStatusValue;
   canonStatusError?: string;
   canonDisabledReason?: string;
@@ -99,7 +98,6 @@ export function StoryEditorForm({
   logicStatusError,
   logicDisabledReason,
   canonCheckResult,
-  canonStatusLabel,
   canonCheckStatus = "idle",
   canonStatusError,
   canonDisabledReason,
@@ -345,7 +343,7 @@ export function StoryEditorForm({
                   value={values.chapterContent}
                   onChange={(event) => update("chapterContent", event.target.value)}
                   placeholder="Начните писать главу"
-                  className="min-h-[420px] bg-[var(--plotty-surface-strong)]"
+                  className="plotty-editor-content-textarea bg-[var(--plotty-surface-strong)]"
                   activeHighlightId={activeSpellcheckIssueId}
                   activeHighlightScrollKey={highlightScrollKey}
                   highlightRanges={spellcheckHighlights}
@@ -572,19 +570,12 @@ export function StoryEditorForm({
             )}
           </ShellCard>
 
-          <ShellCard
-            title="Канон"
-            description={
-              canonStatusLabel ||
-              "ИИ сверяет текст с каноном и правилами мира."
-            }
-          >
+          <ShellCard title="Канон">
             <AsyncJobStatus
               compact
               status={canonCheckStatus}
-              label={canonCheckStatus === "completed" ? "Проверка канона готова" : "Проверяем канон"}
-              description="Сравниваем сцену с правилами мира и уже опубликованным каноном."
-              error={canonStatusError}
+              label={getCanonStatusLabel(canonCheckStatus)}
+              error={canonStatusError === getCanonStatusLabel(canonCheckStatus) ? undefined : canonStatusError}
               className="mb-3"
             />
             {canonCheckResult ? (
@@ -648,6 +639,18 @@ function CreditCostButton({
       {showCostBadge ? <CreditCostBadge cost={cost} /> : null}
     </span>
   );
+}
+
+function getCanonStatusLabel(status: AsyncJobStatusValue) {
+  if (status === "completed") {
+    return "Готово";
+  }
+
+  if (status === "failed") {
+    return "Не удалось проверить канон";
+  }
+
+  return "Проверяем канон";
 }
 
 function DiffBlock({ title, parts }: { title: string; parts: TextDiffPart[] }) {

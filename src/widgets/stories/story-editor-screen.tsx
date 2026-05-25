@@ -88,6 +88,7 @@ export function StoryEditorScreen({
   const [storedSpellcheckState, setStoredSpellcheckState] = useState<StoredSpellcheckState | null>(null);
   const [spellcheckContentSnapshot, setSpellcheckContentSnapshot] = useState("");
   const [saveStatusMessage, setSaveStatusMessage] = useState("");
+  const [generatedImageUrl, setGeneratedImageUrl] = useState("");
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -111,6 +112,7 @@ export function StoryEditorScreen({
     setDismissedSpellcheckIssueKeys([]);
     setStoredSpellcheckState(null);
     setSpellcheckContentSnapshot("");
+    setGeneratedImageUrl("");
   }, [chapterId]);
 
   useEffect(() => {
@@ -584,19 +586,6 @@ export function StoryEditorScreen({
       ? "Проверяем причинно-следственные связи и внутренние нестыковки..."
       : "";
 
-  const canonStatusLabel = canonCheckError
-    ? canonCheckError
-    : canonCheckJobQuery.data?.status === "failed"
-      ? sanitizeUserFacingMessage(
-          canonCheckJobQuery.data.errorMessage ?? canonCheckJobQuery.data.error,
-          "Проверка канона завершилась с ошибкой.",
-        )
-      : isPreparingCanonCheck
-        ? "Сохраняем черновик перед проверкой канона..."
-        : canonCheckJobQuery.data?.status === "processing" || canonCheckJobQuery.data?.status === "queued"
-          ? "Сверяем текст с каноном и правилами мира..."
-          : "";
-
   const isSpellcheckBusy =
     spellcheckMutation.isPending ||
     spellcheckJobQuery.data?.status === "queued" ||
@@ -644,12 +633,8 @@ export function StoryEditorScreen({
       : undefined;
   const canonStatusError =
     canonCheckError ||
-    (canonCheckJobQuery.data?.status === "failed"
-      ? sanitizeUserFacingMessage(
-          canonCheckJobQuery.data.errorMessage ?? canonCheckJobQuery.data.error,
-          "Проверка канона завершилась с ошибкой.",
-        )
-      : undefined);
+    (canonCheckJobQuery.data?.status === "failed" ? "Не удалось проверить канон" : undefined);
+  const displayImageUrl = generatedImageUrl || chapterQuery.data.imageUrl;
 
   return (
     <PlottyShell
@@ -691,7 +676,6 @@ export function StoryEditorScreen({
         logicStatusError={logicStatusError}
         logicDisabledReason={logicDisabledReason}
         canonCheckResult={canonCheckJobQuery.data?.result}
-        canonStatusLabel={canonStatusLabel}
         canonCheckStatus={canonCheckStatus}
         canonStatusError={canonStatusError}
         canonDisabledReason={canonDisabledReason}
@@ -708,14 +692,17 @@ export function StoryEditorScreen({
               <div className="space-y-3">
                 <div>
                   <div className="plotty-section-title">Иллюстрация главы</div>
-                  <p className="plotty-meta">Сгенерируйте изображение для этой главы.</p>
                 </div>
-                <ChapterImageFrame title={values.chapterTitle || chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl} />
+                <ChapterImageFrame title={values.chapterTitle || chapterQuery.data.title} imageUrl={displayImageUrl} />
                 <GenerateChapterImageButton
                   chapterId={chapterId}
+                  storyId={storyId}
                   chapterTitle={values.chapterTitle || chapterQuery.data.title}
+                  chapterContent={values.chapterContent}
                   storySlug={chapterQuery.data.storySlug ?? ""}
                   storyTitle={chapterQuery.data.storyTitle}
+                  hasImage={Boolean(displayImageUrl)}
+                  onImageGenerated={setGeneratedImageUrl}
                 />
               </div>
             </div>
@@ -1002,7 +989,7 @@ function hashText(text: string) {
 
 function getCanonCheckErrorMessage(error: unknown) {
   if (!isApiError(error)) {
-    return "Не удалось запустить проверку канона. Попробуйте ещё раз.";
+    return "Не удалось проверить канон";
   }
 
   const rawMessage =
@@ -1019,7 +1006,7 @@ function getCanonCheckErrorMessage(error: unknown) {
     return "Маршрут проверки канона не найден на бэке.";
   }
 
-  return sanitizeUserFacingMessage(rawMessage, "Не удалось запустить проверку канона. Попробуйте ещё раз.");
+  return sanitizeUserFacingMessage(rawMessage, "Не удалось проверить канон");
 }
 
 function getCanonCheckDisabledReason(fandomTag?: StoryTag) {
