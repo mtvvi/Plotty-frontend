@@ -2,7 +2,7 @@
 
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Coins, ListFilter, Plus, Search, X } from "lucide-react";
+import { Coins, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -29,7 +29,6 @@ import { FieldError } from "@/shared/ui/field";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Input } from "@/shared/ui/input";
 import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
-import { PopoverContent, usePopover } from "@/shared/ui/popover";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
 import { Textarea } from "@/shared/ui/textarea";
 import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
@@ -58,12 +57,6 @@ const profileWorksSearchPageSize = 100;
 const profileWorksSearchDebounceMs = 250;
 const profileBioMaxLength = 500;
 const defaultProfileWorksSort: StoriesSort = "updated-desc";
-const profileWorksSortOptions: Array<{ value: StoriesSort; label: string }> = [
-  { value: "updated-desc", label: "Сначала новые" },
-  { value: "updated-asc", label: "Сначала старые" },
-  { value: "title-asc", label: "Название А-Я" },
-  { value: "title-desc", label: "Название Я-А" },
-];
 
 function filterProfileWorksByTitle(stories: StoryListItem[], search: string) {
   const normalizedSearch = search.trim().toLocaleLowerCase("ru-RU");
@@ -87,7 +80,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const [editingField, setEditingField] = useState<ProfileInlineField | null>(null);
   const [worksSearchDraft, setWorksSearchDraft] = useState("");
   const [worksSearch, setWorksSearch] = useState("");
-  const [worksSort, setWorksSort] = useState<StoriesSort>(defaultProfileWorksSort);
   const [worksTotalCount, setWorksTotalCount] = useState<number | null>(null);
   const [usernameDraft, setUsernameDraft] = useState("");
   const [bioDraft, setBioDraft] = useState("");
@@ -99,6 +91,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const [avatarOffsetY, setAvatarOffsetY] = useState(0);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const profileHeroRef = useRef<HTMLDivElement | null>(null);
+  const worksLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const deferredWorksSearchDraft = useDeferredValue(worksSearchDraft);
   const hasAppliedWorksSearch = Boolean(worksSearch);
   const worksQueryBase = useMemo<Omit<StoriesQuery, "page">>(
@@ -106,9 +99,9 @@ export function PublicProfileScreen({ username }: { username: string }) {
       tags: [],
       q: "",
       pageSize: hasAppliedWorksSearch ? profileWorksSearchPageSize : profileWorksPageSize,
-      sort: worksSort,
+      sort: defaultProfileWorksSort,
     }),
-    [hasAppliedWorksSearch, worksSort],
+    [hasAppliedWorksSearch],
   );
   const profileQuery = useQuery(publicProfileQueryOptions(normalizedUsername));
   const worksQuery = useInfiniteQuery({
@@ -191,7 +184,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
   useEffect(() => {
     setWorksSearchDraft("");
     setWorksSearch("");
-    setWorksSort(defaultProfileWorksSort);
     setWorksTotalCount(null);
   }, [normalizedUsername]);
 
@@ -228,6 +220,48 @@ export function PublicProfileScreen({ username }: { username: string }) {
 
     void fetchNextWorksPage();
   }, [
+    fetchNextWorksPage,
+    hasAppliedWorksSearch,
+    hasNextWorksPage,
+    isFetchingNextWorksPage,
+    isWorksQueryError,
+    isWorksQueryFetching,
+  ]);
+
+  useEffect(() => {
+    const sentinel = worksLoadMoreRef.current;
+
+    if (
+      !sentinel ||
+      activeTab !== "works" ||
+      hasAppliedWorksSearch ||
+      !hasNextWorksPage ||
+      isWorksQueryFetching ||
+      isFetchingNextWorksPage ||
+      isWorksQueryError ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return;
+        }
+
+        void fetchNextWorksPage();
+      },
+      {
+        rootMargin: "420px 0px",
+      },
+    );
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [
+    activeTab,
     fetchNextWorksPage,
     hasAppliedWorksSearch,
     hasNextWorksPage,
@@ -320,10 +354,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
   function clearWorksSearch() {
     setWorksSearchDraft("");
     setWorksSearch("");
-  }
-
-  function handleWorksSortChange(sort: StoriesSort) {
-    setWorksSort(sort);
   }
 
   function handleStartInlineEdit(field: ProfileInlineField) {
@@ -500,56 +530,60 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="hero" />
                     </div>
                   )}
-                  <div data-gsap-intro-item="profile-hero" className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 lg:self-center lg:px-7 lg:py-7">
-                    <ProfileInlineTextField
-                      field="username"
-                      label="Ник"
-                      value={profile.username}
-                      draftValue={usernameDraft}
-                      editable={isOwnProfile}
-                      isEditing={editingField === "username"}
-                      isSaving={updateProfileMutation.isPending}
-                      placeholder="Новый ник"
-                      variant="title"
-                      characterLimit={40}
-                      error={editingField === "username" ? clientUsernameError : null}
-                      onDraftChange={setUsernameDraft}
-                      onKeyDown={(event) => handleInlineFieldKeyDown(event, "username")}
-                      onSave={() => saveInlineEdit("username")}
-                      onStartEdit={() => handleStartInlineEdit("username")}
-                    />
-                    <ProfileInlineTextField
-                      field="bio"
-                      label="Описание"
-                      value={profile.bio ?? ""}
-                      fallback="Описание профиля пока не заполнено."
-                      draftValue={bioDraft}
-                      editable={isOwnProfile}
-                      isEditing={editingField === "bio"}
-                      isSaving={updateProfileMutation.isPending}
-                      multiline
-                      placeholder="Описание профиля"
-                      variant="body"
-                      characterLimit={profileBioMaxLength}
-                      error={editingField === "bio" ? clientBioError : null}
-                      onDraftChange={setBioDraft}
-                      onKeyDown={(event) => handleInlineFieldKeyDown(event, "bio")}
-                      onSave={() => saveInlineEdit("bio")}
-                      onStartEdit={() => handleStartInlineEdit("bio")}
-                    />
-                    {!activeInlineFieldError && serverError ? <FieldError>{serverError}</FieldError> : null}
-                    {avatarError ? <FieldError>{avatarError}</FieldError> : null}
-                  </div>
-                  {isOwnProfile ? (
-                    <div className="flex shrink-0 flex-wrap gap-2 px-5 pb-5 sm:self-center sm:px-0 sm:pb-0 sm:pr-6 lg:self-center lg:pr-7">
-                      <Button type="button" variant="destructive" onClick={handleLogout} disabled={logoutMutation.isPending}>
-                        <LogoutProfileIcon className="size-5 shrink-0" />
-                        {logoutMutation.isPending ? "Выходим..." : "Выйти"}
-                      </Button>
+                  <div data-gsap-intro-item="profile-hero" className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 lg:grid lg:grid-cols-1 lg:items-start lg:gap-y-3 lg:space-y-0 lg:self-center lg:px-7 lg:py-7">
+                    <div className="min-w-0 lg:col-start-1 lg:row-start-1 lg:pr-24">
+                      <ProfileInlineTextField
+                        field="username"
+                        label="Ник"
+                        value={profile.username}
+                        draftValue={usernameDraft}
+                        editable={isOwnProfile}
+                        isEditing={editingField === "username"}
+                        isSaving={updateProfileMutation.isPending}
+                        placeholder="Новый ник"
+                        variant="title"
+                        characterLimit={40}
+                        error={editingField === "username" ? clientUsernameError : null}
+                        onDraftChange={setUsernameDraft}
+                        onKeyDown={(event) => handleInlineFieldKeyDown(event, "username")}
+                        onSave={() => saveInlineEdit("username")}
+                        onStartEdit={() => handleStartInlineEdit("username")}
+                      />
                     </div>
-                  ) : null}
-                </div>
+                    <div className="min-w-0 space-y-3 lg:col-start-1 lg:row-start-2">
+                      <ProfileInlineTextField
+                        field="bio"
+                        label="Описание"
+                        value={profile.bio ?? ""}
+                        fallback="Описание профиля пока не заполнено."
+                        draftValue={bioDraft}
+                        editable={isOwnProfile}
+                        isEditing={editingField === "bio"}
+                        isSaving={updateProfileMutation.isPending}
+                        multiline
+                        placeholder="Описание профиля"
+                        variant="body"
+                        characterLimit={profileBioMaxLength}
+                        error={editingField === "bio" ? clientBioError : null}
+                        onDraftChange={setBioDraft}
+                        onKeyDown={(event) => handleInlineFieldKeyDown(event, "bio")}
+                        onSave={() => saveInlineEdit("bio")}
+                        onStartEdit={() => handleStartInlineEdit("bio")}
+                      />
+                      {!activeInlineFieldError && serverError ? <FieldError>{serverError}</FieldError> : null}
+                      {avatarError ? <FieldError>{avatarError}</FieldError> : null}
+                    </div>
+                    {isOwnProfile ? (
+                      <div className="flex shrink-0 flex-wrap gap-2 sm:self-start lg:col-start-1 lg:row-start-1 lg:self-center lg:justify-self-end">
+                        <Button type="button" variant="destructive" onClick={handleLogout} disabled={logoutMutation.isPending}>
+                          <LogoutProfileIcon className="size-5 shrink-0" />
+                          {logoutMutation.isPending ? "Выходим..." : "Выйти"}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
               </div>
+            </div>
             </div>
             <div data-gsap-intro-item="profile-hero" className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 lg:border-l lg:border-t-0 lg:p-7">
               <ProfileStat
@@ -596,13 +630,11 @@ export function PublicProfileScreen({ username }: { username: string }) {
           >
             <ProfileWorksToolbar
               searchValue={worksSearchDraft}
-              sort={worksSort}
               total={worksTotal}
               visibleCount={visibleWorksCount}
               isPending={isWorksSearchPending || (worksQuery.isFetching && !worksQuery.isFetchingNextPage)}
               onSearchChange={handleWorksSearchChange}
               onSearchClear={clearWorksSearch}
-              onSortChange={handleWorksSortChange}
             />
             {worksQuery.isLoading || (isWorksSearchCollecting && !stories.length) ? (
               <div className="space-y-3">
@@ -633,21 +665,18 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   )}
                 />
                 {!hasWorksSearch && worksQuery.hasNextPage ? (
-                  <div className="flex flex-col gap-3 border-t border-[var(--plotty-line)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div
+                    ref={worksLoadMoreRef}
+                    className="flex flex-col gap-2 border-t border-[var(--plotty-line)] pt-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <p className="plotty-meta">
                       Показано {visibleWorksCount} из {worksTotal}
                     </p>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => void worksQuery.fetchNextPage()}
-                      disabled={worksQuery.isFetchingNextPage}
-                      isLoading={worksQuery.isFetchingNextPage}
-                      className="sm:min-w-48"
-                    >
-                      <ChevronDown className="size-4" aria-hidden="true" />
-                      Показать ещё {nextWorksCount}
-                    </Button>
+                    <p className="plotty-meta" role="status" aria-live="polite">
+                      {worksQuery.isFetchingNextPage
+                        ? "Загружаем ещё работы..."
+                        : `Прокрутите ниже, чтобы загрузить ещё ${nextWorksCount}`}
+                    </p>
                   </div>
                 ) : null}
               </div>
@@ -1257,18 +1286,14 @@ function ProfileWorksToolbar({
   isPending,
   onSearchChange,
   onSearchClear,
-  onSortChange,
   searchValue,
-  sort,
   total,
   visibleCount,
 }: {
   isPending?: boolean;
   onSearchChange: (value: string) => void;
   onSearchClear: () => void;
-  onSortChange: (sort: StoriesSort) => void;
   searchValue: string;
-  sort: StoriesSort;
   total: number;
   visibleCount: number;
 }) {
@@ -1280,8 +1305,8 @@ function ProfileWorksToolbar({
 
   return (
     <div className="mb-5 grid gap-3 border-b border-[var(--plotty-line)] pb-4">
-      <div className="grid gap-3 lg:grid-cols-3">
-        <label className="grid min-w-0 gap-2 lg:col-span-2">
+      <div className="grid gap-3">
+        <label className="grid min-w-0 gap-2">
           <span className="plotty-label">Поиск по работам</span>
           <div className="relative">
             <Search
@@ -1310,78 +1335,10 @@ function ProfileWorksToolbar({
             ) : null}
           </div>
         </label>
-
-        <div className="grid min-w-0 gap-2">
-          <span className="plotty-label">Сортировка</span>
-          <ProfileWorksSortSelect value={sort} onChange={onSortChange} />
-        </div>
       </div>
       <p className="plotty-meta min-h-5" role="status" aria-live="polite">
         {statusText}
       </p>
-    </div>
-  );
-}
-
-function ProfileWorksSortSelect({
-  onChange,
-  value,
-}: {
-  onChange: (sort: StoriesSort) => void;
-  value: StoriesSort;
-}) {
-  const popover = usePopover({ minWidth: 220 });
-  const selectedOption = profileWorksSortOptions.find((option) => option.value === value) ?? profileWorksSortOptions[0];
-
-  return (
-    <div ref={popover.triggerRef} className="relative">
-      <Button
-        type="button"
-        variant="secondary"
-        fullWidth
-        aria-label="Сортировка работ автора"
-        aria-haspopup="listbox"
-        aria-expanded={popover.open}
-        onClick={popover.toggle}
-        className="justify-between px-3 text-left"
-      >
-        <span className="inline-flex min-w-0 items-center gap-2">
-          <ListFilter className="size-4 shrink-0 text-[var(--plotty-muted)]" aria-hidden="true" />
-          <span className="min-w-0 truncate">{selectedOption.label}</span>
-        </span>
-        <ChevronDown
-          className={cn("size-4 shrink-0 text-[var(--plotty-muted)] transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")}
-          aria-hidden="true"
-        />
-      </Button>
-
-      <PopoverContent
-        open={popover.open}
-        contentRef={popover.contentRef}
-        position={popover.position}
-        role="listbox"
-        aria-label="Сортировка работ автора"
-        className="rounded-[var(--plotty-radius-md)] p-2"
-      >
-        {profileWorksSortOptions.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="option"
-            aria-selected={option.value === value}
-            onClick={() => {
-              onChange(option.value);
-              popover.close();
-            }}
-            className={cn(
-              "plotty-popover-item flex w-full items-center rounded-[10px] px-3 py-2 text-left text-sm transition-colors",
-              option.value === value ? "bg-white text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </PopoverContent>
     </div>
   );
 }

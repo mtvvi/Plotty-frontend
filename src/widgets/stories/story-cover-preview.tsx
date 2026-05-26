@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 import { isUnoptimizedImageUrl, sanitizeImageUrl } from "@/shared/lib/safe-url";
@@ -34,15 +34,48 @@ export function StoryCoverPreview({
   sizes?: string;
 }) {
   const safeImageUrl = sanitizeImageUrl(imageUrl);
+  const coverImageRef = useRef<HTMLImageElement | null>(null);
   const [hasImageError, setHasImageError] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(Boolean(safeImageUrl));
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const fallbackAspectRatio = "1 / 1";
 
+  const syncLoadedImageState = useCallback(() => {
+    const image = coverImageRef.current;
+
+    if (!image?.complete) {
+      return false;
+    }
+
+    setIsImageLoading(false);
+
+    if (image.naturalWidth === 0) {
+      setHasImageError(true);
+    }
+
+    return true;
+  }, []);
+
   useEffect(() => {
     setHasImageError(false);
-    setIsImageLoading(Boolean(safeImageUrl));
-  }, [safeImageUrl]);
+
+    if (!safeImageUrl) {
+      setIsImageLoading(false);
+      return;
+    }
+
+    if (syncLoadedImageState()) {
+      return;
+    }
+
+    setIsImageLoading(true);
+
+    const frameId = window.requestAnimationFrame(() => {
+      syncLoadedImageState();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [safeImageUrl, syncLoadedImageState]);
 
   const hasCover = Boolean(safeImageUrl && !hasImageError);
   const coverStyle = hasCover && !fullHeight ? { aspectRatio: fallbackAspectRatio } : undefined;
@@ -68,6 +101,7 @@ export function StoryCoverPreview({
             onClick={() => setIsLightboxOpen(true)}
           >
             <Image
+              ref={coverImageRef}
               src={safeImageUrl ?? ""}
               alt={`Обложка истории «${title}»`}
               fill
@@ -90,6 +124,7 @@ export function StoryCoverPreview({
             style={coverStyle}
           >
             <Image
+              ref={coverImageRef}
               src={safeImageUrl ?? ""}
               alt={`Обложка истории «${title}»`}
               fill
