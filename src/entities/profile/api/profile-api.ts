@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import { fetchJson } from "@/shared/api/fetch-json";
+import { encodePathSegment } from "@/shared/lib/safe-url";
 
 import { mapStoryListItem, type BackendStoriesResponse, type BackendStoryListItem } from "@/entities/story/api/story-mappers";
 import type { StoriesQuery, StoriesResponse } from "@/entities/story/model/types";
@@ -42,7 +43,7 @@ export function publicProfileQueryOptions(username: string) {
   return queryOptions({
     queryKey: profileKeys.public(username),
     queryFn: async (): Promise<PublicUserProfile> => {
-      const response = await fetchJson<PublicProfileResponse>(`/users/${encodeURIComponent(normalizeUsername(username))}`);
+      const response = await fetchJson<PublicProfileResponse>(`/users/${encodePathSegment(normalizeUsername(username))}`);
 
       return response.profile;
     },
@@ -76,7 +77,7 @@ export async function fetchPublicUserStories(
 ): Promise<StoriesResponse> {
   const params = serializeUserStoriesQuery(query);
   const response = await fetchJson<BackendStoriesResponse>(
-    `/users/${encodeURIComponent(normalizeUsername(username))}/stories?${params.toString()}`,
+    `/users/${encodePathSegment(normalizeUsername(username))}/stories?${params.toString()}`,
     { signal },
   );
 
@@ -102,7 +103,7 @@ export function publicUserCollectionsQueryOptions(username: string) {
   return queryOptions({
     queryKey: profileKeys.collections(username),
     queryFn: async (): Promise<UserCollectionsResponse> =>
-      fetchJson<UserCollectionsResponse>(`/users/${encodeURIComponent(normalizeUsername(username))}/collections`),
+      fetchJson<UserCollectionsResponse>(`/users/${encodePathSegment(normalizeUsername(username))}/collections`),
     enabled: Boolean(normalizeUsername(username)),
   });
 }
@@ -112,7 +113,7 @@ export function publicUserCollectionQueryOptions(username: string, collectionId:
     queryKey: profileKeys.collection(username, collectionId),
     queryFn: async (): Promise<UserCollectionDetail> => {
       const response = await fetchJson<BackendCollectionResponse>(
-        `/users/${encodeURIComponent(normalizeUsername(username))}/collections/${collectionId}`,
+        `/users/${encodePathSegment(normalizeUsername(username))}/collections/${encodePathSegment(collectionId)}`,
       );
 
       return {

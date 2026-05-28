@@ -18,7 +18,7 @@ import {
 import { fetchMyStories } from "@/entities/story/api/stories-api";
 import type { StoriesQuery, StoriesResponse, StoriesSort, StoryListItem } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
-import { sanitizeImageUrl } from "@/shared/lib/safe-url";
+import { sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 import { cn } from "@/shared/lib/utils";
 import { usernameValidationMessage } from "@/shared/lib/username";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
@@ -74,7 +74,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const normalizedUsername = username.trim();
-  const isOwnProfile = Boolean(user?.username && user.username.toLowerCase() === normalizedUsername.toLowerCase());
   const initialTab = getInitialTab(searchParams.get("tab"));
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [editingField, setEditingField] = useState<ProfileInlineField | null>(null);
@@ -104,6 +103,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
     [hasAppliedWorksSearch],
   );
   const profileQuery = useQuery(publicProfileQueryOptions(normalizedUsername));
+  const isOwnProfile = Boolean(user?.id && profileQuery.data?.id === user.id);
   const worksQuery = useInfiniteQuery({
     queryKey: [
       "profile-works",
@@ -785,14 +785,15 @@ export function ProfileAvatar({
         ? "size-28 text-4xl sm:size-36 lg:size-40"
         : "size-12 text-base";
   const radiusClassName = size === "hero" ? "rounded-none sm:rounded-[var(--plotty-radius-md)] lg:rounded-none" : "rounded-[var(--plotty-radius-md)]";
-  const imageSrc = sanitizeImageUrl(avatarUrl) ?? profileAvatarPlaceholderSrc;
+  const imageSrc = sanitizePersistedImageUrl(avatarUrl) ?? profileAvatarPlaceholderSrc;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={imageSrc}
-      alt={`Аватар ${username}`}
-      className={cn(
+      <img
+        src={imageSrc}
+        alt={`Аватар ${username}`}
+        referrerPolicy="no-referrer"
+        className={cn(
         className,
         radiusClassName,
         "shrink-0 border border-[rgba(41,38,34,0.08)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(58,43,27,0.12)] lg:hover:scale-100",

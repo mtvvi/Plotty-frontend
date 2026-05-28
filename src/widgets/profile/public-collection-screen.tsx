@@ -104,7 +104,7 @@ export function PublicCollectionScreen({
   }
 
   const collection = collectionQuery.data;
-  const isOwner = Boolean(user?.username && user.username.toLowerCase() === username.trim().toLowerCase());
+  const isOwner = Boolean(user?.id && collection.userId === user.id);
 
   function handleStartEdit() {
     setTitleDraft(collection.title);

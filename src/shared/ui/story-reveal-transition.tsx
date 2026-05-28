@@ -148,7 +148,7 @@ function StoryRevealOverlay({ reveal }: { reveal: RevealRequest }) {
       <div className="plotty-story-reveal-book" data-gsap-intro-item="story-reveal">
         <div className="plotty-story-reveal-cover">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {safeCoverUrl ? <img src={safeCoverUrl} alt="" /> : null}
+          {safeCoverUrl ? <img src={safeCoverUrl} alt="" referrerPolicy="no-referrer" /> : null}
           <div className="plotty-story-reveal-cover-vignette" />
           {reveal.title ? <div className="plotty-story-reveal-cover-title">{reveal.title}</div> : null}
         </div>

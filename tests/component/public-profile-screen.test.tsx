@@ -154,4 +154,28 @@ describe("PublicProfileScreen", () => {
     expect(screen.queryByText("AI-кредиты")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /пополнить баланс/i })).not.toBeInTheDocument();
   });
+
+  it("does not treat a profile as own when only the route username matches", async () => {
+    currentSearchParams = new URLSearchParams();
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    server.use(
+      http.get("*/users/:username", () =>
+        HttpResponse.json({
+          profile: {
+            id: 999,
+            username: "writer",
+            avatarUrl: null,
+            bio: "Профиль с совпадающим ником, но другим id.",
+          },
+        }),
+      ),
+    );
+
+    renderPublicProfile("writer");
+
+    await screen.findByRole("heading", { name: "writer" });
+    expect(screen.queryByRole("button", { name: "Загрузить аватар" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Выйти" })).not.toBeInTheDocument();
+    expect(screen.queryByText("AI-кредиты")).not.toBeInTheDocument();
+  });
 });

@@ -79,6 +79,20 @@ describe("story query helpers", () => {
     });
   });
 
+  it("caps user-controlled catalog query size", () => {
+    const params = new URLSearchParams([
+      ...Array.from({ length: 30 }, (_, index) => ["tag", `tag-${index}`] as const),
+      ["q", "x".repeat(500)],
+      ["pageSize", "10000"],
+    ]);
+
+    const query = parseStoriesQuery(params);
+
+    expect(query.tags).toHaveLength(12);
+    expect(query.q).toHaveLength(120);
+    expect(query.pageSize).toBe(50);
+  });
+
   it("serializes normalized tag filters", () => {
     const params = serializeStoriesQuery({
       ...defaultStoriesQuery,

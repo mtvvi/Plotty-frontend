@@ -56,7 +56,7 @@ export class ApiError extends Error {
 
 export function resolveApiInput(input: string, directApiUrl = getConfiguredDirectApiUrl()) {
   if (/^https?:\/\//.test(input)) {
-    return input;
+    throw new Error("Absolute API URLs are not allowed");
   }
 
   const path = input.startsWith("/") ? input : `/${input}`;

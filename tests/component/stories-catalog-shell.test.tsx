@@ -1,6 +1,6 @@
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -336,7 +336,6 @@ describe("StoriesCatalogShell", () => {
   });
 
   it("fades desktop filters out before collapsing the catalog rail", async () => {
-    const user = userEvent.setup();
     renderCatalogShell();
 
     const layout = document.querySelector(".plotty-catalog-layout");
@@ -344,14 +343,14 @@ describe("StoriesCatalogShell", () => {
     expect(layout).not.toBeNull();
     expect(layout).toHaveAttribute("data-filters-state", "expanded");
 
-    await user.click(screen.getByRole("button", { name: "Скрыть фильтры" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скрыть фильтры" }));
 
     expect(layout).toHaveAttribute("data-filters-state", "collapsing");
     expect(screen.getByRole("button", { name: "Показать фильтры" })).toHaveAttribute("aria-pressed", "true");
 
     await waitFor(() => expect(layout).toHaveAttribute("data-filters-state", "collapsed"), { timeout: 500 });
 
-    await user.click(screen.getByRole("button", { name: "Показать фильтры" }));
+    fireEvent.click(screen.getByRole("button", { name: "Показать фильтры" }));
 
     expect(layout).toHaveAttribute("data-filters-state", "expanded");
   });

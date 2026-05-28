@@ -72,4 +72,29 @@ describe("ChapterReaderScreen", () => {
       "border-[var(--plotty-line)]",
     );
   });
+
+  it("does not render unsafe comment avatar URLs", async () => {
+    server.use(
+      http.get("*/chapters/:chapterId/comments", () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "unsafe-avatar-comment",
+              chapterId: "chapter-1",
+              userId: 404,
+              username: "unsafe_avatar",
+              avatarUrl: "javascript:alert(1)",
+              content: "Комментарий с небезопасным аватаром.",
+              createdAt: "2026-05-01T10:00:00.000Z",
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderChapterReader();
+
+    expect(await screen.findByText("unsafe_avatar")).toBeInTheDocument();
+    expect(screen.queryByAltText("Аватар unsafe_avatar")).not.toBeInTheDocument();
+  });
 });

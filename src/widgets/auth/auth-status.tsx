@@ -8,7 +8,7 @@ import { logout } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
-import { sanitizeImageUrl } from "@/shared/lib/safe-url";
+import { sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { profileAvatarPlaceholderSrc } from "@/widgets/profile/profile-avatar-placeholder";
 
@@ -29,11 +29,19 @@ function AccountAvatar({
   avatarUrl?: string | null;
   className?: string;
 }) {
-  const imageSrc = sanitizeImageUrl(avatarUrl) ?? profileAvatarPlaceholderSrc;
+  const imageSrc = sanitizePersistedImageUrl(avatarUrl) ?? profileAvatarPlaceholderSrc;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={imageSrc} alt={`Аватар ${username}`} className={cn("shrink-0 rounded-[var(--plotty-radius-md)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]", className)} />
+    <img
+      src={imageSrc}
+      alt={`Аватар ${username}`}
+      referrerPolicy="no-referrer"
+      className={cn(
+        "shrink-0 rounded-[var(--plotty-radius-md)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]",
+        className,
+      )}
+    />
   );
 }
 

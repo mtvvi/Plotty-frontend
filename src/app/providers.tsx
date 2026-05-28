@@ -11,6 +11,16 @@ import { StoryRevealProvider } from "@/shared/ui/story-reveal-transition";
 
 let browserMocksPromise: Promise<void> | null = null;
 
+export function shouldInitializeBrowserMocks({
+  apiMocking = process.env.NEXT_PUBLIC_API_MOCKING,
+  nodeEnv = process.env.NODE_ENV,
+}: {
+  apiMocking?: string;
+  nodeEnv?: string;
+} = {}) {
+  return apiMocking === "enabled" && nodeEnv !== "production";
+}
+
 function ensureMocks() {
   if (!browserMocksPromise) {
     browserMocksPromise = initializeMocks();
@@ -32,10 +42,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
         },
       }),
   );
-  const [isReady, setIsReady] = useState(process.env.NEXT_PUBLIC_API_MOCKING !== "enabled");
+  const [isReady, setIsReady] = useState(!shouldInitializeBrowserMocks());
 
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_API_MOCKING !== "enabled") {
+    if (!shouldInitializeBrowserMocks()) {
       setIsReady(true);
       return;
     }

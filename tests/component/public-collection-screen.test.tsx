@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/entities/auth/model/auth-context";
 import { loginMockUser } from "@/mocks/data/auth";
+import { server } from "@/mocks/server";
 import { PublicCollectionScreen } from "@/widgets/profile/public-collection-screen";
 
 const push = vi.fn();
@@ -71,5 +73,30 @@ describe("PublicCollectionScreen", () => {
     await user.click(await screen.findByRole("button", { name: "Изменить" }));
 
     expect(document.querySelector("[data-gsap-presence='collection-edit']")).not.toBeNull();
+  });
+
+  it("hides owner controls when the returned collection belongs to another user id", async () => {
+    server.use(
+      http.get("*/users/:username/collections/:collectionId", () =>
+        HttpResponse.json({
+          collection: {
+            id: "collection-1",
+            userId: 999,
+            title: "Чужая подборка",
+            description: null,
+            createdAt: "2026-05-01T10:00:00.000Z",
+            updatedAt: "2026-05-01T10:00:00.000Z",
+            stories: [],
+          },
+        }),
+      ),
+    );
+
+    renderPublicCollection();
+
+    expect(await screen.findByRole("heading", { name: "Чужая подборка" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Изменить" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Удалить" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Убрать из подборки" })).not.toBeInTheDocument();
   });
 });
