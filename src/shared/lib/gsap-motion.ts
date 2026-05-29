@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 import { Draggable } from "gsap/Draggable";
 import { Flip } from "gsap/Flip";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
+
+import { getPrefersReducedMotion, useReducedMotion } from "./motion-preferences";
 
 type GsapTarget = gsap.TweenTarget;
 type GsapTimeline = gsap.core.Timeline;
@@ -17,6 +19,7 @@ const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : us
 const isTestEnvironment = process.env.NODE_ENV === "test";
 
 export { Draggable, Flip, ScrollTrigger, SplitText, gsap, useGSAP };
+export { getPrefersReducedMotion, useReducedMotion };
 
 export function registerPlottyGsapPlugins() {
   if (pluginsRegistered) {
@@ -59,34 +62,6 @@ export function getGsapMotionPlugins() {
     scrollTrigger: Boolean(ScrollTrigger),
     splitText: Boolean(SplitText),
   };
-}
-
-export function getPrefersReducedMotion() {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-    return false;
-  }
-
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-export function useReducedMotion() {
-  const [reducedMotion, setReducedMotion] = useState(getPrefersReducedMotion);
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") {
-      return;
-    }
-
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = (event?: MediaQueryListEvent) => setReducedMotion(event?.matches ?? query.matches);
-
-    update();
-    query.addEventListener("change", update);
-
-    return () => query.removeEventListener("change", update);
-  }, []);
-
-  return reducedMotion;
 }
 
 export function animateGsapPresence(target: GsapTarget, options?: { y?: number; duration?: number; delay?: number }) {

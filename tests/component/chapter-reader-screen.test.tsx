@@ -31,7 +31,7 @@ describe("ChapterReaderScreen", () => {
 
     await waitFor(() => expect(screen.getByText("Комментарии к главе")).toBeInTheDocument());
 
-    expect(document.querySelector("[data-gsap-reader-progress='true']")).not.toBeNull();
+    expect(document.querySelector("[data-reader-progress='true']")).not.toBeNull();
     expect(screen.getByText(/Очень хорошо держится ритм/i)).toHaveClass("break-words", "whitespace-pre-wrap");
   });
 

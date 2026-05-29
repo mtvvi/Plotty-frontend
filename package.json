@@ -12,7 +12,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "perf:catalog": "node scripts/perf-catalog.mjs",
+    "perf:pages": "node scripts/perf-pages.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

@@ -1,7 +1,8 @@
 import { renderHook, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getGsapMotionPlugins, registerPlottyGsapPlugins, useReducedMotion } from "@/shared/lib/gsap-motion";
+import { getGsapMotionPlugins, registerPlottyGsapPlugins } from "@/shared/lib/gsap-motion";
+import { useReducedMotion } from "@/shared/lib/motion-preferences";
 
 function installMatchMedia(matches: boolean) {
   let listener: ((event: MediaQueryListEvent) => void) | null = null;

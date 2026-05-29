@@ -16,8 +16,8 @@ import {
 import Link, { type LinkProps } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { useReducedMotion } from "@/shared/lib/motion-preferences";
 import { sanitizeImageUrl } from "@/shared/lib/safe-url";
-import { useGsapIntro } from "@/shared/lib/gsap-motion";
 import { buttonClassName, type ButtonSize, type ButtonVariant } from "@/shared/ui/button";
 
 type RevealRequest = {
@@ -35,30 +35,10 @@ const revealDurationMs = 760;
 const revealCleanupDelayMs = revealDurationMs + 180;
 const revealFallbackCleanupDelayMs = 6_000;
 
-function usePrefersReducedMotion() {
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") {
-      return;
-    }
-
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReducedMotion(query.matches);
-
-    update();
-    query.addEventListener("change", update);
-
-    return () => query.removeEventListener("change", update);
-  }, []);
-
-  return reducedMotion;
-}
-
 export function StoryRevealProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const reducedMotion = usePrefersReducedMotion();
+  const reducedMotion = useReducedMotion();
   const [activeReveal, setActiveReveal] = useState<RevealRequest | null>(null);
   const [revealTargetPathname, setRevealTargetPathname] = useState<string | null>(null);
   const [revealMinimumElapsed, setRevealMinimumElapsed] = useState(false);
@@ -135,16 +115,9 @@ function resolveRevealPathname(href: string) {
 
 function StoryRevealOverlay({ reveal }: { reveal: RevealRequest }) {
   const safeCoverUrl = sanitizeImageUrl(reveal.coverUrl);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-
-  useGsapIntro(overlayRef, [reveal.href], {
-    selector: "[data-gsap-intro-item='story-reveal']",
-    stagger: 0.06,
-    y: 18,
-  });
 
   return (
-    <div ref={overlayRef} className="plotty-story-reveal-overlay" data-gsap-intro="story-reveal" aria-hidden="true">
+    <div className="plotty-story-reveal-overlay" data-gsap-intro="story-reveal" aria-hidden="true">
       <div className="plotty-story-reveal-book" data-gsap-intro-item="story-reveal">
         <div className="plotty-story-reveal-cover">
           {/* eslint-disable-next-line @next/next/no-img-element */}

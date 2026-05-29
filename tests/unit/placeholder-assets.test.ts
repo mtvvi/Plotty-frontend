@@ -1,4 +1,4 @@
-import { statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -11,7 +11,12 @@ function publicAssetBytes(src: string) {
 
 describe("placeholder image assets", () => {
   it("keeps default cover and avatar placeholders under the first-load image budget", () => {
-    expect(publicAssetBytes(storyCoverPlaceholderSrc)).toBeLessThan(100_000);
+    expect(storyCoverPlaceholderSrc).toMatch(/\.jpg$/);
+    expect(publicAssetBytes(storyCoverPlaceholderSrc)).toBeLessThanOrEqual(25_000);
     expect(publicAssetBytes(profileAvatarPlaceholderSrc)).toBeLessThan(40_000);
+  });
+
+  it("does not keep the heavyweight PNG cover placeholder in public assets", () => {
+    expect(existsSync(path.resolve("public/story-cover-placeholder.png"))).toBe(false);
   });
 });

@@ -23,9 +23,9 @@ import type { ChapterWiki, ChapterWikiEntity, StoryComment, StoryCommentsRespons
 import { isAuthError } from "@/shared/api/fetch-json";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { routes } from "@/shared/config/routes";
+import { useReducedMotion } from "@/shared/lib/motion-preferences";
 import { sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 import { cn, pluralizeRu } from "@/shared/lib/utils";
-import { gsap, registerPlottyGsapPlugins, useReducedMotion } from "@/shared/lib/gsap-motion";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
@@ -156,20 +156,46 @@ export function ChapterReaderScreen({
       return;
     }
 
-    registerPlottyGsapPlugins();
+    const progressNode = progressBar;
+    let animationFrame = 0;
+    let currentProgress = Number.parseFloat(progressNode.style.getPropertyValue("--plotty-reader-progress")) || 0;
+    let targetProgress = currentProgress;
 
-    const updateProgress = reducedMotion
-      ? (value: number) => progressBar.style.setProperty("--plotty-reader-progress", String(value))
-      : gsap.quickTo(progressBar, "--plotty-reader-progress", {
-          duration: 0.18,
-          ease: "power2.out",
-        });
+    function writeProgress(value: number) {
+      progressNode.style.setProperty("--plotty-reader-progress", String(value));
+    }
+
+    function animateProgress() {
+      animationFrame = 0;
+
+      if (reducedMotion) {
+        currentProgress = targetProgress;
+        writeProgress(currentProgress);
+        return;
+      }
+
+      currentProgress += (targetProgress - currentProgress) * 0.32;
+
+      if (Math.abs(targetProgress - currentProgress) < 0.001) {
+        currentProgress = targetProgress;
+      }
+
+      writeProgress(currentProgress);
+
+      if (currentProgress !== targetProgress) {
+        animationFrame = window.requestAnimationFrame(animateProgress);
+      }
+    }
 
     function updateReadingProgress() {
       const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
       const nextProgress = scrollableHeight > 0 ? window.scrollY / scrollableHeight : 0;
 
-      updateProgress(Math.min(1, Math.max(0, nextProgress)));
+      targetProgress = Math.min(1, Math.max(0, nextProgress));
+
+      if (!animationFrame) {
+        animationFrame = window.requestAnimationFrame(animateProgress);
+      }
     }
 
     updateReadingProgress();
@@ -177,6 +203,7 @@ export function ChapterReaderScreen({
     window.addEventListener("resize", updateReadingProgress);
 
     return () => {
+      window.cancelAnimationFrame(animationFrame);
       window.removeEventListener("scroll", updateReadingProgress);
       window.removeEventListener("resize", updateReadingProgress);
     };
@@ -340,6 +367,7 @@ export function ChapterReaderScreen({
         <span className="plotty-page-title-row">
           <Link
             href={routes.story(story.slug)}
+            prefetch={false}
             className="plotty-story-title-anchor plotty-story-title-inline-anchor group text-[var(--plotty-ink)] transition-colors hover:text-[var(--plotty-accent)] focus-visible:text-[var(--plotty-accent)]"
           >
             <ArrowLeft className="plotty-page-title-back-icon size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
@@ -361,7 +389,7 @@ export function ChapterReaderScreen({
         <div
           ref={readerProgressBarRef}
           className="plotty-reader-progress-bar"
-          data-gsap-reader-progress="true"
+          data-reader-progress="true"
         />
       </div>
       <div className="plotty-stagger mx-auto max-w-4xl space-y-5">
@@ -438,6 +466,7 @@ export function ChapterReaderScreen({
                     <div className="min-w-0">
                       <Link
                         href={routes.chapter(story.slug, item.number ?? 1)}
+                        prefetch={false}
                         className={cn(
                           "plotty-story-title-anchor plotty-card-title text-[1.08rem] hover:text-[var(--plotty-accent)]",
                           isCurrent && "text-[var(--plotty-accent)]",
@@ -518,6 +547,7 @@ export function ChapterReaderScreen({
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <Link
                           href={routes.user(comment.author.username)}
+                          prefetch={false}
                           className="flex min-w-0 items-start gap-3 rounded-[14px] transition-colors hover:bg-[rgba(41,38,34,0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                         >
                           <CommentAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} />

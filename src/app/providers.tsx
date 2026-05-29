@@ -1,12 +1,12 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { AuthProvider } from "@/entities/auth/model/auth-context";
-import { initializeMocks } from "@/mocks/browser";
 import { ThemeProvider } from "@/shared/theme/theme-context";
 import { AppShellSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
+import { RouteProgressBar } from "@/shared/ui/route-progress-bar";
 import { StoryRevealProvider } from "@/shared/ui/story-reveal-transition";
 
 let browserMocksPromise: Promise<void> | null = null;
@@ -23,7 +23,7 @@ export function shouldInitializeBrowserMocks({
 
 function ensureMocks() {
   if (!browserMocksPromise) {
-    browserMocksPromise = initializeMocks();
+    browserMocksPromise = import("@/mocks/browser").then(({ initializeMocks }) => initializeMocks());
   }
 
   return browserMocksPromise;
@@ -57,6 +57,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeProvider>
+      <Suspense fallback={null}>
+        <RouteProgressBar />
+      </Suspense>
       <QueryClientProvider client={queryClient}>
         {isReady ? (
           <AuthProvider>

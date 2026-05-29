@@ -359,6 +359,7 @@ function DesktopPrimaryNavLink({
     <Link
       ref={(node) => setItemRef(item.href, node)}
       href={item.href}
+      prefetch={false}
       aria-current={isCurrent ? "page" : undefined}
       onClick={(event) => onNavigate(item.href, event)}
       className={cn(
@@ -435,6 +436,7 @@ function PlottyPageShellFallback({
             <div ref={primaryNavRef} className="relative flex min-h-[76px] items-center gap-3 lg:min-h-[86px] lg:gap-5">
               <Link
                 href={routes.home}
+                prefetch={false}
                 className="plotty-logo inline-flex shrink-0 items-end gap-1 transition-opacity hover:opacity-80"
                 aria-label="Plotty, перейти в каталог"
               >
@@ -551,6 +553,7 @@ function PersistentPlottyHeader({
         <div ref={primaryNavRef} className="relative flex min-h-[76px] items-center gap-3 lg:min-h-[86px] lg:gap-5">
           <Link
             href={routes.home}
+            prefetch={false}
             className="plotty-logo inline-flex shrink-0 items-end gap-1 transition-opacity hover:opacity-80"
             aria-label="Plotty"
           >
@@ -857,6 +860,7 @@ function PlottyBottomNav() {
               key={item.key}
               ref={(node) => setBottomNavItemRef(item.key, node)}
               href={item.href}
+              prefetch={false}
               aria-current={isActive ? "page" : undefined}
               onClick={(event) => handleBottomNavClick(item, event)}
               className={cn(

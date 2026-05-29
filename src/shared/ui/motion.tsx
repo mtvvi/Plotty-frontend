@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 
+import { useReducedMotion } from "@/shared/lib/motion-preferences";
 import { cn } from "@/shared/lib/utils";
-import { gsap, useGsapFlipList, useGsapPresence, useReducedMotion } from "@/shared/lib/gsap-motion";
 
 export type AsyncJobStatusValue = "idle" | "queued" | "processing" | "completed" | "failed";
 type MotionListItemStyle = CSSProperties & { "--plotty-motion-index": number };
+const disclosureExitDurationMs = 240;
 
 export function AnimatedList<TItem>({
   items,
@@ -27,7 +28,6 @@ export function AnimatedList<TItem>({
 }) {
   const listKey = useMemo(() => items.map(getKey).join("|"), [getKey, items]);
   const internalListRef = useRef<HTMLDivElement | null>(null);
-  useGsapFlipList(internalListRef, listKey);
 
   function setListNode(node: HTMLDivElement | null) {
     internalListRef.current = node;
@@ -47,14 +47,14 @@ export function AnimatedList<TItem>({
       ref={setListNode}
       className={cn("plotty-motion-list", className)}
       aria-live={ariaLive}
-      data-gsap-flip-list="true"
+      data-motion-list="true"
       data-motion-key={listKey}
     >
       {items.map((item, index) => (
         <div
           key={getKey(item)}
           className={cn("plotty-motion-list-item", itemClassName)}
-          data-gsap-flip-id={getKey(item)}
+          data-motion-list-item="true"
           style={{ "--plotty-motion-index": index } as MotionListItemStyle}
         >
           {renderItem(item, index)}
@@ -79,7 +79,6 @@ export function AnimatedTabPanel<TKey extends string>({
 }) {
   const isActive = activeKey === panelKey;
   const panelRef = useRef<HTMLDivElement | null>(null);
-  useGsapPresence(panelRef, [activeKey, panelKey]);
 
   if (!keepMounted && !isActive) {
     return null;
@@ -118,60 +117,26 @@ export function AnimatedDisclosurePanel({
     }
   }, [open]);
 
-  useLayoutEffect(() => {
-    const node = panelRef.current;
-
-    if (!node || !shouldRender) {
+  useEffect(() => {
+    if (!shouldRender) {
       return;
     }
 
-    if (reducedMotion || process.env.NODE_ENV === "test") {
-      if (!open) {
-        setShouldRender(false);
+    if (!open) {
+      if (reducedMotion || process.env.NODE_ENV === "test") {
+        if (!open) {
+          setShouldRender(false);
+        }
+
+        return;
       }
 
-      return;
+      const timeoutId = window.setTimeout(() => setShouldRender(false), disclosureExitDurationMs);
+
+      return () => window.clearTimeout(timeoutId);
     }
 
-    gsap.killTweensOf(node);
-
-    if (open) {
-      const targetHeight = node.scrollHeight;
-      const tween = gsap.fromTo(
-        node,
-        { height: 0, opacity: 0, overflow: "hidden", y: -6 },
-        {
-          clearProps: "height,overflow,opacity,transform",
-          duration: 0.32,
-          ease: "power3.out",
-          height: targetHeight,
-          opacity: 1,
-          y: 0,
-        },
-      );
-
-      return () => {
-        tween.kill();
-      };
-    }
-
-    const startHeight = node.scrollHeight;
-    const tween = gsap.fromTo(
-      node,
-      { height: startHeight, opacity: 1, overflow: "hidden", y: 0 },
-      {
-        duration: 0.24,
-        ease: "power2.inOut",
-        height: 0,
-        opacity: 0,
-        y: -6,
-        onComplete: () => setShouldRender(false),
-      },
-    );
-
-    return () => {
-      tween.kill();
-    };
+    return undefined;
   }, [open, reducedMotion, shouldRender]);
 
   if (!shouldRender) {
@@ -181,8 +146,9 @@ export function AnimatedDisclosurePanel({
   return (
     <div
       ref={panelRef}
-      className={cn("overflow-hidden", className)}
+      className={cn("plotty-motion-disclosure-panel overflow-hidden", className)}
       aria-hidden={!open}
+      data-state={open ? "open" : "closing"}
       data-gsap-disclosure-panel="true"
     >
       {children}
@@ -206,7 +172,6 @@ export function AsyncJobStatus({
   className?: string;
 }) {
   const previousStatusRef = useRef(status);
-  const statusRef = useRef<HTMLDivElement | null>(null);
   const [showCompletedPulse, setShowCompletedPulse] = useState(false);
   const isBusy = status === "queued" || status === "processing";
   const isFailed = status === "failed";
@@ -225,29 +190,12 @@ export function AsyncJobStatus({
     return undefined;
   }, [status]);
 
-  useEffect(() => {
-    const node = statusRef.current;
-
-    if (!node || status === "idle" || process.env.NODE_ENV === "test") {
-      return;
-    }
-
-    const tween = status === "failed"
-      ? gsap.fromTo(node, { x: -4 }, { clearProps: "transform", duration: 0.34, ease: "elastic.out(1, 0.45)", x: 0 })
-      : gsap.fromTo(node, { opacity: 0, y: 6 }, { opacity: 1, clearProps: "opacity,transform", duration: 0.28, ease: "power3.out", y: 0 });
-
-    return () => {
-      tween.kill();
-    };
-  }, [status]);
-
   if (status === "idle") {
     return null;
   }
 
   return (
     <div
-      ref={statusRef}
       className={cn(
         "plotty-async-status",
         compact && "plotty-async-status-compact",

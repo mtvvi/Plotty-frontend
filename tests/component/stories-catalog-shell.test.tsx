@@ -88,8 +88,10 @@ describe("StoriesCatalogShell", () => {
     resolveStories?.();
 
     expect(await screen.findAllByText("История 1")).not.toHaveLength(0);
-    expect(container.querySelector("[data-gsap-layout='catalog']")).not.toBeNull();
-    expect(container.querySelector("[data-gsap-flip-list='true']")).not.toBeNull();
+    expect(container.querySelector(".plotty-catalog-layout")).not.toBeNull();
+    expect(container.querySelector("[data-motion-list='true']")).not.toBeNull();
+    expect(container.querySelector("[data-gsap-layout='catalog']")).toBeNull();
+    expect(container.querySelector("[data-gsap-flip-list='true']")).toBeNull();
     expect(screen.queryByRole("status", { name: "Загружаем каталог" })).not.toBeInTheDocument();
   });
 

@@ -126,6 +126,7 @@ export function AuthStatus({
         <div className="plotty-kicker">Аккаунт</div>
         <Link
           href={profileHref}
+          prefetch={false}
           className="flex items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[var(--plotty-surface)] p-4 transition-colors hover:bg-[var(--plotty-surface-hover)]"
         >
           <AccountAvatar username={user.username} avatarUrl={avatarUrl} className="size-11 text-sm" />
@@ -153,6 +154,7 @@ export function AuthStatus({
     <Link
       ref={profileIndicatorRef}
       href={profileHref}
+      prefetch={false}
       className={cn(
         "group plotty-button-label relative inline-flex min-h-[86px] items-center justify-start gap-3 rounded-[var(--plotty-radius-md)] px-2.5 py-1.5 pr-4 text-left text-[var(--plotty-ink)] transition-[color,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
         isProfileActive ? "text-[var(--plotty-accent)]" : null,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bookmark } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -31,10 +31,14 @@ export function StoryShelfControl({
   storyId,
   className,
   compact = false,
+  initialShelf = null,
+  loadOnMount = false,
 }: {
   storyId: string;
   className?: string;
   compact?: boolean;
+  initialShelf?: ReaderShelf | "" | null;
+  loadOnMount?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -42,14 +46,23 @@ export function StoryShelfControl({
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
   const popover = usePopover();
-  const shelfQuery = useQuery(myShelfQueryOptions(null, { enabled: isAuthenticated }));
+  const [localShelf, setLocalShelf] = useState<ReaderShelf | "" | null>(initialShelf);
+  const shouldLoadShelf = loadOnMount || popover.open;
+  const shelfQuery = useQuery(myShelfQueryOptions(null, { enabled: isAuthenticated && shouldLoadShelf }));
   const currentShelf = useMemo(
-    () => shelfQuery.data?.items.find((entry) => entry.storyId === storyId)?.shelf ?? "",
-    [shelfQuery.data?.items, storyId],
+    () => shelfQuery.data?.items.find((entry) => entry.storyId === storyId)?.shelf ?? localShelf ?? "",
+    [localShelf, shelfQuery.data?.items, storyId],
   );
   const shelfMutation = useMutation({
     mutationFn: (nextShelf: ReaderShelf | "") =>
       nextShelf ? setStoryShelf(storyId, nextShelf) : removeStoryShelf(storyId),
+    onMutate: (nextShelf) => {
+      const previousShelf = currentShelf;
+
+      setLocalShelf(nextShelf);
+
+      return { previousShelf };
+    },
     onSuccess: async () => {
       popover.close();
       await Promise.all([
@@ -57,12 +70,18 @@ export function StoryShelfControl({
         queryClient.invalidateQueries({ queryKey: storyKeys.all }),
       ]);
     },
-    onError: (error) => {
+    onError: (error, _nextShelf, context) => {
+      setLocalShelf(context?.previousShelf ?? initialShelf ?? "");
+
       if (isAuthError(error)) {
         router.push(routes.auth({ next: buildNextUrl(pathname, new URLSearchParams(searchParams)) }));
       }
     },
   });
+
+  useEffect(() => {
+    setLocalShelf(initialShelf ?? null);
+  }, [initialShelf, storyId]);
 
   function ensureAuthenticated() {
     if (isAuthenticated) {
@@ -82,6 +101,15 @@ export function StoryShelfControl({
   }
 
   function handlePrimaryClick() {
+    if (!ensureAuthenticated()) {
+      return;
+    }
+
+    if (localShelf === null && !shelfQuery.data) {
+      popover.toggle();
+      return;
+    }
+
     if (!currentShelf) {
       setShelf("planned");
       return;
@@ -91,7 +119,7 @@ export function StoryShelfControl({
   }
 
   const label = currentShelf ? readerShelfLabels[currentShelf] : "В планы";
-  const busy = shelfMutation.isPending || (isAuthenticated && shelfQuery.isLoading);
+  const busy = shelfMutation.isPending || (isAuthenticated && shouldLoadShelf && shelfQuery.isLoading);
 
   return (
     <div ref={popover.triggerRef} className={cn("relative w-full min-w-0", compact ? "" : "max-w-[18rem] space-y-1.5", className)}>

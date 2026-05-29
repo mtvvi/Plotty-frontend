@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AnimatedList, AnimatedTabPanel } from "@/shared/ui/motion";
 
 describe("shared motion primitives", () => {
-  it("keeps the list container mounted across item order changes for GSAP FLIP", () => {
+  it("keeps the list container mounted across item order changes without eager GSAP markers", () => {
     const firstItems = [
       { id: "a", label: "Alpha" },
       { id: "b", label: "Beta" },
@@ -18,7 +18,7 @@ describe("shared motion primitives", () => {
         renderItem={(item) => <span>{item.label}</span>}
       />,
     );
-    const list = container.querySelector("[data-gsap-flip-list='true']");
+    const list = container.querySelector("[data-motion-list='true']");
 
     rerender(
       <AnimatedList
@@ -28,8 +28,10 @@ describe("shared motion primitives", () => {
       />,
     );
 
-    expect(container.querySelector("[data-gsap-flip-list='true']")).toBe(list);
-    expect(Array.from(container.querySelectorAll("[data-gsap-flip-id]")).map((node) => node.textContent)).toEqual([
+    expect(container.querySelector("[data-motion-list='true']")).toBe(list);
+    expect(container.querySelector("[data-gsap-flip-list='true']")).toBeNull();
+    expect(container.querySelector("[data-gsap-flip-id]")).toBeNull();
+    expect(Array.from(container.querySelectorAll("[data-motion-list-item='true']")).map((node) => node.textContent)).toEqual([
       "Beta",
       "Alpha",
     ]);

@@ -14,15 +14,16 @@ describe("catalog filter motion CSS", () => {
     return css.slice(start, end);
   }
 
-  it("uses GSAP-friendly layout state without CSS width or flex-basis transitions", () => {
+  it("uses CSS-only layout state without GSAP layout markers", () => {
     const css = getCatalogFilterCss();
 
     expect(css).toContain("--plotty-catalog-filter-rail-width");
     expect(css).toContain("grid-template-columns");
     expect(css).toContain('data-filters-collapsed="true"');
+    expect(css).toContain("grid-template-columns var(--motion-base)");
+    expect(css).toContain("width var(--motion-base)");
     expect(css).not.toContain("flex-basis var(--motion-slow)");
-    expect(css).not.toContain("width var(--motion-slow)");
-    expect(css).not.toContain("transition: gap");
+    expect(css).not.toContain("data-gsap-layout");
     expect(css).not.toContain("filter: blur");
     expect(css).not.toContain("translateX");
   });
@@ -34,7 +35,7 @@ describe("catalog filter motion CSS", () => {
     expect(css).toContain('data-filters-state="collapsed"');
     expect(css).toContain("transform: translateZ(0) scale(1)");
     expect(css).toContain("transform: translateZ(0) scale(0.985)");
-    expect(css).toContain("will-change: transform, opacity");
+    expect(css).not.toContain("will-change");
     expect(css).not.toContain("filter: blur");
     expect(css).not.toContain("translateX");
   });
