@@ -16,8 +16,18 @@ function createInitialDb(): MockAuthDb {
     users: [
       {
         id: 1,
-        email: "author@gmail.com",
+        email: "writer@plotty.test",
         username: "writer",
+        password: "password123",
+        avatar_url: null,
+        isAdmin: true,
+        created_at: "2026-03-01T10:00:00.000Z",
+        updated_at: "2026-03-01T10:00:00.000Z",
+      },
+      {
+        id: 2,
+        email: "author@gmail.com",
+        username: "author",
         password: "12345678",
         avatar_url: null,
         isAdmin: true,
@@ -26,7 +36,7 @@ function createInitialDb(): MockAuthDb {
       },
     ],
     currentUserId: null,
-    nextId: 2,
+    nextId: 3,
   };
 }
 
