@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/entities/auth/model/auth-context";
@@ -105,6 +106,29 @@ describe("StoryCard", () => {
     await waitFor(() => expect(screen.getAllByRole("link", { name: "Читать" })[0]).toBeInTheDocument());
     expect(storyDetailsRequests).toBe(0);
     expect(chaptersViewedRequests).toBe(0);
+  });
+
+  it("does not fetch collection details before the collection control is opened", async () => {
+    const user = userEvent.setup();
+    let collectionDetailsRequests = 0;
+
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    server.use(
+      http.get("*/me/collections/:collectionId", () => {
+        collectionDetailsRequests += 1;
+
+        return HttpResponse.json({ message: "Unexpected eager collection detail fetch" }, { status: 500 });
+      }),
+    );
+
+    renderStoryCard();
+
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "В подборку" })[0]).toBeInTheDocument());
+    expect(collectionDetailsRequests).toBe(0);
+
+    await user.click(screen.getAllByRole("button", { name: "В подборку" })[0]);
+
+    await waitFor(() => expect(collectionDetailsRequests).toBeGreaterThan(0));
   });
 
   it("renders a placeholder cover from list data instead of fetching chapter imagery", () => {

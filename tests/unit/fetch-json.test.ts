@@ -13,10 +13,9 @@ describe("fetchJson URL resolution", () => {
     expect(resolveApiInput("tags")).toBe("/api/tags");
   });
 
-  it("keeps absolute URLs unchanged", () => {
-    expect(resolveApiInput("https://api.plotty-stories.duckdns.org/stories")).toBe(
-      "https://api.plotty-stories.duckdns.org/stories",
-    );
+  it("rejects absolute API URLs so credentialed requests stay inside the app API boundary", () => {
+    expect(() => resolveApiInput("https://api.plotty-stories.duckdns.org/stories")).toThrow(/absolute api urls/i);
+    expect(() => resolveApiInput("http://localhost:8080/stories")).toThrow(/absolute api urls/i);
   });
 
   it("supports the deprecated direct API fallback", () => {

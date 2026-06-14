@@ -1,5 +1,13 @@
 const appUrlBase = "https://plotty.local";
 const allowedImageProtocols = new Set(["http:", "https:", "blob:"]);
+const trustedPersistedImageOrigins = new Set([
+  "https://s3.plotty-stories.duckdns.org",
+  "https://api.plotty-stories.duckdns.org",
+]);
+
+export function encodePathSegment(value: string | number) {
+  return encodeURIComponent(String(value));
+}
 
 export function sanitizeInternalNextUrl(value: string | null | undefined, fallback: string) {
   const candidate = value?.trim();
@@ -40,6 +48,30 @@ export function sanitizeImageUrl(value: string | null | undefined) {
     const url = new URL(candidate);
 
     return allowedImageProtocols.has(url.protocol) ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function sanitizePersistedImageUrl(value: string | null | undefined) {
+  const candidate = value?.trim();
+
+  if (!candidate) {
+    return undefined;
+  }
+
+  if (candidate.startsWith("/")) {
+    return candidate.startsWith("//") || candidate.startsWith("/\\") ? undefined : candidate;
+  }
+
+  try {
+    const url = new URL(candidate);
+
+    if (url.protocol !== "https:" || !trustedPersistedImageOrigins.has(url.origin)) {
+      return undefined;
+    }
+
+    return url.href;
   } catch {
     return undefined;
   }

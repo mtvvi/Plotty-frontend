@@ -1,5 +1,5 @@
 import type { StoryDetails, StoryListItem, StoryTag } from "@/entities/story/model/types";
-import { sanitizeImageUrl } from "@/shared/lib/safe-url";
+import { sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 
 export interface BackendStoryListItem {
   id: string;
@@ -58,10 +58,10 @@ export function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
     author: item.author
       ? {
           ...item.author,
-          avatarUrl: sanitizeImageUrl(item.author.avatarUrl) ?? null,
+          avatarUrl: sanitizePersistedImageUrl(item.author.avatarUrl) ?? null,
         }
       : item.author,
-    coverImageUrl: sanitizeImageUrl(item.coverImageUrl ?? item.coverUrl) ?? null,
+    coverImageUrl: sanitizePersistedImageUrl(item.coverImageUrl ?? item.coverUrl) ?? null,
   };
 
   if (Object.prototype.hasOwnProperty.call(item, "readChapterNumber")) {

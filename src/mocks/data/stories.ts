@@ -207,6 +207,7 @@ function createInitialDb(): MockStoriesDb {
         slug: "after-midnight-the-snow-does-not-melt",
         title: "После полуночи снег не тает",
         authorId: 1,
+        coverImageUrl: "/story-cover-placeholder.jpg",
         description:
           "Гермиона пытается пережить восьмой курс, пока архив старого факультета вскрывает неудобные связи между прошлым и настоящим.",
         status: "published",

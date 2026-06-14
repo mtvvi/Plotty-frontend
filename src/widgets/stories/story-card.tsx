@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { BookOpen, Heart, List } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
 import type { StoryListItem, StoryTag } from "@/entities/story/model/types";
+import type { ReaderShelf } from "@/entities/library/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
 import { Button, ButtonLink } from "@/shared/ui/button";
@@ -19,18 +20,20 @@ import { StoryCollectionControl } from "./story-collection-control";
 import { getStoryTagTone, StoryTagLinkChip } from "./story-tag-link";
 import { StoryShelfControl } from "./story-shelf-control";
 
-export function StoryCard({
+export const StoryCard = memo(function StoryCard({
   story,
   storyHref,
   showShelfControl = true,
   showChapterActions = true,
   priorityCover = false,
+  initialShelf = null,
 }: {
   story: StoryListItem;
   storyHref?: string;
   showShelfControl?: boolean;
   showChapterActions?: boolean;
   priorityCover?: boolean;
+  initialShelf?: ReaderShelf | "" | null;
 }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
@@ -74,7 +77,7 @@ export function StoryCard({
   }
 
   return (
-    <article className="plotty-story-card overflow-hidden rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)] shadow-[var(--plotty-shadow-card)]">
+    <article className="plotty-story-card overflow-hidden rounded-[var(--plotty-radius-lg)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.86)]">
       <div className="grid min-w-0 md:min-h-[15rem] md:grid-cols-[minmax(16rem,19rem)_minmax(0,1fr)_minmax(10rem,12rem)] xl:grid-cols-[20rem_minmax(0,1fr)_minmax(11rem,13rem)]">
         <Link
           href={resolvedStoryHref}
@@ -153,79 +156,31 @@ export function StoryCard({
               extraTags={extraTags}
             />
           </div>
-          <div className="pointer-events-auto relative z-30 grid gap-2 pt-1 md:hidden">
-            <div className={showChapterActions ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
-              <StoryRevealButtonLink
-                href={readHref}
-                variant="primary"
-                size="sm"
-                className="w-full"
-                aria-label="Читать историю"
-                revealTitle={story.title}
-                revealCoverUrl={revealCoverImage}
-                prefetch={false}
-              >
-                <BookOpen className="size-4" aria-hidden="true" />
-                Читать
-              </StoryRevealButtonLink>
-              {showChapterActions ? (
-                <ButtonLink href={chaptersHref} prefetch={false} variant="secondary" size="sm" className="w-full" aria-label="Открыть главы">
-                  <List className="size-4" aria-hidden="true" />
-                  Главы
-                </ButtonLink>
-              ) : null}
-            </div>
-            <div className={showChapterActions ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
-              <Button
-                type="button"
-                onClick={() => void handleToggleLike()}
-                disabled={likeMutation.isPending}
-                variant={viewerHasLiked ? "primary" : "secondary"}
-                size="sm"
-                className="plotty-like-pop w-full"
-                aria-pressed={viewerHasLiked}
-                aria-label={viewerHasLiked ? "Убрать лайк" : "Поставить лайк"}
-              >
-                <Heart className="size-4" fill={viewerHasLiked ? "currentColor" : "none"} aria-hidden="true" />
-                {formatCount(likesCount)}
-              </Button>
-              {showChapterActions ? (
-                <Link href={chaptersHref} prefetch={false} className="plotty-stat justify-center" aria-label="Количество глав">
-                  <List className="size-4" aria-hidden="true" />
-                  {story.chaptersCount}
-                </Link>
-              ) : null}
-            </div>
-            {showShelfControl && isAuthenticated ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <StoryShelfControl storyId={story.id} className="max-w-none" compact />
-                <StoryCollectionControl storyId={story.id} className="max-w-none" compact />
-              </div>
-            ) : null}
-          </div>
         </div>
 
         <aside
           aria-label="Действия карточки"
-          className="plotty-action-zone hidden min-w-0 content-start gap-3 overflow-hidden border-t border-[var(--plotty-line)] bg-[rgba(245,238,229,0.48)] p-4 md:grid md:border-l md:border-t-0 lg:p-5"
+          className="plotty-action-zone pointer-events-auto relative z-20 grid min-w-0 content-start gap-3 overflow-hidden border-t border-[var(--plotty-line)] bg-[rgba(245,238,229,0.48)] p-4 md:border-l md:border-t-0 lg:p-5"
         >
-          <StoryRevealButtonLink
-            href={readHref}
-            variant="primary"
-            className="min-w-0 w-full"
-            revealTitle={story.title}
-            revealCoverUrl={revealCoverImage}
-            prefetch={false}
-          >
-            <BookOpen className="size-4" aria-hidden="true" />
-            Читать
-          </StoryRevealButtonLink>
-          {showChapterActions ? (
-            <ButtonLink href={chaptersHref} prefetch={false} variant="secondary" className="min-w-0 w-full">
-              <List className="size-4" aria-hidden="true" />
-              Главы
-            </ButtonLink>
-          ) : null}
+          <div className={showChapterActions ? "grid grid-cols-2 gap-2 md:grid-cols-1" : "grid gap-2"}>
+            <StoryRevealButtonLink
+              href={readHref}
+              variant="primary"
+              className="min-w-0 w-full"
+              revealTitle={story.title}
+              revealCoverUrl={revealCoverImage}
+              prefetch={false}
+            >
+              <BookOpen className="size-4" aria-hidden="true" />
+              Читать
+            </StoryRevealButtonLink>
+            {showChapterActions ? (
+              <ButtonLink href={chaptersHref} prefetch={false} variant="secondary" className="min-w-0 w-full">
+                <List className="size-4" aria-hidden="true" />
+                Главы
+              </ButtonLink>
+            ) : null}
+          </div>
           <div className={showChapterActions ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
             <Button
               type="button"
@@ -248,8 +203,8 @@ export function StoryCard({
             ) : null}
           </div>
           {showShelfControl && isAuthenticated ? (
-            <div className="hidden space-y-2 border-t border-[var(--plotty-line)] pt-3 md:block">
-              <StoryShelfControl storyId={story.id} className="max-w-none min-w-0" compact />
+            <div className="grid gap-2 border-t border-[var(--plotty-line)] pt-3 sm:grid-cols-2 md:grid-cols-1">
+              <StoryShelfControl storyId={story.id} initialShelf={initialShelf} className="max-w-none min-w-0" compact />
               <StoryCollectionControl storyId={story.id} className="max-w-none min-w-0" compact />
             </div>
           ) : null}
@@ -257,9 +212,9 @@ export function StoryCard({
       </div>
     </article>
   );
-}
+});
 
-function CatalogStoryTags({
+const CatalogStoryTags = memo(function CatalogStoryTags({
   fandom,
   rating,
   status,
@@ -313,7 +268,7 @@ function CatalogStoryTags({
       ))}
     </div>
   );
-}
+});
 
 function sortDisplayTags(tags: StoryTag[]) {
   const order = ["directionality", "rating", "completion", "size", "genre", "warning"];

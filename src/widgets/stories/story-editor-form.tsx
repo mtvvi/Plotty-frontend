@@ -422,14 +422,14 @@ export function StoryEditorForm({
                 </Surface>
               ) : null}
               {shouldOfferTopUp && !creditError ? (
-                <ButtonLink href={routes.credits} variant="ghost" size="sm">
+                <ButtonLink href={routes.credits} prefetch={false} variant="ghost" size="sm">
                   Пополнить баланс
                 </ButtonLink>
               ) : null}
               {creditError ? (
                 <Surface variant="subtle" className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm font-semibold text-[var(--plotty-danger)]">{creditError}</p>
-                  <ButtonLink href={routes.credits} variant="secondary" size="sm">
+                  <ButtonLink href={routes.credits} prefetch={false} variant="secondary" size="sm">
                     Пополнить
                   </ButtonLink>
                 </Surface>
@@ -596,6 +596,7 @@ export function StoryEditorForm({
                   <Link
                     key={chapter.id}
                     href={routes.chapterEditor(storyId ?? "", chapter.id)}
+                    prefetch={false}
                     className={`block rounded-[18px] border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,color,transform] duration-150 hover:translate-x-0.5 ${
                       chapter.id === chapterId
                         ? "border-[rgba(188,95,61,0.16)] bg-[rgba(188,95,61,0.08)] text-[var(--plotty-ink)]"

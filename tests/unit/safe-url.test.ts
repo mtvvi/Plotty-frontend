@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { sanitizeImageUrl, sanitizeInternalNextUrl } from "@/shared/lib/safe-url";
+import {
+  encodePathSegment,
+  sanitizeImageUrl,
+  sanitizeInternalNextUrl,
+  sanitizePersistedImageUrl,
+} from "@/shared/lib/safe-url";
 
 describe("sanitizeInternalNextUrl", () => {
   it("allows same-origin relative paths", () => {
@@ -22,5 +27,29 @@ describe("sanitizeImageUrl", () => {
 
   it("drops unsupported image URL schemes", () => {
     expect(sanitizeImageUrl("javascript:alert(1)")).toBeUndefined();
+  });
+});
+
+describe("sanitizePersistedImageUrl", () => {
+  it("allows only relative paths and trusted Plotty image origins", () => {
+    expect(sanitizePersistedImageUrl("/uploads/avatar.jpg")).toBe("/uploads/avatar.jpg");
+    expect(sanitizePersistedImageUrl("https://s3.plotty-stories.duckdns.org/covers/story.webp")).toBe(
+      "https://s3.plotty-stories.duckdns.org/covers/story.webp",
+    );
+  });
+
+  it("rejects executable, local-preview, insecure, and untrusted image URLs", () => {
+    expect(sanitizePersistedImageUrl("javascript:alert(1)")).toBeUndefined();
+    expect(sanitizePersistedImageUrl("data:image/svg+xml,%3Csvg%2Fonload=alert(1)%3E")).toBeUndefined();
+    expect(sanitizePersistedImageUrl("blob:http://localhost/image")).toBeUndefined();
+    expect(sanitizePersistedImageUrl("http://s3.plotty-stories.duckdns.org/covers/story.webp")).toBeUndefined();
+    expect(sanitizePersistedImageUrl("https://evil.test/covers/story.webp")).toBeUndefined();
+  });
+});
+
+describe("encodePathSegment", () => {
+  it("keeps dynamic route and API ids inside a single path segment", () => {
+    expect(encodePathSegment("../auth?next=/credits#x")).toBe("..%2Fauth%3Fnext%3D%2Fcredits%23x");
+    expect(encodePathSegment("a/b")).toBe("a%2Fb");
   });
 });

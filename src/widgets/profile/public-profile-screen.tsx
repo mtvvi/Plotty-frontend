@@ -3,6 +3,7 @@
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Coins, Plus, Search, X } from "lucide-react";
+import NextImage from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -16,13 +17,13 @@ import {
   publicUserCollectionsQueryOptions,
 } from "@/entities/profile/api/profile-api";
 import { fetchMyStories } from "@/entities/story/api/stories-api";
-import type { StoriesQuery, StoriesResponse, StoriesSort, StoryListItem } from "@/entities/story/model/types";
+import type { StoriesQuery, StoriesResponse, StoriesSort } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
-import { sanitizeImageUrl } from "@/shared/lib/safe-url";
+import { sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 import { cn } from "@/shared/lib/utils";
 import { usernameValidationMessage } from "@/shared/lib/username";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
-import { useGsapCounter, useGsapIntro } from "@/shared/lib/gsap-motion";
+import { useRafCounter } from "@/shared/lib/raf-counter";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { FieldError } from "@/shared/ui/field";
@@ -53,20 +54,9 @@ type ProfileInlineField = "username" | "bio";
 export { profileAvatarPlaceholderSrc } from "./profile-avatar-placeholder";
 
 const profileWorksPageSize = 8;
-const profileWorksSearchPageSize = 100;
 const profileWorksSearchDebounceMs = 250;
 const profileBioMaxLength = 500;
 const defaultProfileWorksSort: StoriesSort = "updated-desc";
-
-function filterProfileWorksByTitle(stories: StoryListItem[], search: string) {
-  const normalizedSearch = search.trim().toLocaleLowerCase("ru-RU");
-
-  if (!normalizedSearch) {
-    return stories;
-  }
-
-  return stories.filter((story) => story.title.toLocaleLowerCase("ru-RU").includes(normalizedSearch));
-}
 
 export function PublicProfileScreen({ username }: { username: string }) {
   const router = useRouter();
@@ -74,7 +64,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const normalizedUsername = username.trim();
-  const isOwnProfile = Boolean(user?.username && user.username.toLowerCase() === normalizedUsername.toLowerCase());
   const initialTab = getInitialTab(searchParams.get("tab"));
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [editingField, setEditingField] = useState<ProfileInlineField | null>(null);
@@ -90,20 +79,20 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const [avatarOffsetX, setAvatarOffsetX] = useState(0);
   const [avatarOffsetY, setAvatarOffsetY] = useState(0);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
-  const profileHeroRef = useRef<HTMLDivElement | null>(null);
   const worksLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const deferredWorksSearchDraft = useDeferredValue(worksSearchDraft);
   const hasAppliedWorksSearch = Boolean(worksSearch);
   const worksQueryBase = useMemo<Omit<StoriesQuery, "page">>(
     () => ({
       tags: [],
-      q: "",
-      pageSize: hasAppliedWorksSearch ? profileWorksSearchPageSize : profileWorksPageSize,
+      q: worksSearch,
+      pageSize: profileWorksPageSize,
       sort: defaultProfileWorksSort,
     }),
-    [hasAppliedWorksSearch],
+    [worksSearch],
   );
   const profileQuery = useQuery(publicProfileQueryOptions(normalizedUsername));
+  const isOwnProfile = Boolean(user?.id && profileQuery.data?.id === user.id);
   const worksQuery = useInfiniteQuery({
     queryKey: [
       "profile-works",
@@ -125,7 +114,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
 
       return page * pageSize < total ? page + 1 : undefined;
     },
-    enabled: isOwnProfile ? Boolean(user?.id) : Boolean(normalizedUsername),
+    enabled: profileQuery.isSuccess && (isOwnProfile ? Boolean(user?.id) : Boolean(normalizedUsername)),
     staleTime: 30_000,
   });
   const {
@@ -135,7 +124,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
     isFetching: isWorksQueryFetching,
     isFetchingNextPage: isFetchingNextWorksPage,
   } = worksQuery;
-  const collectionsQuery = useQuery(publicUserCollectionsQueryOptions(normalizedUsername));
+  const collectionsQuery = useQuery({
+    ...publicUserCollectionsQueryOptions(normalizedUsername),
+    enabled: profileQuery.isSuccess && !isOwnProfile && Boolean(normalizedUsername),
+  });
   const shelfQuery = useQuery(myShelfQueryOptions(null, { enabled: isOwnProfile }));
   const firstWorksPageTotal = worksQuery.data?.pages[0]?.pagination.total;
 
@@ -208,27 +200,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
   }, [deferredWorksSearchDraft, worksSearch]);
 
   useEffect(() => {
-    if (
-      !hasAppliedWorksSearch ||
-      !hasNextWorksPage ||
-      isWorksQueryFetching ||
-      isFetchingNextWorksPage ||
-      isWorksQueryError
-    ) {
-      return;
-    }
-
-    void fetchNextWorksPage();
-  }, [
-    fetchNextWorksPage,
-    hasAppliedWorksSearch,
-    hasNextWorksPage,
-    isFetchingNextWorksPage,
-    isWorksQueryError,
-    isWorksQueryFetching,
-  ]);
-
-  useEffect(() => {
     const sentinel = worksLoadMoreRef.current;
 
     if (
@@ -289,12 +260,6 @@ export function PublicProfileScreen({ username }: { username: string }) {
     };
   }, [avatarPreviewUrl]);
 
-  useGsapIntro(profileHeroRef, [profileQuery.data?.id ?? normalizedUsername], {
-    selector: "[data-gsap-intro-item='profile-hero']",
-    stagger: 0.055,
-    y: 14,
-  });
-
   if (profileQuery.isLoading) {
     return (
       <PlottyPageShell
@@ -318,14 +283,12 @@ export function PublicProfileScreen({ username }: { username: string }) {
   }
 
   const profile = profileQuery.data;
-  const fetchedStories = worksQuery.data?.pages.flatMap((page) => page.items) ?? [];
-  const stories = hasAppliedWorksSearch ? filterProfileWorksByTitle(fetchedStories, worksSearch) : fetchedStories;
+  const stories = worksQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const worksPagination = worksQuery.data?.pages[worksQuery.data.pages.length - 1]?.pagination;
-  const worksTotal = hasAppliedWorksSearch ? stories.length : (worksPagination?.total ?? 0);
+  const worksTotal = worksPagination?.total ?? 0;
   const visibleWorksCount = stories.length;
   const nextWorksCount = Math.min(profileWorksPageSize, Math.max(worksTotal - visibleWorksCount, 0));
-  const isWorksSearchCollecting = hasAppliedWorksSearch && Boolean(hasNextWorksPage);
-  const isWorksSearchPending = deferredWorksSearchDraft.trim() !== worksSearch || isWorksSearchCollecting;
+  const isWorksSearchPending = deferredWorksSearchDraft.trim() !== worksSearch;
   const hasWorksSearch = hasAppliedWorksSearch;
   const collections = collectionsQuery.data?.items ?? [];
   const worksCount = worksQuery.isError ? "—" : (worksTotalCount ?? (worksTotal || visibleWorksCount));
@@ -486,10 +449,9 @@ export function PublicProfileScreen({ username }: { username: string }) {
           <div className="grid gap-0 lg:min-h-80 lg:grid-cols-[minmax(0,1fr)_280px]">
             <div className="lg:h-full">
               <div
-                ref={profileHeroRef}
                 data-profile-summary-frame="true"
-                data-gsap-intro="profile-hero"
-                className="h-full p-0 lg:min-h-80"
+                data-profile-intro="profile-hero"
+                className="plotty-motion-tab-panel h-full p-0 lg:min-h-80"
               >
                 <div className="plotty-profile-hero-grid flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid lg:min-h-80 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-0">
                   {isOwnProfile ? (
@@ -503,7 +465,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         disabled={avatarMutation.isPending}
                         onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
                       />
-                      <div data-gsap-intro-item="profile-hero" className="plotty-profile-hero-avatar-frame grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:aspect-square lg:h-full lg:min-h-full lg:w-auto lg:self-stretch">
+                      <div className="plotty-profile-hero-avatar-frame grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:aspect-square lg:h-full lg:min-h-full lg:w-auto lg:self-stretch">
                         <button
                           type="button"
                           className="group relative h-full w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:aspect-square lg:min-h-full lg:w-auto lg:rounded-none lg:hover:translate-y-0"
@@ -526,11 +488,11 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       </div>
                     </>
                   ) : (
-                    <div data-gsap-intro-item="profile-hero" className="plotty-profile-hero-avatar-frame">
+                    <div className="plotty-profile-hero-avatar-frame">
                       <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="hero" />
                     </div>
                   )}
-                  <div data-gsap-intro-item="profile-hero" className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 lg:grid lg:grid-cols-1 lg:items-start lg:gap-y-3 lg:space-y-0 lg:self-center lg:px-7 lg:py-7">
+                  <div className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 lg:grid lg:grid-cols-1 lg:items-start lg:gap-y-3 lg:space-y-0 lg:self-center lg:px-7 lg:py-7">
                     <div className="min-w-0 lg:col-start-1 lg:row-start-1 lg:pr-24">
                       <ProfileInlineTextField
                         field="username"
@@ -585,7 +547,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
               </div>
             </div>
             </div>
-            <div data-gsap-intro-item="profile-hero" className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 lg:border-l lg:border-t-0 lg:p-7">
+            <div className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 lg:border-l lg:border-t-0 lg:p-7">
               <ProfileStat
                 label="Работ"
                 value={worksCount}
@@ -603,7 +565,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                     value={formatCreditsAmount(user?.credits ?? 0)}
                     icon={<Coins className="size-6" />}
                   />
-                  <ButtonLink href={routes.credits} variant="secondary" size="sm" className="w-full">
+                  <ButtonLink href={routes.credits} prefetch={false} variant="secondary" size="sm" className="w-full">
                     Пополнить баланс
                   </ButtonLink>
                 </>
@@ -636,7 +598,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
               onSearchChange={handleWorksSearchChange}
               onSearchClear={clearWorksSearch}
             />
-            {worksQuery.isLoading || (isWorksSearchCollecting && !stories.length) ? (
+            {worksQuery.isLoading ? (
               <div className="space-y-3">
                 <div className="h-44 rounded-[22px] bg-white/50" />
                 <div className="h-44 rounded-[22px] bg-white/50" />
@@ -653,7 +615,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 <AnimatedList
                   items={stories}
                   getKey={(story) => story.id}
-                  className="space-y-4"
+                  className="plotty-profile-works-list space-y-4"
                   ariaLive="polite"
                   renderItem={(story, index) => (
                     <StoryCard
@@ -728,6 +690,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   renderItem={(collection) => (
                     <Link
                       href={routes.userCollection(profile.username, collection.id)}
+                      prefetch={false}
                       className="plotty-collection-tile plotty-lift-panel block h-full rounded-[20px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
                     >
                       <div className="space-y-2">
@@ -785,14 +748,22 @@ export function ProfileAvatar({
         ? "size-28 text-4xl sm:size-36 lg:size-40"
         : "size-12 text-base";
   const radiusClassName = size === "hero" ? "rounded-none sm:rounded-[var(--plotty-radius-md)] lg:rounded-none" : "rounded-[var(--plotty-radius-md)]";
-  const imageSrc = sanitizeImageUrl(avatarUrl) ?? profileAvatarPlaceholderSrc;
+  const safeAvatarUrl = sanitizePersistedImageUrl(avatarUrl);
+  const imageSrc = safeAvatarUrl ?? profileAvatarPlaceholderSrc;
+  const avatarSize = size === "hero" ? 640 : size === "large" ? 160 : 48;
+  const sizes = size === "hero" ? "(min-width: 1024px) 22rem, (min-width: 640px) 10rem, 100vw" : `${avatarSize}px`;
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={imageSrc}
-      alt={`Аватар ${username}`}
-      className={cn(
+      <NextImage
+        src={imageSrc}
+        alt={`Аватар ${username}`}
+        width={avatarSize}
+        height={avatarSize}
+        sizes={sizes}
+        priority={size === "hero"}
+        unoptimized
+        referrerPolicy="no-referrer"
+        className={cn(
         className,
         radiusClassName,
         "shrink-0 border border-[rgba(41,38,34,0.08)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(58,43,27,0.12)] lg:hover:scale-100",
@@ -1349,13 +1320,13 @@ function ProfileStat({ label, value, icon }: { label: string; value: number | st
   const formatValue = useCallback((nextValue: number) => nextValue.toLocaleString("ru-RU"), []);
   const displayValue = typeof value === "number" ? value.toLocaleString("ru-RU") : value;
 
-  useGsapCounter(valueRef, numericValue, formatValue);
+  useRafCounter(valueRef, numericValue, formatValue);
 
   return (
     <div className="plotty-lift-panel h-full rounded-[18px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div ref={valueRef} data-gsap-counter="profile-stat" className="text-2xl font-bold text-[var(--plotty-ink)]">{displayValue}</div>
+          <div ref={valueRef} data-raf-counter="profile-stat" className="text-2xl font-bold text-[var(--plotty-ink)]">{displayValue}</div>
           <div className="plotty-meta">{label}</div>
         </div>
         <span className="mt-1 inline-flex shrink-0 text-[var(--plotty-muted)]">{icon}</span>

@@ -10,6 +10,10 @@ import {
   startImageGeneration,
   storyKeys,
 } from "@/entities/story/api/stories-api";
+import {
+  setGeneratedImageUrl as cacheGeneratedImageUrl,
+  setGeneratedStoryCoverUrl,
+} from "@/entities/story/model/generated-image-cache";
 import type { AiJobStatus, ChapterDetails, ImageGenerationResult } from "@/entities/story/model/types";
 import { isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
@@ -70,6 +74,8 @@ export function GenerateChapterImageButton({
     }
 
     onImageGenerated?.(generatedImageUrl);
+    cacheGeneratedImageUrl(chapterId, generatedImageUrl);
+    setGeneratedStoryCoverUrl(storySlug, generatedImageUrl);
     queryClient.setQueryData<ChapterDetails>(storyKeys.chapter(chapterId), patchChapterImageUrl(generatedImageUrl));
     queryClient.setQueryData<ChapterDetails>(
       storyKeys.chapterEditor(storyId, chapterId),
@@ -142,7 +148,7 @@ export function GenerateChapterImageButton({
   return (
     <div className="space-y-3">
       {shouldOfferTopUp ? (
-        <ButtonLink href={routes.credits} variant="ghost" size="sm">
+        <ButtonLink href={routes.credits} prefetch={false} variant="ghost" size="sm">
           Пополнить баланс
         </ButtonLink>
       ) : null}
@@ -153,7 +159,7 @@ export function GenerateChapterImageButton({
         error={imageStatusError === getImageStatusLabel(imageStatus) ? undefined : imageStatusError}
       />
       {creditError ? (
-        <ButtonLink href={routes.credits} variant="secondary" size="sm">
+        <ButtonLink href={routes.credits} prefetch={false} variant="secondary" size="sm">
           Пополнить
         </ButtonLink>
       ) : null}

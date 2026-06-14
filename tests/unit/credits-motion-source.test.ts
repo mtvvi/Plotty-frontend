@@ -3,10 +3,12 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("credits motion source", () => {
-  it("uses the shared GSAP counter for the balance summary", () => {
+  it("uses a lightweight rAF counter without importing GSAP", () => {
     const source = readFileSync(path.resolve("src/widgets/credits/credits-screen.tsx"), "utf8");
 
-    expect(source).toContain("useGsapCounter");
-    expect(source).toContain("data-gsap-counter=\"credits-balance\"");
+    expect(source).toContain("useRafCounter");
+    expect(source).toContain("data-raf-counter=\"credits-balance\"");
+    expect(source).not.toContain("useGsapCounter");
+    expect(source).not.toContain("@/shared/lib/gsap-motion");
   });
 });

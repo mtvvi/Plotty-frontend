@@ -94,9 +94,10 @@ type ButtonLinkProps = LinkProps &
 export function ButtonLink({
   className,
   fullWidth,
+  prefetch = false,
   size = "md",
   variant = "secondary",
   ...props
 }: ButtonLinkProps) {
-  return <Link data-plotty-button="true" data-variant={variant} className={buttonClassName({ variant, size, fullWidth, className })} {...props} />;
+  return <Link data-plotty-button="true" data-variant={variant} prefetch={prefetch} className={buttonClassName({ variant, size, fullWidth, className })} {...props} />;
 }

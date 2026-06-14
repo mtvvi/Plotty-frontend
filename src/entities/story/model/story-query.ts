@@ -29,6 +29,9 @@ export const defaultStoriesQuery: StoriesQuery = {
 export const defaultStoriesSort: StoriesSort = "updated-desc";
 
 const storiesSortValues = new Set<StoriesSort>(["updated-desc", "updated-asc", "title-asc", "title-desc"]);
+const maxCatalogTags = 12;
+const maxCatalogQueryLength = 120;
+const maxCatalogPageSize = 50;
 
 const legacyQueryCategories = {
   fandom: "directionality",
@@ -77,10 +80,13 @@ export function parseStoriesQuery(searchParams: URLSearchParams): StoriesQuery {
     .filter((tagSlug): tagSlug is string => Boolean(tagSlug));
 
   return {
-    tags: [...rawTags, ...legacyTags].filter((tag, index, items) => tag.trim() && items.indexOf(tag) === index),
-    q: searchParams.get("q")?.trim() ?? "",
+    tags: [...rawTags, ...legacyTags].filter((tag, index, items) => tag.trim() && items.indexOf(tag) === index).slice(0, maxCatalogTags),
+    q: (searchParams.get("q")?.trim() ?? "").slice(0, maxCatalogQueryLength),
     page: Number.isFinite(rawPage) && rawPage > 0 ? rawPage : defaultStoriesQuery.page,
-    pageSize: Number.isFinite(rawPageSize) && rawPageSize > 0 ? rawPageSize : defaultStoriesQuery.pageSize,
+    pageSize:
+      Number.isFinite(rawPageSize) && rawPageSize > 0
+        ? Math.min(rawPageSize, maxCatalogPageSize)
+        : defaultStoriesQuery.pageSize,
     ...(sort ? { sort } : {}),
   };
 }

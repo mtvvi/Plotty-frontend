@@ -30,6 +30,7 @@ export function CreditBalancePill({
     return (
       <Link
         href={routes.credits}
+        prefetch={false}
         onClick={onNavigate}
         className="plotty-button-label flex min-h-11 items-center justify-between gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.8)] px-4 py-3 text-[var(--plotty-ink)] shadow-[0_4px_14px_rgba(58,43,27,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out hover:-translate-y-[1px] hover:border-[var(--plotty-line-strong)] hover:bg-[var(--plotty-paper-strong)] hover:shadow-[0_16px_30px_rgba(58,43,27,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
         aria-label={`Пополнить баланс: ${label}`}
@@ -43,6 +44,7 @@ export function CreditBalancePill({
   return (
     <Link
       href={routes.credits}
+      prefetch={false}
       onClick={onNavigate}
       className={cn(
         "plotty-button-label inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[var(--plotty-line)] bg-[rgba(255,253,249,0.78)] px-3 text-sm text-[var(--plotty-ink)] shadow-[0_4px_14px_rgba(58,43,27,0.04)] transition-[background-color,border-color,color] hover:border-[var(--plotty-line-strong)] hover:bg-[var(--plotty-paper-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",

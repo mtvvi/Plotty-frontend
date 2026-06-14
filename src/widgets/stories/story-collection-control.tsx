@@ -49,7 +49,7 @@ export function StoryCollectionControl({
   const [titleDraft, setTitleDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
-  const collectionsQuery = useQuery(myCollectionDetailsQueryOptions({ enabled: isAuthenticated }));
+  const collectionsQuery = useQuery(myCollectionDetailsQueryOptions({ enabled: isAuthenticated && popover.open }));
   const collections = useMemo(() => collectionsQuery.data ?? [], [collectionsQuery.data]);
   const containingCollections = useMemo(
     () => collections.filter((collection) => collection.stories.some((story) => story.id === storyId)),

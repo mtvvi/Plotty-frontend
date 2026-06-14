@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
@@ -9,7 +9,6 @@ import { deleteCollection, libraryKeys, removeStoryFromCollection, updateCollect
 import { profileKeys, publicUserCollectionQueryOptions } from "@/entities/profile/api/profile-api";
 import { routes } from "@/shared/config/routes";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
-import { useGsapPresence } from "@/shared/lib/gsap-motion";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
@@ -38,7 +37,6 @@ export function PublicCollectionScreen({
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const editPanelRef = useRef<HTMLDivElement | null>(null);
   const updateMutation = useMutation({
     mutationFn: ({ title, description }: { title: string; description: string }) =>
       updateCollection(collectionId, { title, description }),
@@ -79,8 +77,6 @@ export function PublicCollectionScreen({
     setLocalError(toUserFacingErrorMessage(error, "Не удалось обновить подборку"));
   }
 
-  useGsapPresence(editPanelRef, [editOpen ? "open" : "closed"], { y: 8 });
-
   if (collectionQuery.isLoading) {
     return (
       <PlottyPageShell
@@ -104,7 +100,7 @@ export function PublicCollectionScreen({
   }
 
   const collection = collectionQuery.data;
-  const isOwner = Boolean(user?.username && user.username.toLowerCase() === username.trim().toLowerCase());
+  const isOwner = Boolean(user?.id && collection.userId === user.id);
 
   function handleStartEdit() {
     setTitleDraft(collection.title);
@@ -188,7 +184,7 @@ export function PublicCollectionScreen({
       }
     >
       {isOwner && editOpen ? (
-        <div ref={editPanelRef} data-gsap-presence="collection-edit">
+        <div data-presence="collection-edit" className="plotty-motion-tab-panel">
           <PlottySectionCard className="mb-4">
             <form className="grid gap-4" onSubmit={handleUpdate}>
               <Field>
@@ -236,7 +232,7 @@ export function PublicCollectionScreen({
           <AnimatedList
             items={collection.stories}
             getKey={(story) => story.id}
-            className="space-y-4"
+            className="plotty-collection-story-list space-y-4"
             renderItem={(story) => (
               <div className="space-y-2">
                 <StoryCard story={story} showChapterActions={false} />

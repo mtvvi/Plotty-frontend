@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/entities/auth/model/auth-context";
 import { loginMockUser } from "@/mocks/data/auth";
+import { server } from "@/mocks/server";
 import { StoryDetailsScreen } from "@/widgets/stories/story-details-screen";
 
 let currentSearchParams = new URLSearchParams();
@@ -14,7 +16,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => currentSearchParams,
 }));
 
-function renderStoryDetails() {
+function renderStoryDetails(slug = "after-midnight-the-snow-does-not-melt") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -22,7 +24,7 @@ function renderStoryDetails() {
   return render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <StoryDetailsScreen slug="after-midnight-the-snow-does-not-melt" />
+        <StoryDetailsScreen slug={slug} />
       </AuthProvider>
     </QueryClientProvider>,
   );
@@ -98,6 +100,62 @@ describe("StoryDetailsScreen", () => {
         "href",
         "/stories/after-midnight-the-snow-does-not-melt/chapters/2",
       ),
+    );
+  });
+
+  it("restores a generated chapter image as the story cover when details have no cover URL", async () => {
+    let chapterRequests = 0;
+    vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(800);
+
+    server.use(
+      http.get("*/stories/no-cover-generated", () =>
+        HttpResponse.json({
+          id: "story-no-cover",
+          slug: "no-cover-generated",
+          title: "История без обложки",
+          createdAt: "2026-05-01T10:00:00.000Z",
+          updatedAt: "2026-05-02T10:00:00.000Z",
+          coverImageUrl: null,
+          coverUrl: null,
+          tags: [],
+          likesCount: 0,
+          likedByMe: false,
+          aiHint: "Картинка лежит на первой главе.",
+          author: { id: 1, username: "writer" },
+          chapters: [
+            {
+              id: "chapter-generated-cover",
+              title: "Глава с картинкой",
+              updatedAt: "2026-05-02T10:00:00.000Z",
+              status: "published",
+            },
+          ],
+        }),
+      ),
+      http.get("*/chapters/chapter-generated-cover", () => {
+        chapterRequests += 1;
+
+        return HttpResponse.json({
+          id: "chapter-generated-cover",
+          storyId: "story-no-cover",
+          title: "Глава с картинкой",
+          content: "Текст главы",
+          updatedAt: "2026-05-02T10:00:00.000Z",
+          status: "published",
+          imageUrl: "https://s3.plotty-stories.duckdns.org/mock/generated-cover.webp",
+        });
+      }),
+    );
+
+    renderStoryDetails("no-cover-generated");
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "История без обложки" })).toBeInTheDocument(),
+    );
+
+    await waitFor(() => expect(chapterRequests).toBe(1));
+    await waitFor(() =>
+      expect(screen.getByAltText("Обложка истории «История без обложки»")).toBeInTheDocument(),
     );
   });
 });

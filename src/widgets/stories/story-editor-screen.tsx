@@ -643,6 +643,7 @@ export function StoryEditorScreen({
           <span className="plotty-page-title-row">
             <Link
               href={`${routes.write}?story=${encodeURIComponent(chapterQuery.data.storySlug)}#active-story`}
+              prefetch={false}
               className="plotty-story-title-anchor plotty-story-title-inline-anchor group text-[var(--plotty-ink)] transition-colors hover:text-[var(--plotty-accent)] focus-visible:text-[var(--plotty-accent)]"
             >
               <ArrowLeft className="plotty-page-title-back-icon size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />

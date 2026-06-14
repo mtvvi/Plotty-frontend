@@ -70,9 +70,9 @@ describe("PublicProfileScreen", () => {
     expect(within(summary).getByAltText("Аватар writer")).toHaveAttribute("src", profileAvatarPlaceholderSrc);
     expect(within(summary).getByAltText("Аватар writer")).toHaveClass("aspect-square", "w-full", "lg:w-auto", "lg:min-h-80");
     expect(summary).toHaveClass("h-full", "lg:min-h-80");
-    expect(summary).toHaveAttribute("data-gsap-intro", "profile-hero");
+    expect(summary).toHaveAttribute("data-profile-intro", "profile-hero");
     expect(summary.firstElementChild).toHaveClass("h-full", "lg:grid-cols-[auto_minmax(0,1fr)_auto]");
-    expect(screen.getByText("Работ").previousElementSibling).toHaveAttribute("data-gsap-counter", "profile-stat");
+    expect(screen.getByText("Работ").previousElementSibling).toHaveAttribute("data-raf-counter", "profile-stat");
 
     await user.click(screen.getByRole("button", { name: "Редактировать ник" }));
 
@@ -144,6 +144,55 @@ describe("PublicProfileScreen", () => {
     expect(screen.getByRole("link", { name: /пополнить баланс/i })).toHaveAttribute("href", "/credits");
   });
 
+  it("does not start a public works request before own-profile resolution", async () => {
+    currentSearchParams = new URLSearchParams();
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    const publicWorksRequests: string[] = [];
+    const mineWorksRequests: string[] = [];
+
+    server.use(
+      http.get("*/users/:username/stories", ({ request }) => {
+        publicWorksRequests.push(request.url);
+
+        return HttpResponse.json({ items: [], pagination: { page: 1, pageSize: 8, total: 0 } });
+      }),
+      http.get("*/stories/mine", ({ request }) => {
+        mineWorksRequests.push(request.url);
+
+        return HttpResponse.json({ items: [], pagination: { page: 1, pageSize: 8, total: 0 } });
+      }),
+    );
+
+    renderPublicProfile("writer");
+
+    await screen.findByRole("heading", { name: "writer" });
+    await waitFor(() => expect(mineWorksRequests).toHaveLength(1));
+
+    expect(publicWorksRequests).toHaveLength(0);
+  });
+
+  it("sends profile works search to the API without collecting every page on the client", async () => {
+    const user = userEvent.setup();
+    currentSearchParams = new URLSearchParams();
+    const worksRequests: string[] = [];
+
+    server.use(
+      http.get("*/users/:username/stories", ({ request }) => {
+        worksRequests.push(request.url);
+
+        return HttpResponse.json({ items: [], pagination: { page: 1, pageSize: 8, total: 0 } });
+      }),
+    );
+
+    renderPublicProfile("reader_one");
+
+    await screen.findByRole("heading", { name: "reader_one" });
+    await user.type(screen.getByLabelText("Поиск по работам автора"), "архив");
+
+    await waitFor(() => expect(worksRequests.some((url) => new URL(url).searchParams.get("q") === "архив")).toBe(true));
+    expect(worksRequests.filter((url) => new URL(url).searchParams.get("page") === "2")).toHaveLength(0);
+  });
+
   it("does not show AI credits on another user's public profile", async () => {
     currentSearchParams = new URLSearchParams();
     loginMockUser({ email: "writer@plotty.test", password: "password123" });
@@ -153,5 +202,29 @@ describe("PublicProfileScreen", () => {
     await screen.findByRole("heading", { name: "reader_one" });
     expect(screen.queryByText("AI-кредиты")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /пополнить баланс/i })).not.toBeInTheDocument();
+  });
+
+  it("does not treat a profile as own when only the route username matches", async () => {
+    currentSearchParams = new URLSearchParams();
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    server.use(
+      http.get("*/users/:username", () =>
+        HttpResponse.json({
+          profile: {
+            id: 999,
+            username: "writer",
+            avatarUrl: null,
+            bio: "Профиль с совпадающим ником, но другим id.",
+          },
+        }),
+      ),
+    );
+
+    renderPublicProfile("writer");
+
+    await screen.findByRole("heading", { name: "writer" });
+    expect(screen.queryByRole("button", { name: "Загрузить аватар" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Выйти" })).not.toBeInTheDocument();
+    expect(screen.queryByText("AI-кредиты")).not.toBeInTheDocument();
   });
 });
