@@ -24,19 +24,9 @@ function createInitialDb(): MockAuthDb {
         created_at: "2026-03-01T10:00:00.000Z",
         updated_at: "2026-03-01T10:00:00.000Z",
       },
-      {
-        id: 2,
-        email: "author@gmail.com",
-        username: "author",
-        password: "12345678",
-        avatar_url: null,
-        isAdmin: true,
-        created_at: "2026-03-01T10:00:00.000Z",
-        updated_at: "2026-03-01T10:00:00.000Z",
-      },
     ],
     currentUserId: null,
-    nextId: 3,
+    nextId: 2,
   };
 }
 
