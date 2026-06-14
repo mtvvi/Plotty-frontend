@@ -16,9 +16,9 @@ function createInitialDb(): MockAuthDb {
     users: [
       {
         id: 1,
-        email: "writer@plotty.test",
+        email: "author@gmail.com",
         username: "writer",
-        password: "password123",
+        password: "12345678",
         avatar_url: null,
         isAdmin: true,
         created_at: "2026-03-01T10:00:00.000Z",
