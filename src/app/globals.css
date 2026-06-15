@@ -815,6 +815,268 @@ button:active .plotty-chip-motion {
   animation: plotty-motion-disclosure-close 240ms var(--ease-in-out-soft) both;
 }
 
+.plotty-auth-stage {
+  min-height: min(42rem, calc(100vh - 7.5rem));
+}
+
+.plotty-auth-plot-map {
+  position: absolute;
+  inset: -1.5rem -1rem -2.5rem;
+  z-index: 0;
+  display: none;
+  contain: layout paint style;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.plotty-auth-plot-map-layer,
+.plotty-auth-plot-map-lines {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(0, 0, 0);
+}
+
+.plotty-auth-plot-map-layer[data-depth="0"] {
+  opacity: 0.42;
+}
+
+.plotty-auth-plot-map-layer[data-depth="1"] {
+  opacity: 0.64;
+}
+
+.plotty-auth-plot-map-layer[data-depth="2"] {
+  opacity: 0.8;
+}
+
+.plotty-auth-plot-map-lines {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.plotty-auth-plot-map-line {
+  stroke: color-mix(in srgb, var(--plotty-muted) 78%, transparent);
+  stroke-linecap: round;
+  stroke-width: 0.2;
+  transition:
+    opacity var(--motion-base) var(--ease-out-soft),
+    stroke var(--motion-base) var(--ease-out-soft);
+  vector-effect: non-scaling-stroke;
+}
+
+.plotty-auth-plot-map-line[data-depth="0"] {
+  opacity: 0.42;
+}
+
+.plotty-auth-plot-map-line[data-depth="1"] {
+  opacity: 0.58;
+}
+
+.plotty-auth-plot-map-line[data-depth="2"] {
+  opacity: 0.72;
+}
+
+.plotty-auth-plot-map-line[data-kind="chapter"] {
+  stroke: color-mix(in srgb, var(--plotty-accent) 62%, var(--plotty-gold));
+  stroke-width: 0.34;
+  opacity: 0.88;
+}
+
+.plotty-auth-plot-map-dot {
+  position: absolute;
+  left: var(--plot-map-x);
+  top: var(--plot-map-y);
+  width: var(--plot-map-size);
+  height: var(--plot-map-size);
+  border: 1px solid color-mix(in srgb, var(--plotty-muted) 32%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--plotty-paper-strong) 64%, transparent);
+  opacity: 0.82;
+  transform: translate3d(-50%, -50%, 0);
+  animation: plotty-auth-plot-map-dot-enter 540ms var(--ease-out-soft) both;
+  animation-delay: var(--plot-map-delay, 0ms);
+}
+
+.plotty-auth-plot-map-dot[data-tone="warm"] {
+  border-color: color-mix(in srgb, var(--plotty-gold) 44%, transparent);
+  background: color-mix(in srgb, var(--plotty-gold-soft) 42%, transparent);
+}
+
+.plotty-auth-plot-map-dot[data-tone="accent"] {
+  border-color: color-mix(in srgb, var(--plotty-accent) 46%, transparent);
+  background: color-mix(in srgb, var(--plotty-accent-soft) 52%, transparent);
+}
+
+.plotty-auth-plot-map-story-tile {
+  position: absolute;
+  left: var(--plot-map-x);
+  top: var(--plot-map-y);
+  display: grid;
+  width: 8.6rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--plotty-line-strong) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--plotty-paper-strong) 72%, transparent);
+  opacity: 0.78;
+  transform: translate3d(-50%, -50%, 0) rotate(var(--plot-map-rotate, 0deg));
+}
+
+.plotty-auth-plot-map-story-tile[data-kind="chapter"] {
+  border-color: color-mix(in srgb, var(--plotty-accent) 32%, var(--plotty-line-strong));
+  opacity: 0.86;
+}
+
+.plotty-auth-plot-map-story-tile[data-size="sm"] {
+  width: 7.25rem;
+}
+
+.plotty-auth-plot-map-story-tile[data-size="lg"] {
+  width: 9.8rem;
+}
+
+.plotty-auth-plot-map-story-tile-media {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+}
+
+.plotty-auth-plot-map-story-tile-media img {
+  object-fit: cover;
+}
+
+.plotty-auth-plot-map-story-tile-caption {
+  display: grid;
+  gap: 0.05rem;
+  padding: 0.45rem 0.55rem 0.5rem;
+  color: var(--plotty-ink);
+  text-align: left;
+}
+
+.plotty-auth-plot-map-story-tile-caption span:first-child {
+  display: -webkit-box;
+  overflow: hidden;
+  font-family: var(--font-serif), serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.05;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.plotty-auth-plot-map-story-tile-caption span:last-child {
+  overflow: hidden;
+  color: var(--plotty-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plotty-auth-plot-map-info-label {
+  position: absolute;
+  left: var(--plot-map-x);
+  top: var(--plot-map-y);
+  display: grid;
+  width: min(12rem, 20vw);
+  gap: 0.12rem;
+  border: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--plotty-surface-strong) 88%, transparent);
+  color: var(--plotty-ink);
+  padding: 0.58rem 0.68rem;
+  text-align: left;
+  opacity: 0.76;
+  pointer-events: none;
+  transform: translate3d(-50%, -50%, 0) rotate(var(--plot-map-rotate, 0deg));
+}
+
+.plotty-auth-plot-map-info-label::before {
+  position: absolute;
+  inset: 0.3rem auto auto -0.28rem;
+  width: 0.46rem;
+  height: 0.46rem;
+  border-left: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
+  background: inherit;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.plotty-auth-plot-map-info-label[data-side="left"]::before {
+  right: -0.28rem;
+  left: auto;
+  border-right: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
+  border-left: 0;
+}
+
+.plotty-auth-plot-map-info-label[data-kind="Локация"] {
+  border-color: color-mix(in srgb, var(--plotty-olive) 32%, var(--plotty-line));
+}
+
+.plotty-auth-plot-map-info-label[data-kind="Предмет"] {
+  border-color: color-mix(in srgb, var(--plotty-gold) 34%, var(--plotty-line));
+}
+
+.plotty-auth-plot-map-info-kind {
+  color: var(--plotty-accent);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.plotty-auth-plot-map-info-name {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--plotty-ink);
+  font-family: var(--font-serif), serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.12;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.plotty-auth-plot-map-info-detail {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--plotty-muted);
+  font-size: 0.66rem;
+  font-weight: 500;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (min-width: 1024px) {
+  .plotty-auth-plot-map {
+    display: block;
+  }
+}
+
+@media (max-width: 1200px) {
+  .plotty-auth-plot-map-story-tile {
+    width: 7.4rem;
+    opacity: 0.68;
+  }
+
+  .plotty-auth-plot-map-story-tile[data-size="lg"] {
+    width: 8.25rem;
+  }
+
+  .plotty-auth-plot-map-info-label {
+    width: min(10rem, 18vw);
+  }
+}
+
 .plotty-async-status {
   position: relative;
   display: flex;
@@ -2063,6 +2325,17 @@ button:active .plotty-chip-motion {
   }
 }
 
+@keyframes plotty-auth-plot-map-dot-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, -50%, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0.82;
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
+}
+
 @keyframes plotty-async-status-orbit {
   0% {
     opacity: 0.8;
@@ -2353,8 +2626,14 @@ button:active .plotty-chip-motion {
   .plotty-story-card:hover,
   .plotty-lift-card:hover,
   .plotty-lift-panel:hover,
-  .plotty-cover-preview:hover img {
+  .plotty-cover-preview:hover img,
+  .plotty-auth-plot-map-layer,
+  .plotty-auth-plot-map-lines {
     transform: none;
+  }
+
+  .plotty-auth-plot-map-dot {
+    animation: none;
   }
 
   .plotty-chapter-title-motion {

@@ -19,6 +19,7 @@ import { Field, FieldError, FieldHint, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 
+import { AuthPlotMapBackdrop } from "./auth-plot-map-backdrop";
 import { resetViewerSessionCache } from "./viewer-session-cache";
 
 type AuthMode = "login" | "register";
@@ -145,84 +146,87 @@ export function AuthScreen() {
 
   return (
     <PlottyPageShell showBottomNav={false} desktopHeaderActions={null} contentClassName="py-4 lg:py-7" suppressPageIntro>
-      <div data-auth-intro="auth-form" className="plotty-motion-tab-panel mx-auto max-w-[32rem]">
-      <PlottySectionCard className="space-y-6 p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <span className="plotty-meta text-xs font-bold uppercase tracking-[0.14em]">
-            {mode === "register" ? "Регистрация" : "Вход"}
-          </span>
-          <Button variant="ghost" className="h-10 px-3 text-sm" onClick={handleClose}>
-            Назад
-          </Button>
-        </div>
-
-        <div className="space-y-1.5">
-          <h1 className="plotty-page-title text-[2rem] sm:text-[2.4rem]">{pageCopy.title}</h1>
-          <p className="plotty-body text-[var(--plotty-muted)]">{pageCopy.description}</p>
-        </div>
-
-        <div className="grid gap-4">
-          <Field>
-            <FieldLabel htmlFor="auth-email">Email</FieldLabel>
-            <Input
-              id="auth-email"
-              type="email"
-              value={values.email}
-              onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))}
-              placeholder="you@example.com"
-            />
-            {fieldErrors.Email ? <FieldError>{fieldErrors.Email}</FieldError> : null}
-          </Field>
-
-          <PasswordField
-            id="auth-password"
-            label="Пароль"
-            value={values.password}
-            onChange={(value) => setValues((current) => ({ ...current, password: value }))}
-            placeholder="Минимум 8 символов"
-            error={fieldErrors.Password}
-            showPassword={showPassword}
-            onTogglePassword={() => setShowPassword((current) => !current)}
-            showLabel="Показать пароль"
-            hideLabel="Скрыть пароль"
-            hint={mode === "register" ? passwordRulesText : undefined}
-          />
-
-          {mode === "register" ? (
-            <PasswordField
-              id="auth-confirm-password"
-              label="Подтверждение пароля"
-              value={values.confirm_password}
-              onChange={(value) => setValues((current) => ({ ...current, confirm_password: value }))}
-              placeholder="Повторите пароль"
-              error={fieldErrors.ConfirmPassword}
-              showPassword={showConfirmPassword}
-              onTogglePassword={() => setShowConfirmPassword((current) => !current)}
-              showLabel="Показать подтверждение пароля"
-              hideLabel="Скрыть подтверждение пароля"
-            />
-          ) : null}
-
-          {generalError ? (
-            <div className="rounded-[18px] border border-[var(--plotty-accent-soft)] bg-[var(--plotty-accent-soft)] px-4 py-3 text-sm text-[var(--plotty-ink)]">
-              {generalError}
+      <div className="plotty-auth-stage relative isolate">
+        <div data-auth-intro="auth-form" className="plotty-motion-tab-panel relative z-10 mx-auto max-w-[32rem]">
+          <PlottySectionCard className="space-y-6 p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <span className="plotty-meta text-xs font-bold uppercase tracking-[0.14em]">
+                {mode === "register" ? "Регистрация" : "Вход"}
+              </span>
+              <Button variant="ghost" className="h-10 px-3 text-sm" onClick={handleClose}>
+                Назад
+              </Button>
             </div>
-          ) : null}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="primary" disabled={authMutation.isPending} onClick={handleSubmit}>
-              {authMutation.isPending ? "Отправляем..." : pageCopy.submitLabel}
-            </Button>
-          </div>
+            <div className="space-y-1.5">
+              <h1 className="plotty-page-title text-[2rem] sm:text-[2.4rem]">{pageCopy.title}</h1>
+              <p className="plotty-body text-[var(--plotty-muted)]">{pageCopy.description}</p>
+            </div>
+
+            <div className="grid gap-4">
+              <Field>
+                <FieldLabel htmlFor="auth-email">Email</FieldLabel>
+                <Input
+                  id="auth-email"
+                  type="email"
+                  value={values.email}
+                  onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))}
+                  placeholder="you@example.com"
+                />
+                {fieldErrors.Email ? <FieldError>{fieldErrors.Email}</FieldError> : null}
+              </Field>
+
+              <PasswordField
+                id="auth-password"
+                label="Пароль"
+                value={values.password}
+                onChange={(value) => setValues((current) => ({ ...current, password: value }))}
+                placeholder="Минимум 8 символов"
+                error={fieldErrors.Password}
+                showPassword={showPassword}
+                onTogglePassword={() => setShowPassword((current) => !current)}
+                showLabel="Показать пароль"
+                hideLabel="Скрыть пароль"
+                hint={mode === "register" ? passwordRulesText : undefined}
+              />
+
+              {mode === "register" ? (
+                <PasswordField
+                  id="auth-confirm-password"
+                  label="Подтверждение пароля"
+                  value={values.confirm_password}
+                  onChange={(value) => setValues((current) => ({ ...current, confirm_password: value }))}
+                  placeholder="Повторите пароль"
+                  error={fieldErrors.ConfirmPassword}
+                  showPassword={showConfirmPassword}
+                  onTogglePassword={() => setShowConfirmPassword((current) => !current)}
+                  showLabel="Показать подтверждение пароля"
+                  hideLabel="Скрыть подтверждение пароля"
+                />
+              ) : null}
+
+              {generalError ? (
+                <div className="rounded-[18px] border border-[var(--plotty-accent-soft)] bg-[var(--plotty-accent-soft)] px-4 py-3 text-sm text-[var(--plotty-ink)]">
+                  {generalError}
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button variant="primary" disabled={authMutation.isPending} onClick={handleSubmit}>
+                  {authMutation.isPending ? "Отправляем..." : pageCopy.submitLabel}
+                </Button>
+              </div>
+            </div>
+
+            <p className="plotty-meta text-sm">
+              {pageCopy.switchLabel}{" "}
+              <Link href={pageCopy.switchHref} prefetch={false} className="font-semibold text-[var(--plotty-accent)]">
+                {pageCopy.switchCta}
+              </Link>
+            </p>
+          </PlottySectionCard>
         </div>
-
-        <p className="plotty-meta text-sm">
-          {pageCopy.switchLabel}{" "}
-          <Link href={pageCopy.switchHref} prefetch={false} className="font-semibold text-[var(--plotty-accent)]">
-            {pageCopy.switchCta}
-          </Link>
-        </p>
-      </PlottySectionCard>
+        <AuthPlotMapBackdrop />
       </div>
     </PlottyPageShell>
   );
