@@ -18,6 +18,10 @@ function isSameDocumentNavigation(url: URL) {
   return url.pathname === window.location.pathname && url.search === window.location.search;
 }
 
+function getWindowRouteKey() {
+  return `${window.location.pathname}?${new URLSearchParams(window.location.search).toString()}`;
+}
+
 function getAnchorFromEvent(event: MouseEvent) {
   const target = event.target;
 
@@ -156,15 +160,34 @@ export function RouteProgressBar() {
       start();
     }
 
-    window.addEventListener("popstate", start);
+    function handlePopState() {
+      const nextRouteKey = getWindowRouteKey();
+
+      if (nextRouteKey === previousRouteKeyRef.current) {
+        finish();
+        return;
+      }
+
+      start();
+    }
+
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        finish();
+      }
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("pageshow", handlePageShow);
     document.addEventListener("click", handleDocumentClick, true);
 
     return () => {
-      window.removeEventListener("popstate", start);
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("click", handleDocumentClick, true);
       clearTimers();
     };
-  }, [clearTimers, start]);
+  }, [clearTimers, finish, start]);
 
   return (
     <div className="plotty-route-progress" data-state={state} aria-hidden="true">

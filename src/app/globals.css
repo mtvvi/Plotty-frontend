@@ -116,6 +116,99 @@
   background-color: var(--plotty-surface-hover) !important;
 }
 
+:root[data-theme="dark"] .plotty-chip-motion::before,
+:root[data-theme="dark"] .plotty-badge-motion::before {
+  background: transparent;
+  opacity: 0;
+}
+
+.plotty-reader-shelf-tone,
+.plotty-reader-shelf-menu-item {
+  --plotty-reader-shelf-border: transparent;
+  --plotty-reader-shelf-background: transparent;
+  --plotty-reader-shelf-color: var(--plotty-muted);
+}
+
+.plotty-reader-shelf-tone[data-reader-shelf-tone="neutral"],
+.plotty-reader-shelf-menu-item[data-reader-shelf-tone="neutral"] {
+  --plotty-reader-shelf-border: var(--plotty-line-strong);
+  --plotty-reader-shelf-background: color-mix(in srgb, var(--plotty-surface-strong) 68%, transparent);
+  --plotty-reader-shelf-color: var(--plotty-ink-soft);
+}
+
+.plotty-reader-shelf-tone[data-reader-shelf-tone="success"],
+.plotty-reader-shelf-menu-item[data-reader-shelf-tone="success"] {
+  --plotty-reader-shelf-border: color-mix(in srgb, var(--plotty-olive) 22%, transparent);
+  --plotty-reader-shelf-background: var(--plotty-olive-soft);
+  --plotty-reader-shelf-color: var(--plotty-olive);
+}
+
+.plotty-reader-shelf-tone[data-reader-shelf-tone="info"],
+.plotty-reader-shelf-menu-item[data-reader-shelf-tone="info"] {
+  --plotty-reader-shelf-border: color-mix(in srgb, var(--plotty-blue) 24%, transparent);
+  --plotty-reader-shelf-background: var(--plotty-blue-soft);
+  --plotty-reader-shelf-color: var(--plotty-blue);
+}
+
+.plotty-reader-shelf-tone[data-reader-shelf-tone="danger"],
+.plotty-reader-shelf-menu-item[data-reader-shelf-tone="danger"] {
+  --plotty-reader-shelf-border: color-mix(in srgb, var(--plotty-danger) 24%, transparent);
+  --plotty-reader-shelf-background: var(--plotty-danger-soft);
+  --plotty-reader-shelf-color: var(--plotty-danger);
+}
+
+.plotty-reader-shelf-tone[data-reader-shelf-tone="gold"],
+.plotty-reader-shelf-menu-item[data-reader-shelf-tone="gold"] {
+  --plotty-reader-shelf-border: color-mix(in srgb, var(--plotty-gold) 24%, transparent);
+  --plotty-reader-shelf-background: var(--plotty-gold-soft);
+  --plotty-reader-shelf-color: var(--plotty-gold);
+}
+
+.plotty-reader-shelf-tone[data-reader-shelf-tone="accent"],
+.plotty-reader-shelf-menu-item[data-reader-shelf-tone="accent"] {
+  --plotty-reader-shelf-border: color-mix(in srgb, var(--plotty-accent) 22%, transparent);
+  --plotty-reader-shelf-background: var(--plotty-accent-wash);
+  --plotty-reader-shelf-color: var(--plotty-accent);
+}
+
+.plotty-reader-shelf-tone[data-reader-shelf-tone] {
+  border-color: var(--plotty-reader-shelf-border);
+  background: var(--plotty-reader-shelf-background);
+  color: var(--plotty-reader-shelf-color);
+}
+
+.plotty-reader-shelf-tone[data-reader-shelf-tone="neutral"]:hover,
+.plotty-collection-control-tone:hover {
+  border-color: color-mix(in srgb, var(--plotty-accent) 24%, var(--plotty-line-strong));
+}
+
+.plotty-collection-control-tone {
+  border-color: var(--plotty-line-strong);
+  background: color-mix(in srgb, var(--plotty-surface-strong) 68%, transparent);
+  color: var(--plotty-ink-soft);
+}
+
+.plotty-reader-shelf-menu-item {
+  background: transparent;
+}
+
+.plotty-reader-shelf-menu-item[data-reader-shelf-tone] {
+  border-color: var(--plotty-reader-shelf-border);
+  color: var(--plotty-reader-shelf-color);
+}
+
+.plotty-reader-shelf-menu-item:hover {
+  border-color: color-mix(in srgb, currentColor 52%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.plotty-reader-shelf-menu-item[aria-selected="true"] {
+  border-color: var(--plotty-reader-shelf-border);
+  background: var(--plotty-reader-shelf-background);
+  color: var(--plotty-reader-shelf-color);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--plotty-reader-shelf-color) 18%, transparent);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -146,6 +239,22 @@ select {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+.plotty-text-link {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+  transition:
+    color var(--motion-base) var(--ease-out-soft),
+    text-decoration-color var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-text-link:hover,
+.plotty-text-link:focus-visible {
+  color: var(--plotty-accent);
 }
 
 a[href],
@@ -374,7 +483,16 @@ select {
   height: 100%;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .plotty-profile-hero-avatar-frame {
+    width: 20rem;
+    flex-basis: 20rem;
+    aspect-ratio: 1 / 1;
+    align-self: flex-start;
+  }
+}
+
+@media (min-width: 1280px) {
   .plotty-profile-hero-grid {
     grid-template-columns: minmax(18rem, 32rem) minmax(0, 1fr) auto;
   }
@@ -819,6 +937,10 @@ button:active .plotty-chip-motion {
   min-height: min(42rem, calc(100vh - 7.5rem));
 }
 
+.plotty-auth-card {
+  background: var(--plotty-paper-strong);
+}
+
 .plotty-auth-plot-map {
   position: absolute;
   inset: -1.5rem -1rem -2.5rem;
@@ -836,19 +958,24 @@ button:active .plotty-chip-motion {
   transform: translate3d(0, 0, 0);
 }
 
+.plotty-auth-plot-map-layer {
+  z-index: 1;
+}
+
 .plotty-auth-plot-map-layer[data-depth="0"] {
-  opacity: 0.42;
+  opacity: 1;
 }
 
 .plotty-auth-plot-map-layer[data-depth="1"] {
-  opacity: 0.64;
+  opacity: 1;
 }
 
 .plotty-auth-plot-map-layer[data-depth="2"] {
-  opacity: 0.8;
+  opacity: 1;
 }
 
 .plotty-auth-plot-map-lines {
+  z-index: 0;
   width: 100%;
   height: 100%;
   overflow: visible;
@@ -882,31 +1009,6 @@ button:active .plotty-chip-motion {
   opacity: 0.88;
 }
 
-.plotty-auth-plot-map-dot {
-  position: absolute;
-  left: var(--plot-map-x);
-  top: var(--plot-map-y);
-  width: var(--plot-map-size);
-  height: var(--plot-map-size);
-  border: 1px solid color-mix(in srgb, var(--plotty-muted) 32%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--plotty-paper-strong) 64%, transparent);
-  opacity: 0.82;
-  transform: translate3d(-50%, -50%, 0);
-  animation: plotty-auth-plot-map-dot-enter 540ms var(--ease-out-soft) both;
-  animation-delay: var(--plot-map-delay, 0ms);
-}
-
-.plotty-auth-plot-map-dot[data-tone="warm"] {
-  border-color: color-mix(in srgb, var(--plotty-gold) 44%, transparent);
-  background: color-mix(in srgb, var(--plotty-gold-soft) 42%, transparent);
-}
-
-.plotty-auth-plot-map-dot[data-tone="accent"] {
-  border-color: color-mix(in srgb, var(--plotty-accent) 46%, transparent);
-  background: color-mix(in srgb, var(--plotty-accent-soft) 52%, transparent);
-}
-
 .plotty-auth-plot-map-story-tile {
   position: absolute;
   left: var(--plot-map-x);
@@ -916,14 +1018,14 @@ button:active .plotty-chip-motion {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--plotty-line-strong) 82%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--plotty-paper-strong) 72%, transparent);
-  opacity: 0.78;
+  background: var(--plotty-paper-strong);
+  opacity: 1;
   transform: translate3d(-50%, -50%, 0) rotate(var(--plot-map-rotate, 0deg));
 }
 
 .plotty-auth-plot-map-story-tile[data-kind="chapter"] {
   border-color: color-mix(in srgb, var(--plotty-accent) 32%, var(--plotty-line-strong));
-  opacity: 0.86;
+  opacity: 1;
 }
 
 .plotty-auth-plot-map-story-tile[data-size="sm"] {
@@ -955,15 +1057,14 @@ button:active .plotty-chip-motion {
 }
 
 .plotty-auth-plot-map-story-tile-caption span:first-child {
-  display: -webkit-box;
-  overflow: hidden;
+  display: block;
+  overflow-wrap: anywhere;
   font-family: var(--font-serif), serif;
   font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.05;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  white-space: normal;
 }
 
 .plotty-auth-plot-map-story-tile-caption span:last-child {
@@ -982,37 +1083,17 @@ button:active .plotty-chip-motion {
   left: var(--plot-map-x);
   top: var(--plot-map-y);
   display: grid;
-  width: min(12rem, 20vw);
+  width: min(10.5rem, 17vw);
   gap: 0.12rem;
   border: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--plotty-surface-strong) 88%, transparent);
+  background: var(--plotty-paper-strong);
   color: var(--plotty-ink);
-  padding: 0.58rem 0.68rem;
+  padding: 0.5rem 0.6rem;
   text-align: left;
-  opacity: 0.76;
+  opacity: 1;
   pointer-events: none;
   transform: translate3d(-50%, -50%, 0) rotate(var(--plot-map-rotate, 0deg));
-}
-
-.plotty-auth-plot-map-info-label::before {
-  position: absolute;
-  inset: 0.3rem auto auto -0.28rem;
-  width: 0.46rem;
-  height: 0.46rem;
-  border-left: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
-  background: inherit;
-  content: "";
-  transform: rotate(45deg);
-}
-
-.plotty-auth-plot-map-info-label[data-side="left"]::before {
-  right: -0.28rem;
-  left: auto;
-  border-right: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--plotty-line) 82%, transparent);
-  border-left: 0;
 }
 
 .plotty-auth-plot-map-info-label[data-kind="Локация"] {
@@ -1021,6 +1102,14 @@ button:active .plotty-chip-motion {
 
 .plotty-auth-plot-map-info-label[data-kind="Предмет"] {
   border-color: color-mix(in srgb, var(--plotty-gold) 34%, var(--plotty-line));
+}
+
+.plotty-auth-plot-map-info-label[data-kind="Персонаж"] {
+  border-color: color-mix(in srgb, var(--plotty-blue) 28%, var(--plotty-line));
+}
+
+.plotty-auth-plot-map-info-label[data-kind="Описание"] {
+  border-color: color-mix(in srgb, var(--plotty-muted) 36%, var(--plotty-line));
 }
 
 .plotty-auth-plot-map-info-kind {
@@ -1065,7 +1154,7 @@ button:active .plotty-chip-motion {
 @media (max-width: 1200px) {
   .plotty-auth-plot-map-story-tile {
     width: 7.4rem;
-    opacity: 0.68;
+    opacity: 1;
   }
 
   .plotty-auth-plot-map-story-tile[data-size="lg"] {
@@ -1073,7 +1162,7 @@ button:active .plotty-chip-motion {
   }
 
   .plotty-auth-plot-map-info-label {
-    width: min(10rem, 18vw);
+    width: min(9.25rem, 16vw);
   }
 }
 
@@ -2325,17 +2414,6 @@ button:active .plotty-chip-motion {
   }
 }
 
-@keyframes plotty-auth-plot-map-dot-enter {
-  0% {
-    opacity: 0;
-    transform: translate3d(-50%, -50%, 0) scale(0.5);
-  }
-  100% {
-    opacity: 0.82;
-    transform: translate3d(-50%, -50%, 0) scale(1);
-  }
-}
-
 @keyframes plotty-async-status-orbit {
   0% {
     opacity: 0.8;
@@ -2630,10 +2708,6 @@ button:active .plotty-chip-motion {
   .plotty-auth-plot-map-layer,
   .plotty-auth-plot-map-lines {
     transform: none;
-  }
-
-  .plotty-auth-plot-map-dot {
-    animation: none;
   }
 
   .plotty-chapter-title-motion {

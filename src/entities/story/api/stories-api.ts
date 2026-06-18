@@ -47,6 +47,7 @@ interface BackendStory {
 interface BackendStoryDetails extends BackendStory {
   tags?: StoryTag[];
   aiHint?: string;
+  description?: string;
   status?: StoryDetails["status"];
   likesCount?: number;
   likedByMe?: boolean;
@@ -164,6 +165,7 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     sizeLabel: getTagName(tags, "size"),
     likesCount: item.likesCount,
     aiHint: item.aiHint,
+    description: item.description,
     viewerHasLiked: item.likedByMe,
     author: item.author
       ? {

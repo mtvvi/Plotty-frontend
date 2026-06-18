@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
+import type { ComponentProps } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -19,7 +20,11 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-function renderStoryCard(index = 0, storyOverride: Partial<ReturnType<typeof listStories>["items"][number]> = {}) {
+function renderStoryCard(
+  index = 0,
+  storyOverride: Partial<ReturnType<typeof listStories>["items"][number]> = {},
+  storyCardProps: Partial<ComponentProps<typeof StoryCard>> = {},
+) {
   const story = {
     ...listStories({ q: "", tags: [], page: 1, pageSize: 20 }).items[index],
     ...storyOverride,
@@ -31,7 +36,7 @@ function renderStoryCard(index = 0, storyOverride: Partial<ReturnType<typeof lis
   render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <StoryCard story={story} />
+        <StoryCard story={story} {...storyCardProps} />
       </AuthProvider>
     </QueryClientProvider>,
   );
@@ -71,6 +76,62 @@ describe("StoryCard", () => {
 
     expect(await screen.findAllByRole("button", { name: "В планы" })).not.toHaveLength(0);
     expect(screen.getAllByRole("button", { name: "В подборку" })).not.toHaveLength(0);
+  });
+
+  it("renders empty shelf and collection actions as outlined controls", async () => {
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    renderStoryCard(1);
+
+    const plannedControl = (await screen.findAllByRole("button", { name: "В планы" }))[0];
+    const collectionControl = screen.getAllByRole("button", { name: "В подборку" })[0];
+
+    expect(plannedControl).toHaveAttribute("data-reader-shelf-tone", "neutral");
+    expect(plannedControl.closest(".plotty-reader-shelf-tone")).toHaveAttribute("data-reader-shelf-tone", "neutral");
+    expect(collectionControl.closest(".plotty-collection-control-tone")).toBeInTheDocument();
+  });
+
+  it("colors reader shelf status controls by status", async () => {
+    const user = userEvent.setup();
+
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    renderStoryCard(1, {}, { initialShelf: "dropped" });
+
+    const droppedControl = await screen.findByRole("button", { name: "Брошено" });
+
+    expect(droppedControl).toHaveAttribute("data-reader-shelf-tone", "danger");
+
+    await user.click(screen.getByRole("button", { name: "Выбрать статус" }));
+
+    expect(await screen.findByRole("option", { name: "Читаю" })).toHaveAttribute(
+      "data-reader-shelf-tone",
+      "success",
+    );
+    expect(screen.getByRole("option", { name: "В планах" })).toHaveAttribute("data-reader-shelf-tone", "info");
+    expect(screen.getByRole("option", { name: "Брошено" })).toHaveAttribute("data-reader-shelf-tone", "danger");
+  });
+
+  it("uses separated outlined shelf menu rows with fill only for the selected status", async () => {
+    const user = userEvent.setup();
+
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    renderStoryCard(1, {}, { initialShelf: "reading" });
+
+    await user.click(await screen.findByRole("button", { name: "Выбрать статус" }));
+
+    const menu = await screen.findByRole("listbox", { name: "Статус чтения" });
+    const readingOption = await screen.findByRole("option", { name: "Читаю" });
+    const plannedOption = screen.getByRole("option", { name: "В планах" });
+    const droppedOption = screen.getByRole("option", { name: "Брошено" });
+    const favoriteOption = screen.getByRole("option", { name: "Любимые" });
+
+    expect(menu).toHaveClass("space-y-1.5");
+    expect(readingOption).toHaveClass("plotty-reader-shelf-menu-item");
+    expect(plannedOption).toHaveClass("plotty-reader-shelf-menu-item");
+    expect(droppedOption).toHaveClass("plotty-reader-shelf-menu-item");
+    expect(favoriteOption).toHaveClass("plotty-reader-shelf-menu-item");
+    expect(plannedOption).toHaveClass("min-h-[42px]");
+    expect(plannedOption).toHaveClass("rounded-[16px]");
+    expect(document.querySelector(".plotty-reader-shelf-dot")).not.toBeInTheDocument();
   });
 
   it("links to the first chapter without fetching reader progress when the list has no direct read number", async () => {

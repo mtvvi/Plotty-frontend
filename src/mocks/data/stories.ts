@@ -590,6 +590,7 @@ function toStoryListItem(story: StoryRecord, viewerUserId?: number): MockBackend
     likesCount: story.likesCount,
     viewerHasLiked: viewerUserId ? story.likedByUserIds.includes(viewerUserId) : false,
     aiHint: story.aiHint,
+    description: story.description,
     author: storyAuthors[story.authorId] ?? null,
     ...(coverUrl ? { coverUrl } : {}),
   };

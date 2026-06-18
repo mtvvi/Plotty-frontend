@@ -242,8 +242,14 @@ export function StoryEditorScreen({
     [activeSpellcheckResult?.items, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys, values.chapterContent],
   );
   const visibleSpellcheckResult = useMemo(
-    () => getVisibleSpellcheckResult(activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys),
-    [activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys],
+    () =>
+      getVisibleSpellcheckResult(
+        activeSpellcheckResult,
+        values.chapterContent,
+        appliedSpellcheckFixes,
+        dismissedSpellcheckIssueKeys,
+      ),
+    [activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys, values.chapterContent],
   );
   const publishedTitle =
     chapterQuery.data?.publishedTitle ??
@@ -853,6 +859,7 @@ function getAdjustedSpellcheckOffsets(
 
 function getVisibleSpellcheckResult(
   result: SpellcheckResult | undefined,
+  content: string,
   appliedFixes: AppliedSpellcheckFix[],
   dismissedIssueKeys: string[] = [],
 ): SpellcheckResult | undefined {
@@ -861,7 +868,15 @@ function getVisibleSpellcheckResult(
   }
 
   const hiddenIssueKeys = new Set([...appliedFixes.map((fix) => fix.key), ...dismissedIssueKeys]);
-  const items = result.items.filter((issue) => !hiddenIssueKeys.has(getSpellcheckIssueKey(issue)));
+  const items = result.items.filter((issue) => {
+    const issueKey = getSpellcheckIssueKey(issue);
+
+    if (hiddenIssueKeys.has(issueKey)) {
+      return false;
+    }
+
+    return Boolean(resolveSpellcheckIssueRange(content, issue, appliedFixes));
+  });
 
   if (items.length === result.items.length) {
     return result;

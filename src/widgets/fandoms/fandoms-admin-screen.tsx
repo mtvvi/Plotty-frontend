@@ -18,6 +18,7 @@ import { routes } from "@/shared/config/routes";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Surface } from "@/shared/ui/card";
 import { PlottyPageShell } from "@/widgets/layout/plotty-page-shell";
@@ -177,10 +178,10 @@ export function FandomsAdminScreen() {
       pageTitle="Модерация фандомов"
       pageDescription="Одобрение создаёт новый тег-фандом и запускает генерацию базы канона на backend."
       pageMeta={
-        <Badge tone="blue">
+        <Chip tone="blue">
           <ShieldAlert className="size-3.5" aria-hidden="true" />
           Админ
-        </Badge>
+        </Chip>
       }
     >
       <div className="space-y-4">

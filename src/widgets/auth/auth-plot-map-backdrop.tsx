@@ -1,55 +1,50 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import { useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
+import {
+  chapterWikiQueryOptions,
+  storiesQueryOptions,
+  storyDetailsQueryOptions,
+} from "@/entities/story/api/stories-api";
 import type {
-  ChapterDetails,
+  ChapterListItem,
   ChapterWiki,
   ChapterWikiEntity,
   StoriesResponse,
+  StoriesQuery,
   StoryDetails,
   StoryListItem,
 } from "@/entities/story/model/types";
-import { gsap, registerPlottyGsapPlugins, useReducedMotion } from "@/shared/lib/gsap-motion";
+import { getGeneratedStoryCoverUrl } from "@/entities/story/model/generated-image-cache";
 import { isUnoptimizedImageUrl, sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { pluralizeRu } from "@/shared/lib/utils";
 
-type CachedChapterSeed = {
+type PlotMapStorySeed = {
   id: string;
+  slug: string;
   title: string;
   updatedAt: string;
   imageUrl: string;
-  number?: number;
-  storyTitle?: string;
-  wordCount?: number;
-  wiki?: ChapterWiki;
-  labels?: WikiLabelSeed[];
-  metaOverride?: string;
+  chaptersCount: number;
+  fandom?: string;
+  labels: WikiLabelSeed[];
 };
 
-type CachedChapterStoryMeta = {
-  storyTitle?: string;
-  number?: number;
+type AuthPlotMapCacheSnapshot = {
+  savedAt: number;
+  stories: PlotMapStorySeed[];
 };
 
 type WikiLabelSeed = {
-  kind: "Персонаж" | "Локация" | "Предмет" | "Фандом" | "Тег" | "Рейтинг" | "Размер";
+  kind: "Персонаж" | "Локация" | "Предмет" | "Фандом" | "Тег" | "Описание";
   name: string;
   detail?: string;
 };
 
 type Depth = 0 | 1 | 2;
-
-type DecorativeNode = {
-  id: string;
-  x: number;
-  y: number;
-  depth: Depth;
-  size: number;
-  tone: "muted" | "warm" | "accent";
-};
 
 type ChapterTileLayout = {
   id: string;
@@ -57,7 +52,7 @@ type ChapterTileLayout = {
   y: number;
   depth: Depth;
   rotate: number;
-  size: "md" | "lg";
+  size: "sm" | "md" | "lg";
 };
 
 type WikiLabelLayout = {
@@ -76,7 +71,9 @@ type PlotMapLine = {
   x2: number;
   y2: number;
   depth: Depth;
-  kind?: "chapter" | "ambient";
+  sourceDepth: Depth;
+  targetDepth: Depth;
+  kind?: "chapter";
 };
 
 type ChapterGraphTile = {
@@ -89,7 +86,6 @@ type ChapterGraphTile = {
 
 type ChapterGraphLabel = WikiLabelSeed & {
   id: string;
-  tileId: string;
   layout: WikiLabelLayout;
 };
 
@@ -107,178 +103,281 @@ type PlotMapStyle = CSSProperties & {
   "--plot-map-rotate"?: string;
 };
 
-const CHAPTER_TILE_LIMIT = 3;
-const WIKI_LABELS_PER_TILE = 2;
-const LAYER_DRIFT = [5, -8, 12, 4] as const;
+type DriftPoint = {
+  x: number;
+  y: number;
+};
 
-const chapterTileLayouts: ChapterTileLayout[] = [
-  { id: "chapter-left", x: 9, y: 33, depth: 2, rotate: -3.4, size: "lg" },
-  { id: "chapter-right-top", x: 88, y: 25, depth: 1, rotate: 2.6, size: "md" },
-  { id: "chapter-right-bottom", x: 80, y: 73, depth: 2, rotate: -2.1, size: "lg" },
+const STORY_TILE_LIMIT = 6;
+const LABELS_PER_STORY_LIMIT = 3;
+const AUTH_PLOT_MAP_CACHE_KEY = "plotty.authPlotMap.v3";
+const AUTH_PLOT_MAP_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
+const AUTH_PLOT_MAP_QUERY: StoriesQuery = {
+  tags: [],
+  q: "",
+  page: 1,
+  pageSize: 32,
+  sort: "updated-desc",
+};
+const CORE_TAG_CATEGORIES = new Set(["directionality", "rating", "completion", "size", "warning"]);
+const WIKI_ENTITY_LIMITS = {
+  characters: 5,
+  locations: 4,
+  items: 4,
+} as const;
+const DEPTHS = [0, 1, 2] as const;
+const LAYER_DRIFT_BY_DEPTH: Record<Depth, number> = {
+  0: 5,
+  1: -8,
+  2: 12,
+};
+const LINE_POSITION_PRECISION = 3;
+const DRIFT_EASE = 0.18;
+const storedLabelKinds = new Set<WikiLabelSeed["kind"]>(["Персонаж", "Локация", "Предмет", "Фандом", "Тег", "Описание"]);
+
+const storyTileLayouts: ChapterTileLayout[] = [
+  { id: "story-left-top", x: 12, y: 24, depth: 2, rotate: -3.2, size: "lg" },
+  { id: "story-right-top", x: 88, y: 24, depth: 1, rotate: 2.4, size: "md" },
+  { id: "story-right-bottom", x: 88, y: 77, depth: 2, rotate: -2.1, size: "lg" },
+  { id: "story-left-bottom", x: 12, y: 77, depth: 1, rotate: 2.1, size: "md" },
+  { id: "story-left-mid", x: 22, y: 51, depth: 0, rotate: -1.7, size: "sm" },
+  { id: "story-right-mid", x: 78, y: 51, depth: 0, rotate: 1.6, size: "md" },
 ];
 
-const wikiLabelLayouts: WikiLabelLayout[][] = [
-  [
-    { id: "left-a", x: 22, y: 22, depth: 2, rotate: 1.4, side: "right" },
-    { id: "left-b", x: 23, y: 51, depth: 1, rotate: -1.8, side: "right" },
-  ],
-  [
-    { id: "right-top-a", x: 73, y: 18, depth: 1, rotate: -1.3, side: "left" },
-    { id: "right-top-b", x: 74, y: 39, depth: 2, rotate: 1.8, side: "left" },
-  ],
-  [
-    { id: "right-bottom-a", x: 70, y: 62, depth: 1, rotate: -1.2, side: "left" },
-    { id: "right-bottom-b", x: 71, y: 85, depth: 2, rotate: 2.2, side: "left" },
-  ],
-];
-
-const decorativeNodes: DecorativeNode[] = [
-  { id: "d1", x: 8, y: 15, depth: 0, size: 4, tone: "muted" },
-  { id: "d2", x: 18, y: 39, depth: 1, size: 5, tone: "warm" },
-  { id: "d3", x: 31, y: 18, depth: 2, size: 3, tone: "accent" },
-  { id: "d4", x: 37, y: 53, depth: 0, size: 4, tone: "muted" },
-  { id: "d5", x: 11, y: 82, depth: 2, size: 3, tone: "warm" },
-  { id: "d6", x: 33, y: 81, depth: 1, size: 4, tone: "muted" },
-  { id: "d7", x: 43, y: 28, depth: 0, size: 3, tone: "muted" },
-  { id: "d8", x: 47, y: 75, depth: 2, size: 5, tone: "warm" },
-  { id: "d9", x: 55, y: 16, depth: 1, size: 3, tone: "muted" },
-  { id: "d10", x: 58, y: 61, depth: 0, size: 4, tone: "muted" },
-  { id: "d11", x: 68, y: 14, depth: 2, size: 4, tone: "warm" },
-  { id: "d12", x: 72, y: 49, depth: 0, size: 3, tone: "muted" },
-  { id: "d13", x: 82, y: 12, depth: 1, size: 5, tone: "muted" },
-  { id: "d14", x: 92, y: 29, depth: 2, size: 3, tone: "accent" },
-  { id: "d15", x: 72, y: 78, depth: 1, size: 4, tone: "warm" },
-  { id: "d16", x: 94, y: 82, depth: 0, size: 4, tone: "muted" },
-  { id: "d17", x: 7, y: 54, depth: 2, size: 3, tone: "muted" },
-  { id: "d18", x: 20, y: 9, depth: 1, size: 4, tone: "warm" },
-  { id: "d19", x: 89, y: 44, depth: 0, size: 3, tone: "muted" },
-  { id: "d20", x: 64, y: 37, depth: 2, size: 4, tone: "accent" },
-  { id: "d21", x: 28, y: 58, depth: 1, size: 3, tone: "muted" },
-  { id: "d22", x: 53, y: 89, depth: 0, size: 4, tone: "warm" },
-  { id: "d23", x: 81, y: 88, depth: 2, size: 3, tone: "muted" },
-  { id: "d24", x: 16, y: 63, depth: 0, size: 4, tone: "accent" },
-];
-
-const ambientLines: PlotMapLine[] = [
-  { id: "a1", x1: 8, y1: 15, x2: 31, y2: 18, depth: 0, kind: "ambient" },
-  { id: "a2", x1: 18, y1: 39, x2: 37, y2: 53, depth: 1, kind: "ambient" },
-  { id: "a3", x1: 37, y1: 53, x2: 47, y2: 75, depth: 1, kind: "ambient" },
-  { id: "a4", x1: 47, y1: 75, x2: 72, y2: 78, depth: 2, kind: "ambient" },
-  { id: "a5", x1: 55, y1: 16, x2: 82, y2: 12, depth: 1, kind: "ambient" },
-  { id: "a6", x1: 64, y1: 37, x2: 92, y2: 29, depth: 2, kind: "ambient" },
-  { id: "a7", x1: 72, y1: 49, x2: 89, y2: 44, depth: 0, kind: "ambient" },
-  { id: "a8", x1: 72, y1: 78, x2: 94, y2: 82, depth: 1, kind: "ambient" },
-  { id: "a9", x1: 11, y1: 82, x2: 33, y2: 81, depth: 2, kind: "ambient" },
-  { id: "a10", x1: 7, y1: 54, x2: 16, y2: 63, depth: 2, kind: "ambient" },
-  { id: "a11", x1: 43, y1: 28, x2: 58, y2: 61, depth: 0, kind: "ambient" },
-  { id: "a12", x1: 53, y1: 89, x2: 81, y2: 88, depth: 0, kind: "ambient" },
+const graphLabelLayouts: WikiLabelLayout[] = [
+  { id: "left-top", x: 24, y: 17, depth: 2, rotate: 1.3, side: "right" },
+  { id: "right-top", x: 76, y: 17, depth: 1, rotate: -1.2, side: "left" },
+  { id: "left-upper", x: 24, y: 39, depth: 1, rotate: -1.5, side: "right" },
+  { id: "right-upper", x: 76, y: 39, depth: 2, rotate: 1.4, side: "left" },
+  { id: "left-lower", x: 24, y: 63, depth: 2, rotate: 1.5, side: "right" },
+  { id: "right-lower", x: 76, y: 63, depth: 2, rotate: 1.8, side: "left" },
+  { id: "left-bottom", x: 24, y: 92, depth: 0, rotate: -1.1, side: "right" },
+  { id: "right-bottom", x: 76, y: 92, depth: 1, rotate: 1.2, side: "left" },
+  { id: "left-edge-top", x: 7, y: 48, depth: 0, rotate: 1.1, side: "right" },
+  { id: "right-edge-top", x: 93, y: 48, depth: 0, rotate: -1.3, side: "left" },
+  { id: "left-edge-bottom", x: 9, y: 91, depth: 0, rotate: 0.9, side: "right" },
+  { id: "right-edge-bottom", x: 91, y: 91, depth: 1, rotate: -1.1, side: "left" },
 ];
 
 export function AuthPlotMapBackdrop() {
   const queryClient = useQueryClient();
-  const reducedMotion = useReducedMotion();
+  const [enrichedStories, setEnrichedStories] = useState<PlotMapStorySeed[]>([]);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const layerRefs = useRef<Array<HTMLDivElement | SVGSVGElement | null>>([]);
-  const frameRef = useRef<number | null>(null);
-  const pointerRef = useRef({ x: 0, y: 0 });
-  const chapterGraph = useMemo(() => buildChapterGraph(readCachedChapters(queryClient)), [queryClient]);
-  const renderedLines = chapterGraph.lines.length ? chapterGraph.lines : ambientLines;
+  const layerRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const lineRefs = useRef<Array<SVGLineElement | null>>([]);
+  const driftFrameRef = useRef<number | null>(null);
+  const currentDriftRef = useRef<Record<Depth, DriftPoint>>(createZeroDrift());
+  const targetDriftRef = useRef<Record<Depth, DriftPoint>>(createZeroDrift());
+  const enrichmentRequestRef = useRef<Promise<PlotMapStorySeed[]> | null>(null);
+  const cachedStories = useMemo(() => readCachedStorySeeds(queryClient), [queryClient]);
+  const graphStories = useMemo(
+    () => mergeStorySeeds([...enrichedStories, ...cachedStories]).slice(0, STORY_TILE_LIMIT),
+    [cachedStories, enrichedStories],
+  );
+  const chapterGraph = useMemo(() => buildChapterGraph(graphStories), [graphStories]);
 
   useEffect(() => {
-    const rootElement = rootRef.current;
-
-    if (rootElement === null || reducedMotion || process.env.NODE_ENV === "test") {
+    if (process.env.NODE_ENV === "test" || typeof window === "undefined") {
       return;
     }
 
-    const motionRoot: HTMLDivElement = rootElement;
     const desktopQuery = window.matchMedia("(min-width: 1024px)");
 
     if (!desktopQuery.matches) {
       return;
     }
 
-    registerPlottyGsapPlugins();
+    const freshStories = readStoredPlotMapStories();
 
-    const layerTweens = layerRefs.current.map((layer) =>
-      layer
-        ? {
-            x: gsap.quickTo(layer, "x", { duration: 0.42, ease: "power3.out" }),
-            y: gsap.quickTo(layer, "y", { duration: 0.42, ease: "power3.out" }),
-          }
-        : null,
-    );
-
-    function resetMotion() {
-      layerTweens.forEach((tween) => {
-        tween?.x(0);
-        tween?.y(0);
-      });
+    if (freshStories.length) {
+      setEnrichedStories(freshStories);
+      return;
     }
 
-    function updateMotion() {
-      frameRef.current = null;
+    const staleStories = readStoredPlotMapStories({ allowStale: true });
 
+    if (staleStories.length) {
+      setEnrichedStories(staleStories);
+    }
+
+    let cancelled = false;
+    const cancelRefresh = scheduleAuthPlotMapRefresh(() => {
+      if (cancelled) {
+        return;
+      }
+
+      const request = enrichmentRequestRef.current ?? fetchAuthPlotMapStories(queryClient);
+
+      enrichmentRequestRef.current = request;
+
+      request
+        .then((stories) => {
+          if (cancelled || !stories.length) {
+            return;
+          }
+
+          setEnrichedStories(stories);
+          writeStoredPlotMapStories(stories);
+        })
+        .catch(() => {
+          if (enrichmentRequestRef.current === request) {
+            enrichmentRequestRef.current = null;
+          }
+        });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelRefresh();
+    };
+  }, [queryClient]);
+
+  useEffect(() => {
+    lineRefs.current.length = chapterGraph.lines.length;
+    applyPlotMapDrift({
+      drifts: currentDriftRef.current,
+      layerRefs: layerRefs.current,
+      lineRefs: lineRefs.current,
+      rootElement: rootRef.current,
+    });
+  }, [chapterGraph.lines.length]);
+
+  useEffect(() => {
+    const rootElement = rootRef.current;
+
+    if (rootElement === null || process.env.NODE_ENV === "test" || typeof window === "undefined") {
+      return;
+    }
+
+    const motionRoot = rootElement;
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+
+    if (!desktopQuery.matches) {
+      return;
+    }
+
+    const layers = layerRefs.current;
+    const lines = lineRefs.current;
+
+    function animateDrift() {
+      driftFrameRef.current = null;
+
+      const current = currentDriftRef.current;
+      const target = targetDriftRef.current;
+      let isSettled = true;
+
+      DEPTHS.forEach((depth) => {
+        const nextX = current[depth].x + (target[depth].x - current[depth].x) * DRIFT_EASE;
+        const nextY = current[depth].y + (target[depth].y - current[depth].y) * DRIFT_EASE;
+
+        if (Math.abs(nextX - target[depth].x) > 0.02 || Math.abs(nextY - target[depth].y) > 0.02) {
+          isSettled = false;
+        }
+
+        current[depth] = {
+          x: isSettled ? target[depth].x : nextX,
+          y: isSettled ? target[depth].y : nextY,
+        };
+      });
+
+      applyPlotMapDrift({
+        drifts: current,
+        layerRefs: layers,
+        lineRefs: lines,
+        rootElement: motionRoot,
+      });
+
+      if (!isSettled) {
+        driftFrameRef.current = window.requestAnimationFrame(animateDrift);
+      }
+    }
+
+    function startDriftAnimation() {
+      if (driftFrameRef.current === null) {
+        driftFrameRef.current = window.requestAnimationFrame(animateDrift);
+      }
+    }
+
+    function setTargetDrift(drifts: Record<Depth, DriftPoint>) {
+      targetDriftRef.current = drifts;
+      startDriftAnimation();
+    }
+
+    function resetMotion() {
+      setTargetDrift(createZeroDrift());
+    }
+
+    function handlePointerMove(event: PointerEvent) {
       const rect = motionRoot.getBoundingClientRect();
-      const pointerX = pointerRef.current.x;
-      const pointerY = pointerRef.current.y;
       const isNearRoot =
-        pointerX >= rect.left - 120 &&
-        pointerX <= rect.right + 120 &&
-        pointerY >= rect.top - 120 &&
-        pointerY <= rect.bottom + 120;
+        event.clientX >= rect.left - 120 &&
+        event.clientX <= rect.right + 120 &&
+        event.clientY >= rect.top - 120 &&
+        event.clientY <= rect.bottom + 120;
 
       if (!isNearRoot || !rect.width || !rect.height) {
         resetMotion();
         return;
       }
 
-      const normalizedX = (pointerX - rect.left) / rect.width - 0.5;
-      const normalizedY = (pointerY - rect.top) / rect.height - 0.5;
+      const normalizedX = (event.clientX - rect.left) / rect.width - 0.5;
+      const normalizedY = (event.clientY - rect.top) / rect.height - 0.5;
 
-      layerTweens.forEach((tween, index) => {
-        const drift = LAYER_DRIFT[index % LAYER_DRIFT.length];
-
-        tween?.x(normalizedX * drift);
-        tween?.y(normalizedY * drift * 0.62);
-      });
+      setTargetDrift(getDepthDrifts(normalizedX, normalizedY));
     }
 
-    function scheduleMotion(event: PointerEvent) {
-      pointerRef.current.x = event.clientX;
-      pointerRef.current.y = event.clientY;
-
-      if (frameRef.current === null) {
-        frameRef.current = window.requestAnimationFrame(updateMotion);
-      }
-    }
-
-    function handleWindowBlur() {
-      if (frameRef.current !== null) {
-        window.cancelAnimationFrame(frameRef.current);
-        frameRef.current = null;
-      }
-
-      resetMotion();
-    }
-
-    window.addEventListener("pointermove", scheduleMotion, { passive: true });
-    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("blur", resetMotion);
 
     return () => {
-      if (frameRef.current !== null) {
-        window.cancelAnimationFrame(frameRef.current);
-        frameRef.current = null;
+      if (driftFrameRef.current !== null) {
+        window.cancelAnimationFrame(driftFrameRef.current);
+        driftFrameRef.current = null;
       }
 
-      window.removeEventListener("pointermove", scheduleMotion);
-      window.removeEventListener("blur", handleWindowBlur);
-      resetMotion();
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("blur", resetMotion);
+      currentDriftRef.current = createZeroDrift();
+      targetDriftRef.current = createZeroDrift();
+      applyPlotMapDrift({
+        drifts: currentDriftRef.current,
+        layerRefs: layers,
+        lineRefs: lines,
+        rootElement: motionRoot,
+      });
     };
-  }, [reducedMotion]);
+  }, [chapterGraph.lines.length]);
 
   return (
     <div ref={rootRef} className="plotty-auth-plot-map" aria-hidden="true">
+      <svg
+        className="plotty-auth-plot-map-lines"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        {chapterGraph.lines.map((line, index) => (
+          <line
+            key={line.id}
+            ref={(node) => {
+              lineRefs.current[index] = node;
+            }}
+            x1={line.x1}
+            y1={line.y1}
+            x2={line.x2}
+            y2={line.y2}
+            className="plotty-auth-plot-map-line"
+            data-base-x1={line.x1}
+            data-base-y1={line.y1}
+            data-base-x2={line.x2}
+            data-base-y2={line.y2}
+            data-depth={line.depth}
+            data-kind={line.kind ?? "chapter"}
+            data-source-depth={line.sourceDepth}
+            data-target-depth={line.targetDepth}
+          />
+        ))}
+      </svg>
+
       {[0, 1, 2].map((depth) => (
         <div
           key={`layer-${depth}`}
@@ -288,24 +387,6 @@ export function AuthPlotMapBackdrop() {
           className="plotty-auth-plot-map-layer"
           data-depth={depth}
         >
-          {decorativeNodes
-            .filter((node) => node.depth === depth)
-            .map((node, index) => (
-              <span
-                key={node.id}
-                className="plotty-auth-plot-map-dot"
-                data-tone={node.tone}
-                style={
-                  {
-                    "--plot-map-x": `${node.x}%`,
-                    "--plot-map-y": `${node.y}%`,
-                    "--plot-map-size": `${node.size}px`,
-                    "--plot-map-delay": `${index * 120}ms`,
-                  } as PlotMapStyle
-                }
-              />
-            ))}
-
           {chapterGraph.tiles
             .filter((tile) => tile.layout.depth === depth)
             .map((tile) => (
@@ -363,98 +444,109 @@ export function AuthPlotMapBackdrop() {
             ))}
         </div>
       ))}
-
-      <svg
-        ref={(node) => {
-          layerRefs.current[3] = node;
-        }}
-        className="plotty-auth-plot-map-lines"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        {renderedLines.map((line) => (
-          <line
-            key={line.id}
-            x1={line.x1}
-            y1={line.y1}
-            x2={line.x2}
-            y2={line.y2}
-            className="plotty-auth-plot-map-line"
-            data-depth={line.depth}
-            data-kind={line.kind ?? "ambient"}
-          />
-        ))}
-      </svg>
     </div>
   );
 }
 
-function readCachedChapters(queryClient: QueryClient): CachedChapterSeed[] {
-  if (process.env.NEXT_PUBLIC_API_MOCKING === "enabled") {
-    return [];
-  }
-
-  const wikiByChapterId = new Map<string, ChapterWiki>();
-  const chaptersById = new Map<string, Omit<CachedChapterSeed, "imageUrl"> & { imageUrl?: string }>();
-  const storyMetaByChapterId = readCachedChapterStoryMeta(queryClient);
-
-  queryClient.getQueriesData<ChapterWiki>({ queryKey: ["stories", "chapter-wiki"] }).forEach(([queryKey, wiki]) => {
-    const chapterId = getChapterIdFromQueryKey(queryKey);
-
-    if (chapterId && wiki) {
-      wikiByChapterId.set(chapterId, wiki);
-    }
-  });
-
-  const chapterEntries = [
-    ...queryClient.getQueriesData<ChapterDetails>({ queryKey: ["stories", "chapter"] }),
-    ...queryClient.getQueriesData<ChapterDetails>({ queryKey: ["stories", "chapter-editor"] }),
-  ];
-
-  chapterEntries.forEach(([queryKey, chapter]) => {
-    addCachedChapter(chaptersById, chapter, getChapterIdFromQueryKey(queryKey));
-  });
-
-  const chapters: CachedChapterSeed[] = [];
-
-  chaptersById.forEach((chapter) => {
-    if (!chapter.imageUrl || !chapter.title.trim()) {
-      return;
-    }
-
-    const storyMeta = storyMetaByChapterId.get(chapter.id);
-
-    chapters.push({
-      ...chapter,
-      imageUrl: chapter.imageUrl,
-      number: chapter.number ?? storyMeta?.number,
-      storyTitle: chapter.storyTitle ?? storyMeta?.storyTitle,
-      wiki: chapter.wiki ?? wikiByChapterId.get(chapter.id),
-    });
-  });
-
-  const chapterStoryTitles = new Set(chapters.map((chapter) => chapter.storyTitle).filter(Boolean));
-
-  readCachedStoryListTiles(queryClient).forEach((storyTile) => {
-    if (chapterStoryTitles.has(storyTile.title)) {
-      return;
-    }
-
-    chapters.push(storyTile);
-    chapterStoryTitles.add(storyTile.title);
-  });
-
-  return chapters.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, CHAPTER_TILE_LIMIT);
+function createZeroDrift(): Record<Depth, DriftPoint> {
+  return {
+    0: { x: 0, y: 0 },
+    1: { x: 0, y: 0 },
+    2: { x: 0, y: 0 },
+  };
 }
 
-function readCachedStoryListTiles(queryClient: QueryClient): CachedChapterSeed[] {
+function getDepthDrifts(normalizedX: number, normalizedY: number): Record<Depth, DriftPoint> {
+  return DEPTHS.reduce(
+    (drifts, depth) => {
+      const drift = LAYER_DRIFT_BY_DEPTH[depth];
+
+      drifts[depth] = {
+        x: normalizedX * drift,
+        y: normalizedY * drift * 0.62,
+      };
+
+      return drifts;
+    },
+    createZeroDrift(),
+  );
+}
+
+function applyPlotMapDrift({
+  drifts,
+  layerRefs,
+  lineRefs,
+  rootElement,
+}: {
+  drifts: Record<Depth, DriftPoint>;
+  layerRefs: Array<HTMLDivElement | null>;
+  lineRefs: Array<SVGLineElement | null>;
+  rootElement: HTMLDivElement | null;
+}) {
+  DEPTHS.forEach((depth) => {
+    const layer = layerRefs[depth];
+    const drift = drifts[depth];
+
+    if (layer) {
+      layer.style.transform = `translate3d(${drift.x.toFixed(2)}px, ${drift.y.toFixed(2)}px, 0)`;
+    }
+  });
+
+  if (!rootElement) {
+    return;
+  }
+
+  const rect = rootElement.getBoundingClientRect();
+
+  if (!rect.width || !rect.height) {
+    return;
+  }
+
+  lineRefs.forEach((line) => {
+    if (!line) {
+      return;
+    }
+
+    const sourceDepth = getLineDepth(line.dataset.sourceDepth);
+    const targetDepth = getLineDepth(line.dataset.targetDepth);
+    const sourceDrift = drifts[sourceDepth];
+    const targetDrift = drifts[targetDepth];
+    const sourceX = (sourceDrift.x / rect.width) * 100;
+    const sourceY = (sourceDrift.y / rect.height) * 100;
+    const targetX = (targetDrift.x / rect.width) * 100;
+    const targetY = (targetDrift.y / rect.height) * 100;
+
+    line.setAttribute("x1", formatLineCoordinate(getLineBaseCoordinate(line.dataset.baseX1) + sourceX));
+    line.setAttribute("y1", formatLineCoordinate(getLineBaseCoordinate(line.dataset.baseY1) + sourceY));
+    line.setAttribute("x2", formatLineCoordinate(getLineBaseCoordinate(line.dataset.baseX2) + targetX));
+    line.setAttribute("y2", formatLineCoordinate(getLineBaseCoordinate(line.dataset.baseY2) + targetY));
+  });
+}
+
+function getLineDepth(value: string | undefined): Depth {
+  const depth = Number(value);
+
+  return depth === 0 || depth === 1 || depth === 2 ? depth : 0;
+}
+
+function getLineBaseCoordinate(value: string | undefined) {
+  const coordinate = Number(value);
+
+  return Number.isFinite(coordinate) ? coordinate : 0;
+}
+
+function formatLineCoordinate(value: number) {
+  return value.toFixed(LINE_POSITION_PRECISION);
+}
+
+function readCachedStorySeeds(queryClient: QueryClient): PlotMapStorySeed[] {
   const storiesById = new Map<string, StoryListItem>();
+  const detailsByStoryId = readCachedStoryDetails(queryClient);
+  const wikiByChapterId = readCachedChapterWikis(queryClient);
 
   queryClient.getQueriesData<StoriesResponse>({ queryKey: ["stories", "list"] }).forEach(([, response]) => {
     response?.items.forEach((story) => {
-      const imageUrl = sanitizeImageUrl(story.coverImageUrl);
-
-      if (!imageUrl || !story.title.trim()) {
+      if (!story.title.trim()) {
         return;
       }
 
@@ -466,67 +558,45 @@ function readCachedStoryListTiles(queryClient: QueryClient): CachedChapterSeed[]
     });
   });
 
-  return Array.from(storiesById.values())
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .map((story) => ({
-      id: `story-cover-${story.id}`,
-      title: story.title.trim(),
-      updatedAt: story.updatedAt,
-      imageUrl: sanitizeImageUrl(story.coverImageUrl) ?? "",
-      labels: storyToLabels(story),
-      metaOverride: getStoryCoverMeta(story),
-    }))
-    .filter((story) => story.imageUrl);
+  const seeds = selectPlotMapStoryCandidates(Array.from(storiesById.values())).flatMap((story) => {
+    const details = detailsByStoryId.get(story.id);
+    const wikiChapterId = details ? getSecondPublishedChapterId(details.chapters) : "";
+    const wiki = wikiChapterId ? wikiByChapterId.get(wikiChapterId) : undefined;
+    const seed = storyToGraphSeed(story, { details, wiki });
+
+    return seed ? [seed] : [];
+  });
+
+  return mergeStorySeeds(seeds).slice(0, STORY_TILE_LIMIT);
 }
 
-function readCachedChapterStoryMeta(queryClient: QueryClient) {
-  const metadata = new Map<string, CachedChapterStoryMeta>();
-  const storyEntries = [
+function readCachedStoryDetails(queryClient: QueryClient) {
+  const detailsByStoryId = new Map<string, StoryDetails>();
+
+  [
     ...queryClient.getQueriesData<StoryDetails>({ queryKey: ["stories", "details"] }),
     ...queryClient.getQueriesData<StoryDetails>({ queryKey: ["stories", "details-by-id"] }),
-  ];
-
-  storyEntries.forEach(([, story]) => {
-    story?.chapters.forEach((chapter, index) => {
-      metadata.set(chapter.id, {
-        storyTitle: story.title,
-        number: chapter.number ?? index + 1,
-      });
-    });
+  ].forEach(([, story]) => {
+    if (story?.id) {
+      detailsByStoryId.set(story.id, story);
+    }
   });
 
-  return metadata;
+  return detailsByStoryId;
 }
 
-function addCachedChapter(
-  chaptersById: Map<string, Omit<CachedChapterSeed, "imageUrl"> & { imageUrl?: string }>,
-  chapter: ChapterDetails | undefined,
-  fallbackId: string,
-) {
-  if (!chapter) {
-    return;
-  }
+function readCachedChapterWikis(queryClient: QueryClient) {
+  const wikiByChapterId = new Map<string, ChapterWiki>();
 
-  const id = chapter.id || fallbackId;
-  const title = (chapter.draftTitle ?? chapter.title).trim();
-  const imageUrl = sanitizeImageUrl(chapter.imageUrl);
+  queryClient.getQueriesData<ChapterWiki>({ queryKey: ["stories", "chapter-wiki"] }).forEach(([queryKey, wiki]) => {
+    const chapterId = getChapterIdFromQueryKey(queryKey);
 
-  if (!id || !title) {
-    return;
-  }
-
-  const current = chaptersById.get(id);
-
-  chaptersById.set(id, {
-    id,
-    title,
-    updatedAt: chapter.updatedAt,
-    imageUrl: imageUrl ?? current?.imageUrl,
-    number: chapter.number ?? current?.number,
-    storyTitle: chapter.storyTitle ?? current?.storyTitle,
-    wordCount: chapter.wordCount ?? current?.wordCount,
-    wiki: current?.wiki,
+    if (chapterId && wiki) {
+      wikiByChapterId.set(chapterId, wiki);
+    }
   });
+
+  return wikiByChapterId;
 }
 
 function getChapterIdFromQueryKey(queryKey: QueryKey) {
@@ -541,98 +611,504 @@ function getChapterIdFromQueryKey(queryKey: QueryKey) {
   return "";
 }
 
-function buildChapterGraph(chapters: CachedChapterSeed[]): ChapterGraph {
+function scheduleAuthPlotMapRefresh(callback: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  let hasRun = false;
+  const run = () => {
+    if (hasRun) {
+      return;
+    }
+
+    hasRun = true;
+    callback();
+  };
+  const requestIdleCallback = window.requestIdleCallback;
+  const cancelIdleCallback = window.cancelIdleCallback;
+
+  if (requestIdleCallback && cancelIdleCallback) {
+    const idleId = requestIdleCallback(run, { timeout: 1200 });
+
+    return () => cancelIdleCallback(idleId);
+  }
+
+  const timeoutId = window.setTimeout(run, 250);
+
+  return () => window.clearTimeout(timeoutId);
+}
+
+function selectPlotMapStoryCandidates(stories: StoryListItem[]) {
+  const coveredStories = stories.filter((story) => story.title.trim() && getStoryImageUrl(story));
+  const eligibleStories = coveredStories.filter((story) => story.chaptersCount >= 2);
+  const selected = selectDiverseStories(eligibleStories);
+
+  if (selected.length >= STORY_TILE_LIMIT) {
+    return selected;
+  }
+
+  const selectedIds = new Set(selected.map((story) => story.id));
+
+  for (const story of coveredStories) {
+    if (selectedIds.has(story.id)) {
+      continue;
+    }
+
+    selected.push(story);
+    selectedIds.add(story.id);
+
+    if (selected.length >= STORY_TILE_LIMIT) {
+      break;
+    }
+  }
+
+  return selected;
+}
+
+function selectDiverseStories(stories: StoryListItem[]) {
+  const selected: StoryListItem[] = [];
+  const selectedIds = new Set<string>();
+  const usedFandoms = new Set<string>();
+
+  for (const story of stories) {
+    const fandom = getStoryFandom(story);
+
+    if (!fandom || usedFandoms.has(fandom)) {
+      continue;
+    }
+
+    selected.push(story);
+    selectedIds.add(story.id);
+    usedFandoms.add(fandom);
+
+    if (selected.length >= STORY_TILE_LIMIT) {
+      return selected;
+    }
+  }
+
+  for (const story of stories) {
+    if (selectedIds.has(story.id)) {
+      continue;
+    }
+
+    selected.push(story);
+
+    if (selected.length >= STORY_TILE_LIMIT) {
+      break;
+    }
+  }
+
+  return selected;
+}
+
+function getStoryImageUrl(story: StoryListItem, details?: StoryDetails) {
+  return sanitizeImageUrl(story.coverImageUrl ?? details?.coverImageUrl ?? getGeneratedStoryCoverUrl(story.slug));
+}
+
+function getStoryFandom(story: Pick<StoryListItem, "fandom" | "tags">) {
+  return story.fandom ?? getTagName(story.tags, "directionality");
+}
+
+function getTagName(tags: StoryListItem["tags"], category: string) {
+  return tags.find((tag) => tag.category === category)?.name;
+}
+
+async function fetchAuthPlotMapStories(queryClient: QueryClient): Promise<PlotMapStorySeed[]> {
+  const response = await queryClient.fetchQuery({
+    ...storiesQueryOptions(AUTH_PLOT_MAP_QUERY),
+    staleTime: AUTH_PLOT_MAP_CACHE_TTL_MS,
+    gcTime: AUTH_PLOT_MAP_CACHE_TTL_MS * 2,
+  });
+  const candidates = selectPlotMapStoryCandidates(response.items);
+
+  const detailEntries = await Promise.all(
+    candidates.map(async (story) => ({
+      story,
+      details: story.slug
+        ? await queryClient
+            .fetchQuery({
+              ...storyDetailsQueryOptions(story.slug),
+              staleTime: AUTH_PLOT_MAP_CACHE_TTL_MS,
+              gcTime: AUTH_PLOT_MAP_CACHE_TTL_MS * 2,
+            })
+            .catch(() => undefined)
+        : undefined,
+    })),
+  );
+
+  const wikiEntries = await Promise.all(
+    detailEntries.map(async ({ details }) => {
+      const wikiChapterId = details ? getSecondPublishedChapterId(details.chapters) : "";
+
+      if (!wikiChapterId) {
+        return undefined;
+      }
+
+      return queryClient
+        .fetchQuery({
+          ...chapterWikiQueryOptions(wikiChapterId),
+          staleTime: AUTH_PLOT_MAP_CACHE_TTL_MS,
+          gcTime: AUTH_PLOT_MAP_CACHE_TTL_MS * 2,
+        })
+        .catch(() => undefined);
+    }),
+  );
+
+  const seeds = detailEntries.flatMap(({ story, details }, index) => {
+    const seed = storyToGraphSeed(story, { details, wiki: wikiEntries[index] });
+
+    return seed ? [seed] : [];
+  });
+
+  return mergeStorySeeds(seeds).slice(0, STORY_TILE_LIMIT);
+}
+
+function storyToGraphSeed(
+  story: StoryListItem,
+  options: { details?: StoryDetails; wiki?: ChapterWiki } = {},
+): PlotMapStorySeed | null {
+  const details = options.details;
+  const title = (details?.title ?? story.title).trim();
+  const imageUrl = getStoryImageUrl(story, details);
+
+  if (!story.id || !title || !imageUrl) {
+    return null;
+  }
+
+  const tags = details?.tags?.length ? details.tags : story.tags;
+  const fandom = details?.fandom ?? story.fandom ?? getTagName(tags, "directionality");
+  const labels = buildStoryLabels({
+    fandom,
+    tags,
+    wiki: options.wiki,
+    description: details?.description ?? story.description ?? details?.aiHint ?? story.aiHint,
+  });
+
+  return {
+    id: story.id,
+    slug: story.slug,
+    title,
+    updatedAt: details?.updatedAt ?? story.updatedAt,
+    imageUrl,
+    chaptersCount: details?.chapters.length ?? story.chaptersCount,
+    fandom,
+    labels,
+  };
+}
+
+function mergeStorySeeds(stories: PlotMapStorySeed[]) {
+  const storiesById = new Map<string, PlotMapStorySeed>();
+
+  stories.forEach((story) => {
+    const current = storiesById.get(story.id);
+
+    if (!current) {
+      storiesById.set(story.id, story);
+      return;
+    }
+
+    storiesById.set(story.id, {
+      ...current,
+      ...story,
+      imageUrl: story.imageUrl || current.imageUrl,
+      labels: story.labels.length ? story.labels : current.labels,
+    });
+  });
+
+  return Array.from(storiesById.values()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+function getSecondPublishedChapterId(chapters: ChapterListItem[]) {
+  let publishedCount = 0;
+
+  for (const chapter of chapters) {
+    if ((chapter.status ?? "published") !== "published") {
+      continue;
+    }
+
+    publishedCount += 1;
+
+    if (publishedCount === 2) {
+      return chapter.id;
+    }
+  }
+
+  return "";
+}
+
+function readStoredPlotMapStories(options: { allowStale?: boolean } = {}): PlotMapStorySeed[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const rawSnapshot = window.localStorage.getItem(AUTH_PLOT_MAP_CACHE_KEY);
+
+    if (!rawSnapshot) {
+      return [];
+    }
+
+    const snapshot = JSON.parse(rawSnapshot) as Partial<AuthPlotMapCacheSnapshot>;
+    const savedAt = typeof snapshot.savedAt === "number" ? snapshot.savedAt : 0;
+
+    if (!options.allowStale && Date.now() - savedAt > AUTH_PLOT_MAP_CACHE_TTL_MS) {
+      return [];
+    }
+
+    if (!Array.isArray(snapshot.stories)) {
+      return [];
+    }
+
+    return mergeStorySeeds(snapshot.stories.flatMap((story) => normalizeStoredStorySeed(story))).slice(0, STORY_TILE_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredPlotMapStories(stories: PlotMapStorySeed[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const snapshot: AuthPlotMapCacheSnapshot = {
+      savedAt: Date.now(),
+      stories: stories.slice(0, STORY_TILE_LIMIT),
+    };
+
+    window.localStorage.setItem(AUTH_PLOT_MAP_CACHE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Decorative cache only; storage failures should not affect auth.
+  }
+}
+
+function normalizeStoredStorySeed(value: unknown): PlotMapStorySeed[] {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  const record = value as Record<string, unknown>;
+  const id = getStoredString(record.id);
+  const title = getStoredString(record.title);
+  const updatedAt = getStoredString(record.updatedAt);
+  const imageUrl = sanitizeImageUrl(getStoredString(record.imageUrl));
+
+  if (!id || !title || !updatedAt || !imageUrl) {
+    return [];
+  }
+
+  return [
+    {
+      id,
+      slug: getStoredString(record.slug) || id,
+      title,
+      updatedAt,
+      imageUrl,
+      chaptersCount: getStoredNumber(record.chaptersCount),
+      fandom: getStoredOptionalString(record.fandom),
+      labels: normalizeStoredLabels(record.labels),
+    },
+  ];
+}
+
+function normalizeStoredLabels(value: unknown): WikiLabelSeed[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((label) => {
+    if (!isRecord(label)) {
+      return [];
+    }
+
+    const kind = getStoredString(label.kind);
+    const name = getStoredString(label.name);
+
+    if (!name || !isStoredLabelKind(kind)) {
+      return [];
+    }
+
+    return [
+      {
+        kind,
+        name,
+        detail: getStoredOptionalString(label.detail),
+      },
+    ];
+  });
+}
+
+function isStoredLabelKind(value: string): value is WikiLabelSeed["kind"] {
+  return storedLabelKinds.has(value as WikiLabelSeed["kind"]);
+}
+
+function getStoredString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getStoredOptionalString(value: unknown) {
+  const text = getStoredString(value);
+
+  return text || undefined;
+}
+
+function getStoredNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function buildChapterGraph(stories: PlotMapStorySeed[]): ChapterGraph {
   const tiles: ChapterGraphTile[] = [];
   const labels: ChapterGraphLabel[] = [];
   const lines: PlotMapLine[] = [];
+  const tileLabelEntries: Array<{ tileId: string; layout: ChapterTileLayout; labels: WikiLabelSeed[] }> = [];
+  const labelsByKey = new Map<string, ChapterGraphLabel>();
+  const connectionCounts = new Map<string, number>();
 
-  chapters.forEach((chapter, index) => {
-    const layout = chapterTileLayouts[index];
+  stories.forEach((story, index) => {
+    const layout = storyTileLayouts[index];
 
     if (!layout) {
       return;
     }
 
-    const tileId = `${chapter.id}-tile`;
-    const tileLabels = (chapter.labels ?? wikiToLabels(chapter.wiki)).slice(0, WIKI_LABELS_PER_TILE);
+    const tileId = `${story.id}-tile`;
 
     tiles.push({
       id: tileId,
-      title: chapter.title,
-      meta: getChapterMeta(chapter),
-      imageUrl: chapter.imageUrl,
+      title: story.title,
+      meta: getStoryMeta(story),
+      imageUrl: story.imageUrl,
       layout,
     });
 
-    tileLabels.forEach((label, labelIndex) => {
-      const labelLayout = wikiLabelLayouts[index]?.[labelIndex];
+    tileLabelEntries.push({
+      tileId,
+      layout,
+      labels: storyToLabels(story),
+    });
+  });
+
+  function connectLabel(
+    { tileId, layout }: { tileId: string; layout: ChapterTileLayout },
+    label: WikiLabelSeed,
+  ) {
+    const key = getLabelKey(label);
+    let graphLabel = labelsByKey.get(key);
+
+    if (!graphLabel) {
+      const labelLayout = graphLabelLayouts[labels.length];
 
       if (!labelLayout) {
-        return;
+        return false;
       }
 
-      const labelId = `${tileId}-${labelLayout.id}`;
-
-      labels.push({
+      graphLabel = {
         ...label,
-        id: labelId,
-        tileId,
+        id: `label-${labels.length}-${makeStableId(key)}`,
         layout: labelLayout,
-      });
-      lines.push({
-        id: `${tileId}-line-${labelLayout.id}`,
-        x1: layout.x,
-        y1: layout.y,
-        x2: labelLayout.x,
-        y2: labelLayout.y,
-        depth: labelLayout.depth,
-        kind: "chapter",
-      });
+      };
+      labelsByKey.set(key, graphLabel);
+      labels.push(graphLabel);
+    }
+
+    const anchor = getTileLineAnchor(layout, graphLabel.layout);
+
+    connectionCounts.set(graphLabel.id, (connectionCounts.get(graphLabel.id) ?? 0) + 1);
+    lines.push({
+      id: `${tileId}-line-${graphLabel.id}`,
+      x1: anchor.x,
+      y1: anchor.y,
+      x2: graphLabel.layout.x,
+      y2: graphLabel.layout.y,
+      depth: graphLabel.layout.depth,
+      sourceDepth: layout.depth,
+      targetDepth: graphLabel.layout.depth,
+      kind: "chapter",
     });
+
+    return true;
+  }
+
+  tileLabelEntries.forEach((entry) => {
+    const fandomLabel = entry.labels.find((label) => label.kind === "Фандом");
+
+    if (fandomLabel) {
+      connectLabel(entry, fandomLabel);
+    }
+  });
+
+  tileLabelEntries.forEach((entry) => {
+    let connectedForStory = entry.labels.some((label) => label.kind === "Фандом") ? 1 : 0;
+
+    for (const label of entry.labels) {
+      if (label.kind === "Фандом" || connectedForStory >= LABELS_PER_STORY_LIMIT) {
+        continue;
+      }
+
+      if (connectLabel(entry, label)) {
+        connectedForStory += 1;
+      }
+    }
+  });
+
+  labels.forEach((label) => {
+    const connectionCount = connectionCounts.get(label.id) ?? 0;
+
+    if (connectionCount > 1 && !label.detail) {
+      label.detail = `${connectionCount} ${pluralizeRu(connectionCount, ["связь", "связи", "связей"])}`;
+    }
   });
 
   return { tiles, labels, lines };
 }
 
-function wikiToLabels(wiki?: ChapterWiki): WikiLabelSeed[] {
-  if (!wiki) {
-    return [];
-  }
-
-  return [
-    ...normalizeWikiEntities("Персонаж", wiki.characters),
-    ...normalizeWikiEntities("Локация", wiki.locations),
-    ...normalizeWikiEntities("Предмет", wiki.items),
-  ];
-}
-
-function storyToLabels(story: StoryListItem): WikiLabelSeed[] {
+function buildStoryLabels({
+  fandom,
+  tags,
+  wiki,
+  description,
+}: {
+  fandom?: string;
+  tags: StoryListItem["tags"];
+  wiki?: ChapterWiki;
+  description?: string;
+}): WikiLabelSeed[] {
   const labels: WikiLabelSeed[] = [];
 
-  if (story.fandom) {
-    labels.push({ kind: "Фандом", name: story.fandom });
+  if (fandom) {
+    labels.push({ kind: "Фандом", name: fandom });
   }
 
-  if (story.ratingLabel) {
-    labels.push({ kind: "Рейтинг", name: story.ratingLabel });
-  }
+  wikiToLabels(wiki).forEach((label) => labels.push(label));
 
-  if (story.sizeLabel) {
-    labels.push({ kind: "Размер", name: story.sizeLabel });
-  }
-
-  story.tags.forEach((tag) => {
-    labels.push({
-      kind: "Тег",
-      name: tag.name,
-      detail: tag.category,
+  tags
+    .filter((tag) => !CORE_TAG_CATEGORIES.has(tag.category ?? ""))
+    .forEach((tag) => {
+      labels.push({
+        kind: "Тег",
+        name: tag.name,
+        detail: getTagCategoryLabel(tag.category),
+      });
     });
-  });
+
+  const descriptionLabel = truncateLabelText(description ?? "", 96);
+
+  if (descriptionLabel) {
+    labels.push({
+      kind: "Описание",
+      name: descriptionLabel,
+    });
+  }
 
   const seen = new Set<string>();
 
   return labels.filter((label) => {
-    const key = `${label.kind}:${label.name}`;
+    const key = getLabelKey(label);
 
     if (!label.name.trim() || seen.has(key)) {
       return false;
@@ -643,16 +1119,26 @@ function storyToLabels(story: StoryListItem): WikiLabelSeed[] {
   });
 }
 
-function getStoryCoverMeta(story: StoryListItem) {
-  const chapterPart =
-    story.chaptersCount > 0
-      ? `${story.chaptersCount} ${pluralizeRu(story.chaptersCount, ["глава", "главы", "глав"])}`
-      : "";
+function wikiToLabels(wiki?: ChapterWiki): WikiLabelSeed[] {
+  if (!wiki) {
+    return [];
+  }
 
-  return [story.fandom, story.ratingLabel, story.sizeLabel ?? chapterPart, story.sizeLabel ? chapterPart : ""]
-    .filter(Boolean)
-    .slice(0, 2)
-    .join(" · ");
+  return [
+    ...normalizeWikiEntities("Персонаж", wiki.characters).slice(0, WIKI_ENTITY_LIMITS.characters),
+    ...normalizeWikiEntities("Локация", wiki.locations).slice(0, WIKI_ENTITY_LIMITS.locations),
+    ...normalizeWikiEntities("Предмет", wiki.items).slice(0, WIKI_ENTITY_LIMITS.items),
+  ];
+}
+
+function storyToLabels(story: PlotMapStorySeed): WikiLabelSeed[] {
+  return story.labels;
+}
+
+function getStoryMeta(story: PlotMapStorySeed) {
+  return story.chaptersCount > 0
+    ? `${story.chaptersCount} ${pluralizeRu(story.chaptersCount, ["глава", "главы", "глав"])}`
+    : "";
 }
 
 function normalizeWikiEntities(kind: WikiLabelSeed["kind"], value: unknown): WikiLabelSeed[] {
@@ -678,21 +1164,46 @@ function normalizeWikiEntities(kind: WikiLabelSeed["kind"], value: unknown): Wik
   });
 }
 
-function getChapterMeta(chapter: CachedChapterSeed) {
-  if (chapter.metaOverride) {
-    return chapter.metaOverride;
+function getLabelKey(label: WikiLabelSeed) {
+  return `${label.kind}:${label.name.trim().toLowerCase()}`;
+}
+
+function makeStableId(value: string) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return normalized || "label";
+}
+
+function getTileLineAnchor(tileLayout: ChapterTileLayout, labelLayout: WikiLabelLayout) {
+  const horizontalOffset = tileLayout.size === "lg" ? 5 : 4;
+  const verticalOffset = labelLayout.y < tileLayout.y ? -3.5 : labelLayout.y > tileLayout.y ? 3.5 : 0;
+  const x = tileLayout.x + (labelLayout.x < tileLayout.x ? -horizontalOffset : horizontalOffset);
+  const y = tileLayout.y + verticalOffset;
+
+  return {
+    x: Math.min(100, Math.max(0, x)),
+    y: Math.min(100, Math.max(0, y)),
+  };
+}
+
+function truncateLabelText(value: string, maxLength: number) {
+  const text = value.trim().replace(/\s+/g, " ");
+
+  if (text.length <= maxLength) {
+    return text;
   }
 
-  const titleAlreadyLooksNumbered = /^глава\s+\d+/i.test(chapter.title.trim());
-  const chapterPart =
-    titleAlreadyLooksNumbered ? "" : typeof chapter.number === "number" ? `Глава ${chapter.number}` : "Глава";
-  const wordsPart =
-    typeof chapter.wordCount === "number" && chapter.wordCount > 0
-      ? `${chapter.wordCount} ${pluralizeRu(chapter.wordCount, ["слово", "слова", "слов"])}`
-      : "";
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`;
+}
 
-  return [chapter.storyTitle, chapterPart || wordsPart, chapterPart ? wordsPart : ""]
-    .filter(Boolean)
-    .slice(0, 2)
-    .join(" · ");
+function getTagCategoryLabel(category?: string) {
+  if (category === "genre") {
+    return "Жанр";
+  }
+
+  return category;
 }

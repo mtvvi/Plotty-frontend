@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bookmark } from "lucide-react";
+import { Bookmark, ChevronDown, Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -26,6 +26,16 @@ function buildNextUrl(pathname: string, searchParams: URLSearchParams) {
 
   return query ? `${pathname}?${query}` : pathname;
 }
+
+type ReaderShelfTone = "neutral" | "success" | "info" | "danger" | "gold" | "accent";
+
+const readerShelfToneByShelf: Record<ReaderShelf, ReaderShelfTone> = {
+  reading: "success",
+  planned: "info",
+  dropped: "danger",
+  read: "gold",
+  favorite: "accent",
+};
 
 export function StoryShelfControl({
   storyId,
@@ -118,42 +128,61 @@ export function StoryShelfControl({
     popover.toggle();
   }
 
+  function handleSecondaryClick() {
+    if (!currentShelf && !popover.open) {
+      handlePrimaryClick();
+      return;
+    }
+
+    if (ensureAuthenticated()) {
+      popover.toggle();
+    }
+  }
+
   const label = currentShelf ? readerShelfLabels[currentShelf] : "В планы";
+  const currentTone = currentShelf ? readerShelfToneByShelf[currentShelf] : "neutral";
   const busy = shelfMutation.isPending || (isAuthenticated && shouldLoadShelf && shelfQuery.isLoading);
+  const showQuickAddIcon = !currentShelf && !popover.open;
 
   return (
     <div ref={popover.triggerRef} className={cn("relative w-full min-w-0", compact ? "" : "max-w-[18rem] space-y-1.5", className)}>
       {compact ? null : <span className="plotty-kicker">Статус</span>}
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] overflow-hidden rounded-[16px] border border-[rgba(41,38,34,0.1)] bg-white/88 shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] hover:-translate-y-px hover:border-[rgba(195,79,50,0.18)] hover:shadow-[0_12px_28px_rgba(58,43,27,0.08)]">
+      <div
+        data-reader-shelf-tone={currentTone}
+        className={cn(
+          "plotty-reader-shelf-tone grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] overflow-hidden rounded-[16px] border shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] hover:-translate-y-px hover:shadow-[0_12px_28px_rgba(58,43,27,0.08)]",
+        )}
+      >
         <button
           type="button"
           onClick={handlePrimaryClick}
           disabled={busy}
           title={currentShelf ? `Статус: ${label}` : "Добавить историю в планы"}
+          data-reader-shelf-tone={currentTone}
           className={cn(
-            "plotty-button-label min-h-[42px] min-w-0 text-left text-[var(--plotty-ink)] disabled:opacity-60",
-            compact ? "flex items-center gap-2 overflow-hidden px-3" : "truncate px-3 transition-colors hover:bg-white",
+            "plotty-button-label min-h-[42px] min-w-0 text-left text-current disabled:opacity-60",
+            compact ? "flex items-center gap-2 overflow-hidden px-3" : "truncate px-3 transition-colors hover:bg-[var(--plotty-hover)]",
           )}
         >
-          {compact ? <Bookmark className="size-4 shrink-0" aria-hidden="true" /> : !currentShelf ? <span className="mr-1 text-base leading-none">+</span> : null}
+          {compact ? <Bookmark className="size-4 shrink-0" aria-hidden="true" /> : null}
           <span className="truncate">{label}</span>
         </button>
         <button
           type="button"
-          aria-label="Выбрать статус"
-          aria-haspopup="listbox"
-          aria-expanded={popover.open}
-          onClick={() => {
-            if (ensureAuthenticated()) {
-              popover.toggle();
-            }
-          }}
+          aria-label={showQuickAddIcon ? "Добавить историю в планы" : "Выбрать статус"}
+          aria-haspopup={showQuickAddIcon ? undefined : "listbox"}
+          aria-expanded={showQuickAddIcon ? undefined : popover.open}
+          title={showQuickAddIcon ? "Добавить историю в планы" : "Выбрать статус"}
+          onClick={handleSecondaryClick}
           disabled={busy}
-          className="flex min-h-[42px] items-center justify-center border-l border-[rgba(41,38,34,0.1)] text-[var(--plotty-muted)] transition-colors hover:bg-white disabled:opacity-60"
+          data-reader-shelf-tone={currentTone}
+          className="flex min-h-[42px] items-center justify-center border-l border-[var(--plotty-line)] text-current transition-colors hover:bg-[var(--plotty-hover)] disabled:opacity-60"
         >
-          <span className={cn("transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")} aria-hidden="true">
-            ▾
-          </span>
+          {showQuickAddIcon ? (
+            <Plus className="size-4" aria-hidden="true" />
+          ) : (
+            <ChevronDown className={cn("size-4 transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")} aria-hidden="true" />
+          )}
         </button>
       </div>
 
@@ -163,34 +192,36 @@ export function StoryShelfControl({
         position={popover.position}
         role="listbox"
         aria-label="Статус чтения"
-        className="rounded-[16px] p-2"
+        className="space-y-1.5 rounded-[16px] p-2"
       >
-          {readerShelfOptions.map((option) => (
+        {readerShelfOptions.map((option) => {
+          const optionTone = readerShelfToneByShelf[option.value];
+
+          return (
             <button
               key={option.value}
               type="button"
               role="option"
               aria-selected={currentShelf === option.value}
+              data-reader-shelf-tone={optionTone}
               onClick={() => setShelf(option.value)}
-              className={cn(
-                "plotty-popover-item flex w-full items-center rounded-[12px] px-3 py-2.5 text-left text-sm transition-colors",
-                currentShelf === option.value ? "bg-white font-semibold text-[var(--plotty-ink)]" : "text-[var(--plotty-muted)] hover:bg-white/80",
-              )}
+              className="plotty-popover-item plotty-button-label plotty-reader-shelf-menu-item flex min-h-[42px] w-full items-center rounded-[16px] border px-3 text-left transition-[background-color,border-color,color,box-shadow]"
             >
               {option.label}
             </button>
-          ))}
-          {currentShelf ? (
-            <button
-              type="button"
-              role="option"
-              aria-selected={false}
-              onClick={() => setShelf("")}
-              className="plotty-popover-item mt-1 flex w-full items-center rounded-[12px] border-t border-[rgba(41,38,34,0.08)] px-3 py-2.5 text-left text-sm text-[var(--plotty-muted)] transition-colors hover:bg-white/80"
-            >
-              Убрать статус
-            </button>
-          ) : null}
+          );
+        })}
+        {currentShelf ? (
+          <button
+            type="button"
+            role="option"
+            aria-selected={false}
+            onClick={() => setShelf("")}
+            className="plotty-popover-item mt-1.5 flex w-full items-center rounded-[12px] border border-[var(--plotty-line)] px-3 py-2.5 text-left text-sm text-[var(--plotty-muted)] transition-colors hover:border-[var(--plotty-line-strong)] hover:text-[var(--plotty-ink)]"
+          >
+            Убрать статус
+          </button>
+        ) : null}
       </PopoverContent>
     </div>
   );

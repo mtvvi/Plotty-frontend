@@ -143,6 +143,79 @@ describe("StoryEditorScreen", () => {
     expect(chapterContent).toHaveValue(originalContent);
   });
 
+  it("removes a spellcheck issue from the sidebar after applying the suggested fix", async () => {
+    const user = userEvent.setup();
+
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+    const chapterContent = screen.getByLabelText("Текст главы") as HTMLTextAreaElement;
+
+    expect(chapterContent.value).toContain("нечаяно");
+
+    await user.click(screen.getByRole("button", { name: "Проверить орфографию" }));
+    await waitFor(() => expect(screen.getByText(/нечаянно/i)).toBeInTheDocument(), {
+      timeout: 4_000,
+    });
+    await user.click(screen.getByRole("button", { name: "Исправить" }));
+
+    await waitFor(() => expect(screen.queryByText("Возможная орфографическая ошибка")).not.toBeInTheDocument());
+    expect(chapterContent.value).toContain("нечаянно");
+    expect(chapterContent.value).not.toContain("нечаяно");
+  });
+
+  it("removes stale spellcheck issues from the sidebar once the text is corrected", async () => {
+    const user = userEvent.setup();
+
+    renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+    const chapterContent = screen.getByLabelText("Текст главы") as HTMLTextAreaElement;
+
+    await user.click(screen.getByRole("button", { name: "Проверить орфографию" }));
+    await waitFor(() => expect(screen.getByText(/нечаянно/i)).toBeInTheDocument(), {
+      timeout: 4_000,
+    });
+
+    fireEvent.change(chapterContent, {
+      target: { value: chapterContent.value.replace("нечаяно", "нечаянно") },
+    });
+
+    await waitFor(() => expect(screen.queryByText("Возможная орфографическая ошибка")).not.toBeInTheDocument());
+    expect(chapterContent.value).toContain("нечаянно");
+  });
+
+  it("removes a spellcheck issue from the sidebar after applying the popover fix", async () => {
+    const user = userEvent.setup();
+    const view = renderEditor();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
+    const chapterContent = screen.getByLabelText("Текст главы") as HTMLTextAreaElement;
+
+    await user.click(screen.getByRole("button", { name: "Проверить орфографию" }));
+    await waitFor(() => expect(screen.getByText(/нечаянно/i)).toBeInTheDocument(), {
+      timeout: 4_000,
+    });
+
+    const mark = view.container.querySelector("mark[data-error-id]") as HTMLElement;
+    const layer = view.container.querySelector(".plotty-highlighted-textarea-layer") as HTMLElement;
+    const visibleRect = DOMRect.fromRect({ x: 40, y: 80, width: 120, height: 24 });
+    const viewportRect = DOMRect.fromRect({ x: 0, y: 0, width: 640, height: 420 });
+
+    vi.spyOn(mark, "getBoundingClientRect").mockReturnValue(visibleRect);
+    vi.spyOn(layer, "getBoundingClientRect").mockReturnValue(viewportRect);
+
+    fireEvent.pointerDown(mark);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Исправить" })).toHaveLength(2));
+
+    const applyButtons = screen.getAllByRole("button", { name: "Исправить" });
+    await user.click(applyButtons[applyButtons.length - 1]);
+
+    await waitFor(() => expect(screen.queryByText("Возможная орфографическая ошибка")).not.toBeInTheDocument());
+    expect(chapterContent.value).toContain("нечаянно");
+    expect(chapterContent.value).not.toContain("нечаяно");
+  });
+
   it("does not reopen the spellcheck popover after it is closed", async () => {
     const user = userEvent.setup();
     const view = renderEditor();

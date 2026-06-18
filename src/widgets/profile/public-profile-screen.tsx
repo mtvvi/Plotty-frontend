@@ -2,7 +2,7 @@
 
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Coins, Plus, Search, X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import NextImage from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -24,7 +24,7 @@ import { cn } from "@/shared/lib/utils";
 import { usernameValidationMessage } from "@/shared/lib/username";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { useRafCounter } from "@/shared/lib/raf-counter";
-import { Button, ButtonLink } from "@/shared/ui/button";
+import { Button } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { FieldError } from "@/shared/ui/field";
 import { IconButton } from "@/shared/ui/icon-button";
@@ -446,14 +446,14 @@ export function PublicProfileScreen({ username }: { username: string }) {
     <PlottyPageShell suppressPageIntro>
       <div className="space-y-5">
         <PlottySectionCard className="plotty-panel-enter overflow-hidden !p-0">
-          <div className="grid gap-0 lg:min-h-80 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="lg:h-full">
+          <div className="grid gap-0 xl:min-h-80 xl:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="xl:h-full">
               <div
                 data-profile-summary-frame="true"
                 data-profile-intro="profile-hero"
-                className="plotty-motion-tab-panel h-full p-0 lg:min-h-80"
+                className="plotty-motion-tab-panel h-full p-0 lg:min-h-80 xl:min-h-80"
               >
-                <div className="plotty-profile-hero-grid flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid lg:min-h-80 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-0">
+                <div className="plotty-profile-hero-grid flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid-cols-[auto_minmax(0,1fr)_auto] xl:grid xl:min-h-80 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-0">
                   {isOwnProfile ? (
                     <>
                       <input
@@ -465,10 +465,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         disabled={avatarMutation.isPending}
                         onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
                       />
-                      <div className="plotty-profile-hero-avatar-frame grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:aspect-square lg:h-full lg:min-h-full lg:w-auto lg:self-stretch">
+                      <div className="plotty-profile-hero-avatar-frame grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 xl:aspect-square xl:h-full xl:min-h-full xl:w-auto xl:self-stretch">
                         <button
                           type="button"
-                          className="group relative h-full w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:aspect-square lg:min-h-full lg:w-auto lg:rounded-none lg:hover:translate-y-0"
+                          className="group relative h-full w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:aspect-square lg:min-h-full lg:w-auto xl:aspect-square xl:min-h-full xl:w-auto xl:rounded-none xl:hover:translate-y-0"
                           onClick={() => avatarInputRef.current?.click()}
                           disabled={avatarMutation.isPending}
                           aria-label="Загрузить аватар"
@@ -492,8 +492,8 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="hero" />
                     </div>
                   )}
-                  <div className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 lg:grid lg:grid-cols-1 lg:items-start lg:gap-y-3 lg:space-y-0 lg:self-center lg:px-7 lg:py-7">
-                    <div className="min-w-0 lg:col-start-1 lg:row-start-1 lg:pr-24">
+                  <div className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 xl:grid xl:grid-cols-1 xl:items-start xl:gap-y-3 xl:space-y-0 xl:self-center xl:px-7 xl:py-7">
+                    <div className="min-w-0 xl:col-start-1 xl:row-start-1">
                       <ProfileInlineTextField
                         field="username"
                         label="Ник"
@@ -512,7 +512,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         onStartEdit={() => handleStartInlineEdit("username")}
                       />
                     </div>
-                    <div className="min-w-0 space-y-3 lg:col-start-1 lg:row-start-2">
+                    <div className="min-w-0 space-y-3 xl:col-start-1 xl:row-start-2">
                       <ProfileInlineTextField
                         field="bio"
                         label="Описание"
@@ -535,19 +535,11 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       {!activeInlineFieldError && serverError ? <FieldError>{serverError}</FieldError> : null}
                       {avatarError ? <FieldError>{avatarError}</FieldError> : null}
                     </div>
-                    {isOwnProfile ? (
-                      <div className="flex shrink-0 flex-wrap gap-2 sm:self-start lg:col-start-1 lg:row-start-1 lg:self-center lg:justify-self-end">
-                        <Button type="button" variant="destructive" onClick={handleLogout} disabled={logoutMutation.isPending}>
-                          <LogoutProfileIcon className="size-5 shrink-0" />
-                          {logoutMutation.isPending ? "Выходим..." : "Выйти"}
-                        </Button>
-                      </div>
-                    ) : null}
                   </div>
               </div>
             </div>
             </div>
-            <div className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 lg:border-l lg:border-t-0 lg:p-7">
+            <div className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 xl:border-l xl:border-t-0 xl:p-7">
               <ProfileStat
                 label="Работ"
                 value={worksCount}
@@ -563,11 +555,19 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   <ProfileStat
                     label="AI-кредиты"
                     value={formatCreditsAmount(user?.credits ?? 0)}
-                    icon={<Coins className="size-6" />}
+                    icon={
+                      <Link
+                        href={routes.credits}
+                        prefetch={false}
+                        aria-label="Пополнить баланс"
+                        title="Пополнить баланс"
+                        className="plotty-icon-motion inline-flex size-10 items-center justify-center rounded-[var(--plotty-radius-sm)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] text-[var(--plotty-accent)] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:border-[rgba(195,79,50,0.26)] hover:bg-[var(--plotty-accent-wash)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                      >
+                        <Plus className="size-5" aria-hidden="true" />
+                      </Link>
+                    }
                   />
-                  <ButtonLink href={routes.credits} prefetch={false} variant="secondary" size="sm" className="w-full">
-                    Пополнить баланс
-                  </ButtonLink>
+                  <ProfileStatActions isLoggingOut={logoutMutation.isPending} onLogout={handleLogout} />
                 </>
               ) : null}
             </div>
@@ -743,15 +743,15 @@ export function ProfileAvatar({
 }) {
   const className =
     size === "hero"
-      ? "plotty-profile-hero-avatar aspect-square w-full text-4xl sm:h-full sm:min-h-40 lg:h-full lg:w-auto lg:min-h-80 lg:text-5xl"
+      ? "plotty-profile-hero-avatar aspect-square w-full text-4xl sm:h-full sm:min-h-40 lg:w-auto lg:min-h-80 xl:h-full xl:w-auto xl:min-h-80 xl:text-5xl"
       : size === "large"
         ? "size-28 text-4xl sm:size-36 lg:size-40"
         : "size-12 text-base";
-  const radiusClassName = size === "hero" ? "rounded-none sm:rounded-[var(--plotty-radius-md)] lg:rounded-none" : "rounded-[var(--plotty-radius-md)]";
+  const radiusClassName = size === "hero" ? "rounded-none sm:rounded-[var(--plotty-radius-md)] xl:rounded-none" : "rounded-[var(--plotty-radius-md)]";
   const safeAvatarUrl = sanitizePersistedImageUrl(avatarUrl);
   const imageSrc = safeAvatarUrl ?? profileAvatarPlaceholderSrc;
   const avatarSize = size === "hero" ? 640 : size === "large" ? 160 : 48;
-  const sizes = size === "hero" ? "(min-width: 1024px) 22rem, (min-width: 640px) 10rem, 100vw" : `${avatarSize}px`;
+  const sizes = size === "hero" ? "(min-width: 1280px) 22rem, (min-width: 1024px) 20rem, (min-width: 640px) 10rem, 100vw" : `${avatarSize}px`;
 
   return (
       <NextImage
@@ -1314,6 +1314,9 @@ function ProfileWorksToolbar({
   );
 }
 
+const profileTileClassName =
+  "plotty-lift-panel h-full rounded-[18px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4";
+
 function ProfileStat({ label, value, icon }: { label: string; value: number | string; icon: ReactNode }) {
   const valueRef = useRef<HTMLDivElement | null>(null);
   const numericValue = typeof value === "number" ? value : null;
@@ -1323,15 +1326,43 @@ function ProfileStat({ label, value, icon }: { label: string; value: number | st
   useRafCounter(valueRef, numericValue, formatValue);
 
   return (
-    <div className="plotty-lift-panel h-full rounded-[18px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div ref={valueRef} data-raf-counter="profile-stat" className="text-2xl font-bold text-[var(--plotty-ink)]">{displayValue}</div>
+    <div className={profileTileClassName}>
+      <div className="flex h-full items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div ref={valueRef} data-raf-counter="profile-stat" className="max-w-full break-words text-2xl font-bold leading-tight text-[var(--plotty-ink)]">{displayValue}</div>
           <div className="plotty-meta">{label}</div>
         </div>
         <span className="mt-1 inline-flex shrink-0 text-[var(--plotty-muted)]">{icon}</span>
       </div>
     </div>
+  );
+}
+
+function ProfileStatActions({
+  isLoggingOut,
+  onLogout,
+}: {
+  isLoggingOut: boolean;
+  onLogout: () => Promise<void>;
+}) {
+  const actionTileClassName = cn(
+    profileTileClassName,
+    "inline-flex min-h-0 w-full items-center justify-center gap-2 text-sm font-semibold leading-tight text-[var(--plotty-danger)] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:border-[rgba(189,63,50,0.26)] hover:bg-[var(--plotty-danger-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:shadow-none disabled:opacity-60",
+  );
+
+  return (
+    <button
+      type="button"
+      className={actionTileClassName}
+      onClick={() => {
+        void onLogout();
+      }}
+      disabled={isLoggingOut}
+      aria-busy={isLoggingOut || undefined}
+    >
+      <LogoutProfileIcon className="size-5 shrink-0" />
+      <span className="min-w-0 truncate">{isLoggingOut ? "Выходим..." : "Выйти"}</span>
+    </button>
   );
 }
 

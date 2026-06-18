@@ -109,6 +109,70 @@ describe("motion performance CSS", () => {
     expect(css).toContain("animation: none");
   });
 
+  it("disables chip and badge sheen in dark theme", () => {
+    const css = readCss();
+    const darkSheenRule =
+      css.match(
+        /:root\[data-theme="dark"\] \.plotty-chip-motion::before,\s*:root\[data-theme="dark"\] \.plotty-badge-motion::before\s*{(?<body>[\s\S]*?)\n}/,
+      )?.groups?.body ?? "";
+
+    expect(darkSheenRule).toContain("background: transparent");
+    expect(darkSheenRule).toContain("opacity: 0");
+  });
+
+  it("keeps shelf menu status rows outlined and fills only the selected row", () => {
+    const css = readCss();
+    const menuItemRule = ruleBody(css, ".plotty-reader-shelf-menu-item");
+
+    expect(menuItemRule).toContain("background: transparent");
+
+    for (const tone of ["success", "info", "danger", "gold", "accent"]) {
+      const toneRule =
+        css.match(
+          new RegExp(
+            `\\.plotty-reader-shelf-tone\\[data-reader-shelf-tone="${tone}"\\],\\s*\\.plotty-reader-shelf-menu-item\\[data-reader-shelf-tone="${tone}"\\]\\s*{(?<body>[\\s\\S]*?)\\n}`,
+          ),
+        )?.groups?.body ?? "";
+
+      expect(toneRule).toContain("--plotty-reader-shelf-border:");
+      expect(toneRule).toContain("--plotty-reader-shelf-color:");
+      expect(toneRule).not.toMatch(/\n\s*background:/);
+    }
+
+    const selectedRule = ruleBody(css, '.plotty-reader-shelf-menu-item[aria-selected="true"]');
+
+    expect(selectedRule).toContain("background:");
+  });
+
+  it("uses the displayed shelf control tone tokens for the selected menu row", () => {
+    const css = readCss();
+    const infoToneRule =
+      css.match(
+        /\.plotty-reader-shelf-tone\[data-reader-shelf-tone="info"\],\s*\.plotty-reader-shelf-menu-item\[data-reader-shelf-tone="info"\]\s*{(?<body>[\s\S]*?)\n}/,
+      )?.groups?.body ?? "";
+    const selectedRule = ruleBody(css, '.plotty-reader-shelf-menu-item[aria-selected="true"]');
+
+    expect(infoToneRule).toContain("--plotty-reader-shelf-border:");
+    expect(infoToneRule).toContain("--plotty-reader-shelf-background:");
+    expect(infoToneRule).toContain("--plotty-reader-shelf-color:");
+    expect(selectedRule).toContain("border-color: var(--plotty-reader-shelf-border)");
+    expect(selectedRule).toContain("background: var(--plotty-reader-shelf-background)");
+    expect(selectedRule).toContain("color: var(--plotty-reader-shelf-color)");
+  });
+
+  it("applies shelf tone tokens with enough specificity to beat border utilities", () => {
+    const css = readCss();
+    const triggerApplyRule = ruleBody(css, ".plotty-reader-shelf-tone[data-reader-shelf-tone]");
+    const menuApplyRule = ruleBody(css, ".plotty-reader-shelf-menu-item[data-reader-shelf-tone]");
+
+    expect(triggerApplyRule).toContain("border-color: var(--plotty-reader-shelf-border)");
+    expect(triggerApplyRule).toContain("background: var(--plotty-reader-shelf-background)");
+    expect(triggerApplyRule).toContain("color: var(--plotty-reader-shelf-color)");
+    expect(menuApplyRule).toContain("border-color: var(--plotty-reader-shelf-border)");
+    expect(menuApplyRule).toContain("color: var(--plotty-reader-shelf-color)");
+    expect(menuApplyRule).not.toMatch(/\n\s*background:/);
+  });
+
   it("keeps the shared tab indicator off width and height transitions", () => {
     const indicatorRule = ruleBody(readCss(), ".plotty-tab-indicator");
 

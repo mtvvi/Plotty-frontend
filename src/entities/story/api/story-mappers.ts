@@ -11,6 +11,7 @@ export interface BackendStoryListItem {
   likesCount?: number;
   likedByMe?: boolean;
   aiHint?: string;
+  description?: string;
   coverUrl?: string | null;
   coverImageUrl?: string | null;
   readChapterNumber?: number | null;
@@ -55,6 +56,7 @@ export function mapStoryListItem(item: BackendStoryListItem): StoryListItem {
     likesCount: item.likesCount,
     viewerHasLiked: item.likedByMe,
     aiHint: item.aiHint,
+    description: item.description,
     author: item.author
       ? {
           ...item.author,

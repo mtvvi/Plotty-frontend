@@ -54,4 +54,16 @@ describe("RouteProgressBar", () => {
 
     expect(progress).toHaveAttribute("data-state", "idle");
   });
+
+  it("does not leave progress loading for no-op browser history events", () => {
+    render(<RouteProgressBar />);
+
+    const progress = document.querySelector(".plotty-route-progress");
+
+    expect(progress).toHaveAttribute("data-state", "idle");
+
+    fireEvent.popState(window);
+
+    expect(progress).toHaveAttribute("data-state", "idle");
+  });
 });

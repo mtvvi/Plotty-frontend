@@ -148,7 +148,7 @@ export function AuthScreen() {
     <PlottyPageShell showBottomNav={false} desktopHeaderActions={null} contentClassName="py-4 lg:py-7" suppressPageIntro>
       <div className="plotty-auth-stage relative isolate">
         <div data-auth-intro="auth-form" className="plotty-motion-tab-panel relative z-10 mx-auto max-w-[32rem]">
-          <PlottySectionCard className="space-y-6 p-5 sm:p-6">
+          <PlottySectionCard className="plotty-auth-card space-y-6 p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <span className="plotty-meta text-xs font-bold uppercase tracking-[0.14em]">
                 {mode === "register" ? "Регистрация" : "Вход"}
@@ -220,7 +220,7 @@ export function AuthScreen() {
 
             <p className="plotty-meta text-sm">
               {pageCopy.switchLabel}{" "}
-              <Link href={pageCopy.switchHref} prefetch={false} className="font-semibold text-[var(--plotty-accent)]">
+              <Link href={pageCopy.switchHref} prefetch={false} className="plotty-text-link font-semibold">
                 {pageCopy.switchCta}
               </Link>
             </p>

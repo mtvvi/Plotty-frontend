@@ -31,6 +31,7 @@ export interface StoryListItem {
   likesCount?: number;
   viewerHasLiked?: boolean;
   aiHint?: string;
+  description?: string;
   author?: StoryAuthor | null;
   coverImageUrl?: string | null;
   readChapterNumber?: number | null;
@@ -70,6 +71,7 @@ export interface StoryDetails {
   likesCount?: number;
   viewerHasLiked?: boolean;
   aiHint?: string;
+  description?: string;
   author?: StoryAuthor | null;
   coverImageUrl?: string | null;
 }

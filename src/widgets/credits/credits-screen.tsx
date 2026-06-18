@@ -23,6 +23,7 @@ import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, Surface } from "@/shared/ui/card";
+import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { AnimatedList, AnimatedTabPanel, AsyncJobStatus } from "@/shared/ui/motion";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
@@ -245,7 +246,7 @@ function CreditPackageCard({
             <div className="text-2xl font-semibold text-[var(--plotty-ink)]">{formatCreditsAmount(pkg.credits)}</div>
             <p className="plotty-meta">Пакет #{pkg.id}</p>
           </div>
-          {isBestValue ? <Badge tone="gold">Выгоднее</Badge> : null}
+          {isBestValue ? <Chip tone="gold">Выгоднее</Chip> : null}
         </div>
         <div className="text-xl font-semibold text-[var(--plotty-accent)]">{formatCreditPrice(pkg.priceKopecks)}</div>
       </div>
