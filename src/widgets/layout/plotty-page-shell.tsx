@@ -320,7 +320,7 @@ type PlottyPageShellProps = {
   className?: string;
 };
 
-const chromeMinimalRoutes = new Set(["/auth", "/authors", "/fandoms", "/recommendations"]);
+const chromeMinimalRoutes = new Set(["/auth", "/authors", "/recommendations"]);
 
 function shouldUseMinimalPersistentChrome(pathname: string) {
   return chromeMinimalRoutes.has(pathname);

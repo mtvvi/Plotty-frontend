@@ -16,7 +16,6 @@ import { useAuth } from "@/entities/auth/model/auth-context";
 import { storyKeys } from "@/entities/story/api/stories-api";
 import { routes } from "@/shared/config/routes";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
-import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
@@ -59,7 +58,10 @@ function PendingFandomCard({
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="plotty-section-title">{fandom.name}</h2>
-            <Badge tone="gold">На модерации</Badge>
+            <Chip tone="blue">
+              <ShieldAlert className="size-3.5" aria-hidden="true" />
+              На модерации
+            </Chip>
           </div>
           <p className="plotty-body whitespace-pre-wrap text-[var(--plotty-muted)]">{fandom.description}</p>
         </div>
@@ -177,12 +179,6 @@ export function FandomsAdminScreen() {
     <PlottyPageShell
       pageTitle="Модерация фандомов"
       pageDescription="Одобрение создаёт новый тег-фандом и запускает генерацию базы канона на backend."
-      pageMeta={
-        <Chip tone="blue">
-          <ShieldAlert className="size-3.5" aria-hidden="true" />
-          Админ
-        </Chip>
-      }
     >
       <div className="space-y-4">
         {actionError ? (
