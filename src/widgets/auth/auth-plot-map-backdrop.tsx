@@ -309,19 +309,14 @@ export function AuthPlotMapBackdrop() {
 
     function handlePointerMove(event: PointerEvent) {
       const rect = motionRoot.getBoundingClientRect();
-      const isNearRoot =
-        event.clientX >= rect.left - 120 &&
-        event.clientX <= rect.right + 120 &&
-        event.clientY >= rect.top - 120 &&
-        event.clientY <= rect.bottom + 120;
 
-      if (!isNearRoot || !rect.width || !rect.height) {
+      if (!rect.width || !rect.height) {
         resetMotion();
         return;
       }
 
-      const normalizedX = (event.clientX - rect.left) / rect.width - 0.5;
-      const normalizedY = (event.clientY - rect.top) / rect.height - 0.5;
+      const normalizedX = getClampedPointerAxis(event.clientX, rect.left, rect.width);
+      const normalizedY = getClampedPointerAxis(event.clientY, rect.top, rect.height);
 
       setTargetDrift(getDepthDrifts(normalizedX, normalizedY));
     }
@@ -470,6 +465,12 @@ function getDepthDrifts(normalizedX: number, normalizedY: number): Record<Depth,
     },
     createZeroDrift(),
   );
+}
+
+function getClampedPointerAxis(pointerPosition: number, axisStart: number, axisSize: number) {
+  const axisProgress = (pointerPosition - axisStart) / axisSize;
+
+  return Math.min(1, Math.max(0, axisProgress)) - 0.5;
 }
 
 function applyPlotMapDrift({
