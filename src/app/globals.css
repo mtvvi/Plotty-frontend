@@ -1606,8 +1606,20 @@ button:active .plotty-chip-motion {
 }
 
 @media (min-width: 1280px) {
+  .plotty-editor-main-text-field .plotty-highlighted-textarea-shell {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
   .plotty-editor-content-textarea {
-    min-height: clamp(40rem, calc(100vh - 18rem), 56rem);
+    min-height: 26.25rem;
+  }
+
+  .plotty-editor-main-text-field .plotty-editor-content-textarea {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
   }
 }
 

@@ -13,6 +13,7 @@ import {
   chapterEditorDetailsQueryOptions,
   createChapter,
   deleteChapter,
+  normalizeCanonCheckResult,
   publishChapter,
   startCanonCheck,
   startLogicCheck,
@@ -180,7 +181,11 @@ export function StoryEditorScreen({
     mutationFn: startLogicCheck,
   });
   const canonCheckMutation = useMutation({
-    mutationFn: startCanonCheck,
+    mutationFn: ({ targetChapterId, targetPayload }: { targetChapterId: string; targetPayload: StoryEditorValues }) =>
+      startCanonCheck(targetChapterId, {
+        title: targetPayload.chapterTitle,
+        content: targetPayload.chapterContent,
+      }),
   });
 
   const spellcheckJobQuery = useQuery({
@@ -202,7 +207,7 @@ export function StoryEditorScreen({
   });
 
   const canonCheckJobQuery = useQuery({
-    ...aiJobQueryOptions<CanonCheckResult>(canonCheckJobId),
+    ...aiJobQueryOptions<CanonCheckResult>(canonCheckJobId, { mapResult: normalizeCanonCheckResult }),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
 
@@ -527,7 +532,10 @@ export function StoryEditorScreen({
         await persistCurrentDraft();
       }
 
-      const accepted = await canonCheckMutation.mutateAsync(chapterId);
+      const accepted = await canonCheckMutation.mutateAsync({
+        targetChapterId: chapterId,
+        targetPayload: values,
+      });
 
       setCanonCheckJobId(accepted.jobId);
       await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });

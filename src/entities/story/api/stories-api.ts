@@ -3,11 +3,13 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { fetchJson } from "@/shared/api/fetch-json";
 import { encodePathSegment, sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 
+import { normalizeCanonCheckResult } from "./canon-check-result";
 import { getTagName, mapStoryListItem, type BackendStoriesResponse } from "./story-mappers";
 import { serializeStoriesQuery } from "../model/story-query";
 import type {
   AiJobAccepted,
   AiJobResponse,
+  CanonCheckPayload,
   CanonCheckResult,
   ChapterDetails,
   ChaptersViewedResponse,
@@ -427,14 +429,20 @@ export function chapterEditorDetailsQueryOptions(storyId: string, chapterId: str
   });
 }
 
-export function aiJobQueryOptions<TResult>(jobId: string) {
+export function aiJobQueryOptions<TResult>(jobId: string, options?: { mapResult?: (result: unknown) => TResult }) {
   return queryOptions({
     queryKey: aiKeys.job(jobId),
     queryFn: async () => {
-      const response = await fetchJson<AiJobResponse<TResult>>(`/ai/jobs/${encodePathSegment(jobId)}`);
+      const response = await fetchJson<AiJobResponse<unknown>>(`/ai/jobs/${encodePathSegment(jobId)}`);
 
       return {
         ...response,
+        result:
+          response.result === undefined
+            ? undefined
+            : options?.mapResult
+              ? options.mapResult(response.result)
+              : (response.result as TResult),
         errorMessage: response.errorMessage ?? response.error,
       };
     },
@@ -561,9 +569,18 @@ export function startLogicCheck(payload: SpellcheckPayload) {
   });
 }
 
-export function startCanonCheck(chapterId: string) {
+export function startCanonCheck(chapterId: string, payload?: Omit<CanonCheckPayload, "chapterId">) {
+  const body = payload
+    ? JSON.stringify({
+        chapterId,
+        title: payload.title?.trim(),
+        content: payload.content.trim(),
+      })
+    : undefined;
+
   return fetchJson<AiJobAccepted>(`/chapters/${encodePathSegment(chapterId)}/canon-check`, {
     method: "POST",
+    ...(body ? { body } : {}),
   });
 }
 
@@ -606,3 +623,4 @@ export type SpellcheckJobResponse = AiJobResponse<SpellcheckResult>;
 export type LogicCheckJobResponse = AiJobResponse<LogicCheckResult>;
 export type CanonCheckJobResponse = AiJobResponse<CanonCheckResult>;
 export type ImageGenerationJobResponse = AiJobResponse<ImageGenerationResult>;
+export { normalizeCanonCheckResult };

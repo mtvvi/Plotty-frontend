@@ -291,13 +291,14 @@ export function StoryEditorForm({
   }, [closeSpellcheckPopover, spellcheckPopover]);
 
   return (
-    <div className="plotty-stagger grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="plotty-stagger-item min-w-0 space-y-5">
+    <div className="plotty-stagger grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-stretch">
+      <div className="plotty-stagger-item flex min-w-0 flex-col gap-5">
         <ShellCard
           title={`Глава ${chapterNumber ?? "—"}`}
           description="Редактируйте только текущую главу: текст, название, иллюстрацию и AI-инструменты."
+          className="xl:flex xl:min-h-full xl:flex-1 xl:flex-col"
         >
-          <div className="grid gap-5">
+          <div className="grid gap-5 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
             {storyId ? (
               <div className="flex flex-wrap gap-3">
                 {previousChapter ? (
@@ -318,7 +319,7 @@ export function StoryEditorForm({
               </div>
             ) : null}
 
-            <div className="grid gap-4 rounded-[22px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-muted)] p-4">
+            <div className="grid gap-4 rounded-[22px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-muted)] p-4 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
               {hasUnpublishedChanges ? (
                 <div className="plotty-panel-enter rounded-[18px] border border-[rgba(195,79,50,0.18)] bg-[var(--plotty-accent-wash)] px-4 py-3 text-sm leading-6 text-[var(--plotty-ink)]">
                   <span className="font-semibold">Есть неопубликованные изменения.</span>{" "}
@@ -336,7 +337,7 @@ export function StoryEditorForm({
                 />
               </Field>
 
-              <Field>
+              <Field className="plotty-editor-main-text-field xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:space-y-0 xl:gap-2.5">
                 <FieldLabel htmlFor="chapter-content">Текст главы</FieldLabel>
                 <HighlightedTextarea
                   id="chapter-content"
@@ -453,16 +454,18 @@ export function StoryEditorForm({
 
         <div className="space-y-5">
           <ShellCard title="Орфография" description={aiStatusLabel ?? "Проверка запускается вручную после сохранения текста."}>
-            <AsyncJobStatus
-              compact
-              status={spellcheckStatus}
-              label={spellcheckStatus === "completed" ? "Проверка орфографии готова" : "Проверяем орфографию"}
-              description="Ищем спорные фрагменты и готовим подсказки."
-              error={spellcheckStatusError}
-              className="mb-3"
-            />
+            {shouldShowAsyncJobStatus(spellcheckStatus) ? (
+              <AsyncJobStatus
+                compact
+                status={spellcheckStatus}
+                label="Проверяем орфографию"
+                description="Ищем спорные фрагменты и готовим подсказки."
+                error={spellcheckStatusError}
+                className="mb-3"
+              />
+            ) : null}
             {spellcheckResult ? (
-              <div className="space-y-3">
+              <div className="plotty-motion-tab-panel space-y-3">
                 <p className="text-sm leading-6 text-[var(--plotty-muted)]">{spellcheckResult.summary}</p>
                 <div className="min-w-0 max-h-[32rem] space-y-2 overflow-y-auto pr-1">
                   {spellcheckResult.items.length ? (
@@ -553,14 +556,16 @@ export function StoryEditorForm({
               "ИИ проверяет причинно-следственные связи, мотивацию персонажей и внутренние нестыковки сцены."
             }
           >
-            <AsyncJobStatus
-              compact
-              status={logicCheckStatus}
-              label={logicCheckStatus === "completed" ? "Проверка логики готова" : "Проверяем логику"}
-              description="Сверяем причинность, мотивацию и внутренние противоречия."
-              error={logicStatusError}
-              className="mb-3"
-            />
+            {shouldShowAsyncJobStatus(logicCheckStatus) ? (
+              <AsyncJobStatus
+                compact
+                status={logicCheckStatus}
+                label="Проверяем логику"
+                description="Сверяем причинность, мотивацию и внутренние противоречия."
+                error={logicStatusError}
+                className="mb-3"
+              />
+            ) : null}
             {logicCheckResult ? (
               <p className="plotty-motion-tab-panel whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
             ) : (
@@ -571,15 +576,17 @@ export function StoryEditorForm({
           </ShellCard>
 
           <ShellCard title="Канон">
-            <AsyncJobStatus
-              compact
-              status={canonCheckStatus}
-              label={getCanonStatusLabel(canonCheckStatus)}
-              error={canonStatusError === getCanonStatusLabel(canonCheckStatus) ? undefined : canonStatusError}
-              className="mb-3"
-            />
+            {shouldShowAsyncJobStatus(canonCheckStatus) ? (
+              <AsyncJobStatus
+                compact
+                status={canonCheckStatus}
+                label={getCanonStatusLabel(canonCheckStatus)}
+                error={canonStatusError === getCanonStatusLabel(canonCheckStatus) ? undefined : canonStatusError}
+                className="mb-3"
+              />
+            ) : null}
             {canonCheckResult ? (
-              <p className="plotty-motion-tab-panel whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{canonCheckResult.message}</p>
+              <CanonCheckResultView result={canonCheckResult} />
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
                 Отправьте главу на проверку, и здесь появится список замечаний.
@@ -652,6 +659,38 @@ function getCanonStatusLabel(status: AsyncJobStatusValue) {
   }
 
   return "Проверяем канон";
+}
+
+function shouldShowAsyncJobStatus(status: AsyncJobStatusValue) {
+  return status !== "completed";
+}
+
+function CanonCheckResultView({ result }: { result: CanonCheckResult }) {
+  const items = result.items ?? [];
+
+  return (
+    <div className="plotty-motion-tab-panel space-y-2 text-sm leading-6 text-[var(--plotty-ink)]">
+      <p className="whitespace-pre-wrap">{result.message}</p>
+      {items.length ? (
+        <ol className="list-decimal space-y-2 pl-5">
+          {items.map((item, index) => (
+            <li key={`${item.message}-${index}`} className="pl-1">
+              <span className="whitespace-pre-wrap">{item.message}</span>
+              {item.details?.length ? (
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-[var(--plotty-muted)]">
+                  {item.details.map((detail, detailIndex) => (
+                    <li key={`${detail}-${detailIndex}`} className="whitespace-pre-wrap">
+                      {detail}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </div>
+  );
 }
 
 function DiffBlock({ title, parts }: { title: string; parts: TextDiffPart[] }) {

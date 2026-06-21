@@ -165,8 +165,14 @@ export interface LogicCheckResult {
   message: string;
 }
 
+export interface CanonCheckIssue {
+  message: string;
+  details?: string[];
+}
+
 export interface CanonCheckResult {
   message: string;
+  items: CanonCheckIssue[];
 }
 
 export interface GeneratedImage {
@@ -196,6 +202,10 @@ export interface AiJobResponse<TResult> {
 export interface SpellcheckPayload {
   chapterId: string;
   content: string;
+}
+
+export interface CanonCheckPayload extends SpellcheckPayload {
+  title?: string;
 }
 
 export interface ImageGenerationPayload extends SpellcheckPayload {
