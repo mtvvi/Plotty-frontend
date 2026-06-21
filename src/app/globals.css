@@ -483,7 +483,14 @@ select {
   height: 100%;
 }
 
-@media (min-width: 1024px) and (max-width: 1279.98px) {
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  .plotty-profile-hero-avatar-frame {
+    aspect-ratio: 1 / 1;
+    align-self: flex-start;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1535.98px) {
   .plotty-profile-hero-avatar-frame {
     width: 20rem;
     flex-basis: 20rem;
@@ -492,7 +499,7 @@ select {
   }
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1536px) {
   .plotty-profile-hero-grid {
     grid-template-columns: minmax(18rem, 32rem) minmax(0, 1fr) auto;
   }

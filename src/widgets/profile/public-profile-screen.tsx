@@ -446,14 +446,14 @@ export function PublicProfileScreen({ username }: { username: string }) {
     <PlottyPageShell suppressPageIntro>
       <div className="space-y-5">
         <PlottySectionCard className="plotty-panel-enter overflow-hidden !p-0">
-          <div className="grid gap-0 xl:min-h-80 xl:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="xl:h-full">
+          <div className="grid gap-0 2xl:min-h-80 2xl:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="2xl:h-full">
               <div
                 data-profile-summary-frame="true"
                 data-profile-intro="profile-hero"
                 className="plotty-motion-tab-panel h-full p-0 lg:min-h-80 xl:min-h-80"
               >
-                <div className="plotty-profile-hero-grid flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid-cols-[auto_minmax(0,1fr)_auto] xl:grid xl:min-h-80 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:gap-0">
+                <div className="plotty-profile-hero-grid flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid-cols-[auto_minmax(0,1fr)_auto] 2xl:grid 2xl:min-h-80 2xl:grid-cols-[auto_minmax(0,1fr)_auto] 2xl:gap-0">
                   {isOwnProfile ? (
                     <>
                       <input
@@ -465,10 +465,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         disabled={avatarMutation.isPending}
                         onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
                       />
-                      <div className="plotty-profile-hero-avatar-frame grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 xl:aspect-square xl:h-full xl:min-h-full xl:w-auto xl:self-stretch">
+                      <div className="plotty-profile-hero-avatar-frame grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 2xl:aspect-square 2xl:h-full 2xl:min-h-full 2xl:w-auto 2xl:self-stretch">
                         <button
                           type="button"
-                          className="group relative h-full w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:aspect-square lg:min-h-full lg:w-auto xl:aspect-square xl:min-h-full xl:w-auto xl:rounded-none xl:hover:translate-y-0"
+                          className="group relative h-full w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:aspect-square lg:min-h-full lg:w-auto 2xl:aspect-square 2xl:min-h-full 2xl:w-auto 2xl:rounded-none 2xl:hover:translate-y-0"
                           onClick={() => avatarInputRef.current?.click()}
                           disabled={avatarMutation.isPending}
                           aria-label="Загрузить аватар"
@@ -492,8 +492,8 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="hero" />
                     </div>
                   )}
-                  <div className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 xl:grid xl:grid-cols-1 xl:items-start xl:gap-y-3 xl:space-y-0 xl:self-center xl:px-7 xl:py-7">
-                    <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+                  <div className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 2xl:grid 2xl:grid-cols-1 2xl:items-start 2xl:gap-y-3 2xl:space-y-0 2xl:self-center 2xl:px-7 2xl:py-7">
+                    <div className="min-w-0 2xl:col-start-1 2xl:row-start-1">
                       <ProfileInlineTextField
                         field="username"
                         label="Ник"
@@ -512,7 +512,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         onStartEdit={() => handleStartInlineEdit("username")}
                       />
                     </div>
-                    <div className="min-w-0 space-y-3 xl:col-start-1 xl:row-start-2">
+                    <div className="min-w-0 space-y-3 2xl:col-start-1 2xl:row-start-2">
                       <ProfileInlineTextField
                         field="bio"
                         label="Описание"
@@ -539,7 +539,7 @@ export function PublicProfileScreen({ username }: { username: string }) {
               </div>
             </div>
             </div>
-            <div className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 xl:border-l xl:border-t-0 xl:p-7">
+            <div className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 2xl:border-l 2xl:border-t-0 2xl:p-7">
               <ProfileStat
                 label="Работ"
                 value={worksCount}
@@ -743,15 +743,15 @@ export function ProfileAvatar({
 }) {
   const className =
     size === "hero"
-      ? "plotty-profile-hero-avatar aspect-square w-full text-4xl sm:h-full sm:min-h-40 lg:w-auto lg:min-h-80 xl:h-full xl:w-auto xl:min-h-80 xl:text-5xl"
+      ? "plotty-profile-hero-avatar aspect-square w-full text-4xl sm:h-full sm:min-h-40 lg:w-auto lg:min-h-80 2xl:h-full 2xl:w-auto 2xl:min-h-80 2xl:text-5xl"
       : size === "large"
         ? "size-28 text-4xl sm:size-36 lg:size-40"
         : "size-12 text-base";
-  const radiusClassName = size === "hero" ? "rounded-none sm:rounded-[var(--plotty-radius-md)] xl:rounded-none" : "rounded-[var(--plotty-radius-md)]";
+  const radiusClassName = size === "hero" ? "rounded-none sm:rounded-[var(--plotty-radius-md)] 2xl:rounded-none" : "rounded-[var(--plotty-radius-md)]";
   const safeAvatarUrl = sanitizePersistedImageUrl(avatarUrl);
   const imageSrc = safeAvatarUrl ?? profileAvatarPlaceholderSrc;
   const avatarSize = size === "hero" ? 640 : size === "large" ? 160 : 48;
-  const sizes = size === "hero" ? "(min-width: 1280px) 22rem, (min-width: 1024px) 20rem, (min-width: 640px) 10rem, 100vw" : `${avatarSize}px`;
+  const sizes = size === "hero" ? "(min-width: 1536px) 22rem, (min-width: 1024px) 20rem, (min-width: 640px) 10rem, 100vw" : `${avatarSize}px`;
 
   return (
       <NextImage

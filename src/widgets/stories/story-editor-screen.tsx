@@ -214,14 +214,14 @@ export function StoryEditorScreen({
   const activeSpellcheckResult = latestSpellcheckResult ?? storedSpellcheckState?.result;
 
   useEffect(() => {
-    if (!latestSpellcheckResult) {
+    if (!latestSpellcheckResult || !spellcheckContentSnapshot) {
       return;
     }
 
     const stored = writeStoredSpellcheckState({
       appliedFixes: [],
       chapterId,
-      content: spellcheckContentSnapshot || values.chapterContent,
+      content: spellcheckContentSnapshot,
       dismissedIssueKeys: [],
       result: latestSpellcheckResult,
     });
@@ -229,7 +229,7 @@ export function StoryEditorScreen({
     setStoredSpellcheckState(stored);
     setAppliedSpellcheckFixes([]);
     setDismissedSpellcheckIssueKeys([]);
-  }, [chapterId, latestSpellcheckResult, spellcheckContentSnapshot, values.chapterContent]);
+  }, [chapterId, latestSpellcheckResult, spellcheckContentSnapshot]);
 
   const spellcheckHighlights = useMemo(
     () =>
