@@ -784,7 +784,7 @@ export const handlers = [
     return HttpResponse.json(createLogicCheckJob(payload), { status: 202 });
   }),
 
-  http.post("*/chapters/:chapterId/canon-check", ({ params }) => {
+  http.post("*/chapters/:chapterId/canon-check", async ({ request, params }) => {
     const session = getMockSession();
 
     if (!session) {
@@ -802,10 +802,23 @@ export const handlers = [
       return HttpResponse.json({ error: "insufficient credits" }, { status: 402 });
     }
 
+    let requestPayload: Partial<SpellcheckPayload> = {};
+
+    try {
+      requestPayload = (await request.json()) as Partial<SpellcheckPayload>;
+    } catch {
+      requestPayload = {};
+    }
+
+    const content =
+      typeof requestPayload.content === "string" && requestPayload.content.trim()
+        ? requestPayload.content
+        : chapter.draftContent ?? chapter.content;
+
     return HttpResponse.json(
       createCanonCheckJob({
         chapterId,
-        content: chapter.draftContent ?? chapter.content,
+        content,
       }),
       { status: 202 },
     );

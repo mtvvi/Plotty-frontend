@@ -21,6 +21,7 @@ import {
   storyKeys,
   updateChapter,
 } from "@/entities/story/api/stories-api";
+import { formatVisibleSpellcheckSummary } from "@/entities/story/model/spellcheck-result";
 import type { AiJobStatus, CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult, StoryTag } from "@/entities/story/model/types";
 import { isApiError, isAuthError, isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
@@ -834,6 +835,7 @@ function resolveSpellcheckIssueRange(
     startOffset: adjustedOffsets.startOffset,
     endOffset: adjustedOffsets.endOffset,
     fragmentText: issue.fragmentText,
+    fallbackToFragmentSearch: true,
   });
 }
 
@@ -893,11 +895,7 @@ function getVisibleSpellcheckResult(
   return {
     ...result,
     items,
-    summary: items.length
-      ? result.summary
-      : dismissedIssueKeys.length
-        ? "Все найденные замечания обработаны."
-        : "Все найденные замечания исправлены.",
+    summary: formatVisibleSpellcheckSummary(result.summary, items.length, result.items.length, dismissedIssueKeys.length),
   };
 }
 

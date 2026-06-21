@@ -85,6 +85,7 @@ interface BackendChapterDetails {
   imageUrl?: string;
   storySlug?: string;
   storyTitle?: string;
+  storyTags?: StoryTag[];
 }
 
 interface BackendChapterComment {
@@ -206,6 +207,7 @@ function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
     imageUrl: sanitizePersistedImageUrl(item.imageUrl),
     storySlug: item.storySlug,
     storyTitle: item.storyTitle,
+    storyTags: item.storyTags ?? [],
     wordCount: countWords(item.content),
   };
 }
@@ -235,12 +237,13 @@ function enrichChapterDetails(chapter: BackendChapterDetails, story: StoryDetail
   const mappedChapter = mapChapterDetails(chapter);
   const storyChapter = story.chapters.find((item) => item.id === chapter.id);
   const chapterTitle = mappedChapter.draftTitle ?? mappedChapter.title;
+  const storyTags = story.tags.length ? story.tags : mappedChapter.storyTags;
 
   return {
     ...mappedChapter,
     storySlug: story.slug,
     storyTitle: story.title,
-    storyTags: story.tags,
+    storyTags,
     storyChapters: story.chapters.map((item) =>
       item.id === chapter.id ? { ...item, title: chapterTitle, status: mappedChapter.status ?? item.status } : item,
     ),

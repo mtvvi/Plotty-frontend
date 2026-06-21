@@ -8,11 +8,13 @@ export function resolveTextRangeByOffsets({
   startOffset,
   endOffset,
   fragmentText,
+  fallbackToFragmentSearch = false,
 }: {
   text: string;
   startOffset: number;
   endOffset: number;
   fragmentText: string;
+  fallbackToFragmentSearch?: boolean;
 }): ResolvedTextRange | null {
   if (!fragmentText || !fragmentText.trim()) {
     return null;
@@ -32,7 +34,35 @@ export function resolveTextRangeByOffsets({
     return { startIndex: codePointStart, endIndex: codePointEnd };
   }
 
+  if (fallbackToFragmentSearch) {
+    return findClosestFragmentRange(text, fragmentText, codePointStart);
+  }
+
   return null;
+}
+
+function findClosestFragmentRange(text: string, fragmentText: string, preferredStart: number): ResolvedTextRange | null {
+  let matchIndex = text.indexOf(fragmentText);
+  let closestIndex = -1;
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  while (matchIndex >= 0) {
+    const distance = Math.abs(matchIndex - preferredStart);
+
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = matchIndex;
+    }
+
+    matchIndex = text.indexOf(fragmentText, matchIndex + Math.max(fragmentText.length, 1));
+  }
+
+  return closestIndex >= 0
+    ? {
+        startIndex: closestIndex,
+        endIndex: closestIndex + fragmentText.length,
+      }
+    : null;
 }
 
 function codePointOffsetToCodeUnitIndex(text: string, offset: number) {

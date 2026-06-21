@@ -4,6 +4,7 @@ import type {
   AiJobAccepted,
   AiJobStatus,
   AiJobType,
+  CanonCheckIssue,
   CanonCheckResult,
   ChapterDetails,
   ChapterListItem,
@@ -1615,8 +1616,40 @@ function createLogicCheckResult(payload: SpellcheckPayload): LogicCheckResult {
   };
 }
 
+function getMockCanonIssues(content: string): CanonCheckIssue[] {
+  const lower = content.toLowerCase();
+  const hasWitcherContext = /цири|геральт|весемир|ламберт|эскель|каэр\s+морхен|ведьмак/.test(lower);
+  const hasStarWarsDroids = /\b(c-?3po|r2-?d2)\b/.test(lower);
+  const hasLightsaber = /светов\w*\s+меч\w*/.test(lower);
+  const issues: CanonCheckIssue[] = [];
+
+  if (hasWitcherContext && hasStarWarsDroids) {
+    issues.push({
+      message: "В ведьмачьем контексте упоминаются C-3PO/R2-D2, которые относятся к канону «Звёздных войн».",
+      details: ["Если это не осознанный кроссовер, замените эти вставки на предметы или персонажей выбранного фандома."],
+    });
+  }
+
+  if (hasWitcherContext && hasLightsaber) {
+    issues.push({
+      message: "Световой меч выглядит как артефакт «Звёздных войн», а не как часть канона «Ведьмака».",
+      details: ["Для ведьмачьего канона лучше использовать стальной/серебряный меч или явно объяснить кроссовер."],
+    });
+  }
+
+  return issues;
+}
+
 function createCanonCheckResult(payload: SpellcheckPayload): CanonCheckResult {
   const lower = payload.content.toLowerCase();
+  const mockCanonIssues = getMockCanonIssues(payload.content);
+
+  if (mockCanonIssues.length) {
+    return {
+      message: "Противоречия с каноном:",
+      items: mockCanonIssues,
+    };
+  }
 
   if (lower.includes("канон") || lower.includes("лор") || lower.includes("ooc")) {
     return {

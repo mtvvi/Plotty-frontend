@@ -730,7 +730,7 @@ function getSpellcheckIssueKey(issue: SpellcheckIssue) {
 
 function SpellcheckPreview({ issue }: { issue: SpellcheckIssue }) {
   return (
-    <div className="grid gap-2 rounded-[14px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-2 text-sm sm:grid-cols-2">
+    <div className="grid grid-cols-2 gap-2 rounded-[14px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-2 text-sm">
       <div className="min-w-0 space-y-1">
         <div className="plotty-kicker">Было</div>
         <p className="break-words text-[var(--plotty-ink)]">{issue.fragmentText}</p>
