@@ -567,7 +567,7 @@ export function StoryEditorForm({
               />
             ) : null}
             {logicCheckResult ? (
-              <p className="plotty-motion-tab-panel whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{logicCheckResult.message}</p>
+              <LogicCheckResultView result={logicCheckResult} />
             ) : (
               <p className="text-sm leading-6 text-[var(--plotty-muted)]">
                 Отправьте главу на проверку, и здесь появится список замечаний.
@@ -665,6 +665,29 @@ function shouldShowAsyncJobStatus(status: AsyncJobStatusValue) {
   return status !== "completed";
 }
 
+function LogicCheckResultView({ result }: { result: LogicCheckResult }) {
+  const display = normalizeLogicCheckMessage(result.message);
+
+  return (
+    <div className="plotty-motion-tab-panel space-y-3">
+      <p className="text-sm leading-6 text-[var(--plotty-muted)]">{display.summary}</p>
+      {display.items.length ? (
+        display.numbered ? (
+          <ol className="list-decimal space-y-2 pl-5 text-sm leading-6 text-[var(--plotty-ink)]">
+            {display.items.map((item, index) => (
+              <li key={`${item}-${index}`} className="pl-1 whitespace-pre-wrap">
+                {item}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--plotty-ink)]">{display.items.join("\n\n")}</p>
+        )
+      ) : null}
+    </div>
+  );
+}
+
 function CanonCheckResultView({ result }: { result: CanonCheckResult }) {
   const items = result.items ?? [];
 
@@ -691,6 +714,63 @@ function CanonCheckResultView({ result }: { result: CanonCheckResult }) {
       ) : null}
     </div>
   );
+}
+
+function normalizeLogicCheckMessage(message: string) {
+  const text = message.trim();
+  const withoutEmptyVerdict = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !isEmptyLogicVerdict(line))
+    .join("\n")
+    .trim();
+
+  if (!withoutEmptyVerdict) {
+    return {
+      summary: "Логических нестыковок не найдено",
+      items: [],
+      numbered: false,
+    };
+  }
+
+  const numberedItems = parseNumberedLogicItems(withoutEmptyVerdict);
+
+  if (numberedItems.length) {
+    return {
+      summary: `Найдено логических нестыковок: ${numberedItems.length}`,
+      items: numberedItems,
+      numbered: true,
+    };
+  }
+
+  return {
+    summary: "Найдены логические замечания",
+    items: [withoutEmptyVerdict],
+    numbered: false,
+  };
+}
+
+function isEmptyLogicVerdict(line: string) {
+  const normalized = line.toLowerCase();
+
+  return normalized.includes("логических нестыковок не найдено");
+}
+
+function parseNumberedLogicItems(message: string) {
+  const markers = [...message.matchAll(/(?:^|\n)\s*\d+\.\s+/g)];
+
+  if (!markers.length) {
+    return [];
+  }
+
+  return markers
+    .map((marker, index) => {
+      const start = marker.index + marker[0].length;
+      const end = markers[index + 1]?.index ?? message.length;
+
+      return message.slice(start, end).trim();
+    })
+    .filter(Boolean);
 }
 
 function DiffBlock({ title, parts }: { title: string; parts: TextDiffPart[] }) {

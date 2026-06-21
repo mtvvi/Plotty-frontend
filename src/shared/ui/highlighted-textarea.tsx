@@ -127,22 +127,6 @@ export function HighlightedTextarea<TData = unknown>({
     syncMirrorScroll(textarea.scrollTop, textarea.scrollLeft);
   }, [syncMirrorScroll]);
 
-  const selectTextareaRange = useCallback((range: HighlightRange<TData>) => {
-    const textarea = textareaRef.current;
-
-    if (!textarea) {
-      return;
-    }
-
-    try {
-      textarea.focus({ preventScroll: true });
-    } catch {
-      textarea.focus();
-    }
-
-    textarea.setSelectionRange(range.startOffset, range.endOffset);
-  }, []);
-
   const getHighlightViewportRect = useCallback(() => {
     const highlightLayer = highlightContentRef.current?.parentElement;
 
@@ -209,9 +193,8 @@ export function HighlightedTextarea<TData = unknown>({
 
     const textarea = textareaRef.current;
     const node = highlightNodeRefs.current.get(activeHighlightId);
-    const range = rangeById.get(activeHighlightId);
 
-    if (!textarea || !node || !range) {
+    if (!textarea || !node || !rangeById.has(activeHighlightId)) {
       return;
     }
 
@@ -219,7 +202,6 @@ export function HighlightedTextarea<TData = unknown>({
     programmaticScrollRef.current = true;
     textarea.scrollTop = nextScrollTop;
     syncMirrorScroll(textarea.scrollTop, textarea.scrollLeft);
-    selectTextareaRange(range);
 
     window.requestAnimationFrame(() => {
       programmaticScrollRef.current = false;
@@ -231,7 +213,6 @@ export function HighlightedTextarea<TData = unknown>({
     activeHighlightScrollKey,
     rangeById,
     reportActiveHighlightAnchor,
-    selectTextareaRange,
     syncMirrorScroll,
     updateMirrorMeasurements,
   ]);
@@ -307,10 +288,7 @@ export function HighlightedTextarea<TData = unknown>({
           >
             {buildHighlightMarkup(text, normalizedRanges, {
               activeHighlightId,
-              onHighlightClick: (range, anchorRect) => {
-                selectTextareaRange(range);
-                onHighlightClick?.(range, anchorRect);
-              },
+              onHighlightClick,
               setNode: (id, node) => {
                 if (node) {
                   highlightNodeRefs.current.set(id, node);
