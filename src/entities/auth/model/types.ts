@@ -5,6 +5,8 @@ export interface AuthUser {
   avatarUrl?: string | null;
   avatar_url?: string | null;
   bio?: string | null;
+  credits?: number;
+  isAdmin?: boolean;
   created_at: string;
   updated_at?: string | null;
 }

@@ -44,6 +44,7 @@ describe("AuthScreen", () => {
     renderAuthScreen();
 
     await screen.findByRole("heading", { name: "Создать аккаунт" });
+    expect(document.querySelector("[data-auth-intro='auth-form']")).not.toBeNull();
     await user.type(screen.getByLabelText("Email"), "shaker@shaker.global.game");
     await user.type(screen.getByLabelText("Пароль"), "password123");
     await user.type(screen.getByLabelText("Подтверждение пароля"), "password123");
@@ -151,6 +152,93 @@ describe("AuthScreen", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Пароли не совпадают.")).toBeInTheDocument();
+    });
+  });
+
+  it("maps backend register error codes onto Russian field errors", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post("*/register", () =>
+        HttpResponse.json(
+          {
+            errors: ["email_invalid", "password_too_short"],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    renderAuthScreen();
+
+    await screen.findByRole("heading", { name: "Создать аккаунт" });
+    await user.type(screen.getByLabelText("Email"), "not-an-email");
+    await user.type(screen.getByLabelText("Пароль"), "password123");
+    await user.type(screen.getByLabelText("Подтверждение пароля"), "password123");
+    await user.click(screen.getByRole("button", { name: "Зарегистрироваться" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Введите корректный email.")).toBeInTheDocument();
+      expect(screen.getByText("Пароль должен быть не короче 8 символов.")).toBeInTheDocument();
+    });
+  });
+
+  it("maps object register error codes even when the backend omits field names", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post("*/register", () =>
+        HttpResponse.json(
+          {
+            errors: [{ code: "email_invalid" }, { code: "password_mismatch" }],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    renderAuthScreen();
+
+    await screen.findByRole("heading", { name: "Создать аккаунт" });
+    await user.type(screen.getByLabelText("Email"), "writer@plotty.test");
+    await user.type(screen.getByLabelText("Пароль"), "password123");
+    await user.type(screen.getByLabelText("Подтверждение пароля"), "password123");
+    await user.click(screen.getByRole("button", { name: "Зарегистрироваться" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Введите корректный email.")).toBeInTheDocument();
+      expect(screen.getByText("Пароли не совпадают.")).toBeInTheDocument();
+    });
+  });
+
+  it.each(["https://evil.test/steal", "//evil.test/steal", "javascript:alert(1)"])(
+    "falls back to the workshop when next is unsafe: %s",
+    async (next) => {
+      const user = userEvent.setup();
+
+      renderAuthScreen(`next=${encodeURIComponent(next)}`);
+
+      await screen.findByRole("heading", { name: "Войти в Plotty" });
+      await user.type(screen.getByLabelText("Email"), "writer@plotty.test");
+      await user.type(screen.getByLabelText("Пароль"), "password123");
+      await user.click(screen.getByRole("button", { name: "Войти" }));
+
+      await waitFor(() => {
+        expect(replace).toHaveBeenCalledWith("/write");
+      });
+    },
+  );
+
+  it("allows same-origin relative next URLs", async () => {
+    const user = userEvent.setup();
+
+    renderAuthScreen(`next=${encodeURIComponent("/library?x=1#section")}`);
+
+    await screen.findByRole("heading", { name: "Войти в Plotty" });
+    await user.type(screen.getByLabelText("Email"), "writer@plotty.test");
+    await user.type(screen.getByLabelText("Пароль"), "password123");
+    await user.click(screen.getByRole("button", { name: "Войти" }));
+
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith("/library?x=1#section");
     });
   });
 });

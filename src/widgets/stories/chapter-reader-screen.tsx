@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, Ellipsis, Pencil, Trash2, X } from "lucide-react";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
 import {
@@ -17,17 +17,21 @@ import {
   markChapterViewed,
   storyDetailsQueryOptions,
   storyKeys,
+  updateStoryComment,
 } from "@/entities/story/api/stories-api";
-import type { ChapterWiki, ChapterWikiEntity, StoryCommentsResponse } from "@/entities/story/model/types";
+import type { ChapterWiki, ChapterWikiEntity, StoryComment, StoryCommentsResponse } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
 import { routes } from "@/shared/config/routes";
+import { useReducedMotion } from "@/shared/lib/motion-preferences";
+import { sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 import { cn, pluralizeRu } from "@/shared/lib/utils";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { IconButton } from "@/shared/ui/icon-button";
 import { AnimatedList } from "@/shared/ui/motion";
+import { PopoverContent, usePopover } from "@/shared/ui/popover";
 import { Textarea } from "@/shared/ui/textarea";
 
 import {
@@ -37,8 +41,6 @@ import {
 } from "./chapter-list-sort";
 import { ChapterImageFrame } from "./chapter-image-frame";
 import { PlottyShell, ShellCard } from "./plotty-shell";
-
-type ReaderProgressStyle = CSSProperties & { "--plotty-reader-progress": number };
 
 export function ChapterReaderScreen({
   slug,
@@ -67,6 +69,8 @@ export function ChapterReaderScreen({
     [chapterSortDirection, readerChapters],
   );
   const chaptersScrollRef = useRef<HTMLDivElement | null>(null);
+  const readerProgressBarRef = useRef<HTMLDivElement | null>(null);
+  const reducedMotion = useReducedMotion();
   const chapterId = useMemo(() => {
     if (chapterIdFromRoute) {
       return chapterIdFromRoute;
@@ -88,8 +92,9 @@ export function ChapterReaderScreen({
     enabled: Boolean(storyQuery.data?.id && chapterId && chapterPublished),
   });
   const [commentDraft, setCommentDraft] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentDraft, setEditingCommentDraft] = useState("");
   const [wikiOpen, setWikiOpen] = useState(false);
-  const [readingProgress, setReadingProgress] = useState(0);
   const wikiQuery = useQuery(chapterWikiQueryOptions(chapterId, { enabled: wikiOpen && Boolean(chapterId) }));
 
   const addCommentMutation = useMutation({
@@ -105,6 +110,17 @@ export function ChapterReaderScreen({
   });
   const deleteCommentMutation = useMutation({
     mutationFn: deleteStoryComment,
+  });
+  const updateCommentMutation = useMutation({
+    mutationFn: ({
+      commentId,
+      content,
+      storyId,
+    }: {
+      commentId: string;
+      content: string;
+      storyId: string;
+    }) => updateStoryComment(storyId, commentId, { content }),
   });
 
   useEffect(() => {
@@ -134,11 +150,52 @@ export function ChapterReaderScreen({
   const readingProgressContentKey = chapterQuery.data?.publishedContent ?? chapterQuery.data?.content ?? "";
 
   useEffect(() => {
+    const progressBar = readerProgressBarRef.current;
+
+    if (!progressBar) {
+      return;
+    }
+
+    const progressNode = progressBar;
+    let animationFrame = 0;
+    let currentProgress = Number.parseFloat(progressNode.style.getPropertyValue("--plotty-reader-progress")) || 0;
+    let targetProgress = currentProgress;
+
+    function writeProgress(value: number) {
+      progressNode.style.setProperty("--plotty-reader-progress", String(value));
+    }
+
+    function animateProgress() {
+      animationFrame = 0;
+
+      if (reducedMotion) {
+        currentProgress = targetProgress;
+        writeProgress(currentProgress);
+        return;
+      }
+
+      currentProgress += (targetProgress - currentProgress) * 0.32;
+
+      if (Math.abs(targetProgress - currentProgress) < 0.001) {
+        currentProgress = targetProgress;
+      }
+
+      writeProgress(currentProgress);
+
+      if (currentProgress !== targetProgress) {
+        animationFrame = window.requestAnimationFrame(animateProgress);
+      }
+    }
+
     function updateReadingProgress() {
       const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
       const nextProgress = scrollableHeight > 0 ? window.scrollY / scrollableHeight : 0;
 
-      setReadingProgress(Math.min(1, Math.max(0, nextProgress)));
+      targetProgress = Math.min(1, Math.max(0, nextProgress));
+
+      if (!animationFrame) {
+        animationFrame = window.requestAnimationFrame(animateProgress);
+      }
     }
 
     updateReadingProgress();
@@ -146,10 +203,11 @@ export function ChapterReaderScreen({
     window.addEventListener("resize", updateReadingProgress);
 
     return () => {
+      window.cancelAnimationFrame(animationFrame);
       window.removeEventListener("scroll", updateReadingProgress);
       window.removeEventListener("resize", updateReadingProgress);
     };
-  }, [chapterId, readingProgressContentKey]);
+  }, [chapterId, readingProgressContentKey, reducedMotion]);
 
   if (storyQuery.isLoading || (chapterId && chapterQuery.isLoading)) {
     return (
@@ -220,12 +278,73 @@ export function ChapterReaderScreen({
   async function handleDeleteComment(commentId: string) {
     const currentComments = commentsQuery.data?.items ?? [];
 
+    if (editingCommentId === commentId) {
+      handleCancelEditComment();
+    }
+
     queryClient.setQueryData<StoryCommentsResponse | undefined>(storyKeys.chapterComments(chapterId), {
       items: currentComments.filter((c) => c.id !== commentId),
     });
 
     try {
       await deleteCommentMutation.mutateAsync(commentId);
+    } catch (error) {
+      queryClient.setQueryData(storyKeys.chapterComments(chapterId), { items: currentComments });
+
+      if (isAuthError(error)) {
+        router.push(routes.auth({ next: `${pathname}#comments` }));
+      }
+    }
+  }
+
+  function handleStartEditComment(comment: StoryComment) {
+    setEditingCommentId(comment.id);
+    setEditingCommentDraft(comment.content);
+  }
+
+  function handleCancelEditComment() {
+    setEditingCommentId(null);
+    setEditingCommentDraft("");
+  }
+
+  async function handleSaveEditedComment(comment: StoryComment) {
+    const content = editingCommentDraft.trim();
+
+    if (!content || updateCommentMutation.isPending) {
+      return;
+    }
+
+    if (content === comment.content) {
+      handleCancelEditComment();
+      return;
+    }
+
+    const currentComments = commentsQuery.data?.items ?? [];
+    const updatedAt = new Date().toISOString();
+
+    queryClient.setQueryData<StoryCommentsResponse | undefined>(storyKeys.chapterComments(chapterId), {
+      items: currentComments.map((item) =>
+        item.id === comment.id
+          ? {
+              ...item,
+              content,
+              updatedAt,
+            }
+          : item,
+      ),
+    });
+
+    try {
+      const updatedComment = await updateCommentMutation.mutateAsync({
+        storyId: story.id,
+        commentId: comment.id,
+        content,
+      });
+
+      queryClient.setQueryData<StoryCommentsResponse | undefined>(storyKeys.chapterComments(chapterId), (current) => ({
+        items: (current?.items ?? []).map((item) => (item.id === updatedComment.id ? updatedComment : item)),
+      }));
+      handleCancelEditComment();
     } catch (error) {
       queryClient.setQueryData(storyKeys.chapterComments(chapterId), { items: currentComments });
 
@@ -248,10 +367,11 @@ export function ChapterReaderScreen({
         <span className="plotty-page-title-row">
           <Link
             href={routes.story(story.slug)}
+            prefetch={false}
             className="plotty-story-title-anchor plotty-story-title-inline-anchor group text-[var(--plotty-ink)] transition-colors hover:text-[var(--plotty-accent)] focus-visible:text-[var(--plotty-accent)]"
           >
             <ArrowLeft className="plotty-page-title-back-icon size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
-            <span className="plotty-story-title-text text-[2rem]">{story.title}</span>
+            <span className="plotty-story-title-text plotty-reader-story-title-text text-[2rem]">{story.title}</span>
           </Link>
           <span className="plotty-page-title-part text-[2rem]">{`• Глава ${displayChapterNumber}`}</span>
         </span>
@@ -267,8 +387,9 @@ export function ChapterReaderScreen({
     >
       <div className="plotty-reader-progress" aria-hidden="true">
         <div
+          ref={readerProgressBarRef}
           className="plotty-reader-progress-bar"
-          style={{ "--plotty-reader-progress": readingProgress } as ReaderProgressStyle}
+          data-reader-progress="true"
         />
       </div>
       <div className="plotty-stagger mx-auto max-w-4xl space-y-5">
@@ -345,6 +466,7 @@ export function ChapterReaderScreen({
                     <div className="min-w-0">
                       <Link
                         href={routes.chapter(story.slug, item.number ?? 1)}
+                        prefetch={false}
                         className={cn(
                           "plotty-story-title-anchor plotty-card-title text-[1.08rem] hover:text-[var(--plotty-accent)]",
                           isCurrent && "text-[var(--plotty-accent)]",
@@ -412,35 +534,76 @@ export function ChapterReaderScreen({
               />
             ) : commentsQuery.data?.items.length ? (
               <div className="space-y-3">
-                {commentsQuery.data.items.map((comment) => (
-                  <div key={comment.id} className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <Link
-                        href={routes.user(comment.author.username)}
-                        className="flex min-w-0 items-start gap-3 rounded-[14px] transition-colors hover:bg-[rgba(41,38,34,0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-                      >
-                        <CommentAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} />
-                        <span className="min-w-0 space-y-1">
-                          <span className="block truncate text-sm font-semibold text-[var(--plotty-ink)]">
-                            {comment.author.username}
-                          </span>
-                          <span className="plotty-meta block">{new Date(comment.createdAt).toLocaleString("ru-RU")}</span>
-                        </span>
-                      </Link>
-                      {(comment.viewerCanDelete ?? Boolean(user?.id === comment.author.id)) ? (
-                        <Button
-                          variant="ghost"
-                          className="min-h-9 px-2.5 text-sm"
-                          onClick={() => handleDeleteComment(comment.id)}
-                          disabled={deleteCommentMutation.isPending}
+                {commentsQuery.data.items.map((comment) => {
+                  const canManageComment = comment.viewerCanDelete ?? Boolean(user?.id === comment.author.id);
+                  const isEditingComment = editingCommentId === comment.id;
+                  const editDraftIsEmpty = !editingCommentDraft.trim();
+                  const editedAtLabel = comment.updatedAt !== comment.createdAt
+                    ? `Изменён ${new Date(comment.updatedAt).toLocaleString("ru-RU")}`
+                    : null;
+
+                  return (
+                    <div key={comment.id} className="rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <Link
+                          href={routes.user(comment.author.username)}
+                          prefetch={false}
+                          className="flex min-w-0 items-start gap-3 rounded-[14px] transition-colors hover:bg-[rgba(41,38,34,0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                         >
-                          Удалить
-                        </Button>
-                      ) : null}
+                          <CommentAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} />
+                          <span className="min-w-0 space-y-1">
+                            <span className="block truncate text-sm font-semibold text-[var(--plotty-ink)]">
+                              {comment.author.username}
+                            </span>
+                            <span className="plotty-meta block">{new Date(comment.createdAt).toLocaleString("ru-RU")}</span>
+                            {editedAtLabel ? <span className="plotty-meta block">{editedAtLabel}</span> : null}
+                          </span>
+                        </Link>
+                        {canManageComment ? (
+                          <CommentActionsMenu
+                            commentId={comment.id}
+                            disabled={deleteCommentMutation.isPending || updateCommentMutation.isPending}
+                            onDelete={() => handleDeleteComment(comment.id)}
+                            onEdit={() => handleStartEditComment(comment)}
+                          />
+                        ) : null}
+                      </div>
+                      {isEditingComment ? (
+                        <div className="mt-4 space-y-3">
+                          <Textarea
+                            value={editingCommentDraft}
+                            onChange={(event) => setEditingCommentDraft(event.target.value)}
+                            aria-label="Текст комментария"
+                            className="min-h-28"
+                            disabled={updateCommentMutation.isPending}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleSaveEditedComment(comment)}
+                              disabled={editDraftIsEmpty || updateCommentMutation.isPending}
+                            >
+                              {updateCommentMutation.isPending ? "Сохраняем..." : "Сохранить"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={handleCancelEditComment}
+                              disabled={updateCommentMutation.isPending}
+                            >
+                              Отмена
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--plotty-ink)]">{comment.content}</p>
+                      )}
                     </div>
-                    <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[var(--plotty-ink)]">{comment.content}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <EmptyState title="Комментариев пока нет" description="Станьте первым, кто откликнется на эту главу." />
@@ -515,10 +678,10 @@ function ChapterWikiDrawer({
       <button
         type="button"
         aria-label="Закрыть справочник"
-        className="absolute inset-0 bg-[rgba(35,33,30,0.38)] backdrop-blur-sm animate-[plotty-reveal-overlay_var(--motion-base)_var(--ease-out-soft)_both]"
+        className="absolute inset-0 bg-[rgba(35,33,30,0.48)] animate-[plotty-reveal-overlay_var(--motion-base)_var(--ease-out-soft)_both]"
         onClick={onClose}
       />
-      <aside className="plotty-motion-drawer absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col border-l border-[rgba(41,38,34,0.08)] bg-[rgba(247,242,234,0.98)] p-5 shadow-[var(--plotty-shadow)] sm:p-6">
+      <aside className="plotty-motion-drawer absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col border-l border-[var(--plotty-line)] bg-[var(--plotty-surface-strong)] p-5 text-[var(--plotty-ink)] shadow-[var(--plotty-shadow)] sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="plotty-kicker">Бесспойлерно</div>
@@ -533,9 +696,9 @@ function ChapterWikiDrawer({
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {isLoading ? (
             <div className="space-y-3">
-              <div className="h-24 rounded-[18px] bg-white/60" />
-              <div className="h-24 rounded-[18px] bg-white/60" />
-              <div className="h-24 rounded-[18px] bg-white/60" />
+              <div className="h-24 rounded-[18px] bg-[var(--plotty-surface-soft)]" />
+              <div className="h-24 rounded-[18px] bg-[var(--plotty-surface-soft)]" />
+              <div className="h-24 rounded-[18px] bg-[var(--plotty-surface-soft)]" />
             </div>
           ) : isError ? (
             <EmptyState title="Справочник недоступен" description="Не удалось загрузить состояние персонажей для этой главы." />
@@ -549,7 +712,7 @@ function ChapterWikiDrawer({
                       {section.items.map((item, index) => (
                         <div
                           key={`${section.title}-${item.name}-${index}`}
-                          className="rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4"
+                          className="rounded-[18px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4"
                         >
                           <div className="text-sm font-semibold text-[var(--plotty-ink)]">{item.name}</div>
                           {item.state ? <p className="mt-2 text-sm leading-6 text-[var(--plotty-muted)]">{item.state}</p> : null}
@@ -570,6 +733,72 @@ function ChapterWikiDrawer({
   );
 }
 
+function CommentActionsMenu({
+  commentId,
+  disabled,
+  onDelete,
+  onEdit,
+}: {
+  commentId: string;
+  disabled?: boolean;
+  onDelete: () => void;
+  onEdit: () => void;
+}) {
+  const popover = usePopover({ minWidth: 180 });
+
+  return (
+    <div ref={popover.triggerRef} className="relative">
+      <IconButton
+        type="button"
+        variant="ghost"
+        size="sm"
+        aria-label="Действия с комментарием"
+        aria-controls={`comment-actions-${commentId}`}
+        aria-expanded={popover.open}
+        aria-haspopup="menu"
+        disabled={disabled}
+        onClick={popover.toggle}
+      >
+        <Ellipsis className="size-5" aria-hidden="true" />
+      </IconButton>
+      <PopoverContent
+        id={`comment-actions-${commentId}`}
+        open={popover.open}
+        contentRef={popover.contentRef}
+        position={popover.position}
+        role="menu"
+        aria-label="Действия с комментарием"
+        className="rounded-[var(--plotty-radius-md)] p-2"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          className="plotty-popover-item flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm font-semibold text-[var(--plotty-ink)] transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)]"
+          onClick={() => {
+            popover.close();
+            onEdit();
+          }}
+        >
+          <Pencil className="size-4 text-[var(--plotty-muted)]" aria-hidden="true" />
+          Редактировать
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className="plotty-popover-item mt-1 flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm font-semibold text-[var(--plotty-danger)] transition-colors hover:bg-[var(--plotty-danger-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-danger)]"
+          onClick={() => {
+            popover.close();
+            onDelete();
+          }}
+        >
+          <Trash2 className="size-4" aria-hidden="true" />
+          Удалить
+        </button>
+      </PopoverContent>
+    </div>
+  );
+}
+
 function CommentAvatar({
   username,
   avatarUrl,
@@ -578,11 +807,17 @@ function CommentAvatar({
   avatarUrl?: string | null;
 }) {
   const className = "size-10 shrink-0 rounded-full border border-[rgba(41,38,34,0.08)]";
+  const safeAvatarUrl = sanitizePersistedImageUrl(avatarUrl);
 
-  if (avatarUrl) {
+  if (safeAvatarUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={avatarUrl} alt={`Аватар ${username}`} className={`${className} object-cover`} />
+      <img
+        src={safeAvatarUrl}
+        alt={`Аватар ${username}`}
+        referrerPolicy="no-referrer"
+        className={`${className} object-cover`}
+      />
     );
   }
 

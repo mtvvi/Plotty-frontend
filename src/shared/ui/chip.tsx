@@ -5,7 +5,7 @@ import { cn } from "@/shared/lib/utils";
 export type ChipTone = "default" | "accent" | "olive" | "gold" | "blue";
 
 const toneClasses: Record<ChipTone, string> = {
-  default: "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.76)] text-[var(--plotty-muted)]",
+  default: "border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] text-[var(--plotty-muted)]",
   accent: "border-[rgba(195,79,50,0.14)] bg-[var(--plotty-accent-wash)] text-[var(--plotty-accent)]",
   olive: "border-[rgba(63,93,69,0.14)] bg-[var(--plotty-olive-soft)] text-[var(--plotty-olive)]",
   gold: "border-[rgba(169,120,46,0.16)] bg-[var(--plotty-gold-soft)] text-[var(--plotty-gold)]",

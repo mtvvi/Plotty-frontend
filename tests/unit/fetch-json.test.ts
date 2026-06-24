@@ -4,6 +4,7 @@ import { ApiError, fetchJson, resolveApiInput } from "@/shared/api/fetch-json";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("fetchJson URL resolution", () => {
@@ -12,10 +13,9 @@ describe("fetchJson URL resolution", () => {
     expect(resolveApiInput("tags")).toBe("/api/tags");
   });
 
-  it("keeps absolute URLs unchanged", () => {
-    expect(resolveApiInput("https://api.plotty-stories.duckdns.org/stories")).toBe(
-      "https://api.plotty-stories.duckdns.org/stories",
-    );
+  it("rejects absolute API URLs so credentialed requests stay inside the app API boundary", () => {
+    expect(() => resolveApiInput("https://api.plotty-stories.duckdns.org/stories")).toThrow(/absolute api urls/i);
+    expect(() => resolveApiInput("http://localhost:8080/stories")).toThrow(/absolute api urls/i);
   });
 
   it("supports the deprecated direct API fallback", () => {
@@ -38,6 +38,38 @@ describe("fetchJson URL resolution", () => {
       "/api/session",
       expect.objectContaining({ credentials: "include" }),
     );
+  });
+
+  it("does not send JSON content type for bodyless GET requests", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+
+    await fetchJson<{ ok: boolean }>("/session");
+
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(new Headers(init.headers).has("Content-Type")).toBe(false);
+  });
+
+  it("sends JSON content type when a request body is present", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+
+    await fetchJson<{ ok: boolean }>("/login", {
+      method: "POST",
+      body: JSON.stringify({ email: "writer@plotty.test", password: "password123" }),
+    });
+
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(new Headers(init.headers).get("Content-Type")).toBe("application/json");
+  });
+
+  it("ignores NEXT_PUBLIC_API_URL by default in production", () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+    vi.stubEnv("NODE_ENV", "production");
+
+    expect(resolveApiInput("/stories")).toBe("/api/stories");
   });
 
   it("throws typed ApiError objects for failed requests", async () => {

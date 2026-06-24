@@ -8,7 +8,9 @@ import { logout } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
 import { routes } from "@/shared/config/routes";
 import { cn } from "@/shared/lib/utils";
+import { sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 import { Button, ButtonLink } from "@/shared/ui/button";
+import { profileAvatarPlaceholderSrc } from "@/widgets/profile/profile-avatar-placeholder";
 
 import { resetViewerSessionCache } from "./viewer-session-cache";
 
@@ -27,17 +29,19 @@ function AccountAvatar({
   avatarUrl?: string | null;
   className?: string;
 }) {
-  if (avatarUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={avatarUrl} alt={`Аватар ${username}`} className={cn("shrink-0 rounded-[var(--plotty-radius-md)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]", className)} />
-    );
-  }
+  const imageSrc = sanitizePersistedImageUrl(avatarUrl) ?? profileAvatarPlaceholderSrc;
 
   return (
-    <span className={cn("flex shrink-0 items-center justify-center rounded-[var(--plotty-radius-md)] bg-[rgba(188,95,61,0.12)] font-bold text-[var(--plotty-accent)] transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]", className)}>
-      {username.slice(0, 1).toUpperCase()}
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={imageSrc}
+      alt={`Аватар ${username}`}
+      referrerPolicy="no-referrer"
+      className={cn(
+        "shrink-0 rounded-[var(--plotty-radius-md)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] group-hover:-translate-y-px group-hover:shadow-[0_10px_22px_rgba(58,43,27,0.12)]",
+        className,
+      )}
+    />
   );
 }
 
@@ -63,7 +67,17 @@ export function AuthStatus({
   });
 
   if (isLoading) {
-    return <span className="text-sm text-[var(--plotty-muted)]">Проверяем сессию...</span>;
+    return (
+      <span
+        data-auth-status-loading="true"
+        className={cn(
+          "inline-flex items-center text-sm text-[var(--plotty-muted)]",
+          variant === "compact" ? "min-h-[86px] w-[13rem]" : "min-h-10",
+        )}
+      >
+        Проверяем сессию...
+      </span>
+    );
   }
 
   if (!isAuthenticated || !user) {
@@ -112,7 +126,8 @@ export function AuthStatus({
         <div className="plotty-kicker">Аккаунт</div>
         <Link
           href={profileHref}
-          className="flex items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[rgba(41,38,34,0.08)] bg-white/84 p-4 transition-colors hover:bg-white"
+          prefetch={false}
+          className="flex items-center gap-3 rounded-[var(--plotty-radius-md)] border border-[var(--plotty-line)] bg-[var(--plotty-surface)] p-4 transition-colors hover:bg-[var(--plotty-surface-hover)]"
         >
           <AccountAvatar username={user.username} avatarUrl={avatarUrl} className="size-11 text-sm" />
           <span className="min-w-0">
@@ -139,6 +154,7 @@ export function AuthStatus({
     <Link
       ref={profileIndicatorRef}
       href={profileHref}
+      prefetch={false}
       className={cn(
         "group plotty-button-label relative inline-flex min-h-[86px] items-center justify-start gap-3 rounded-[var(--plotty-radius-md)] px-2.5 py-1.5 pr-4 text-left text-[var(--plotty-ink)] transition-[color,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:text-[var(--plotty-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]",
         isProfileActive ? "text-[var(--plotty-accent)]" : null,

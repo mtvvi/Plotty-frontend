@@ -13,6 +13,7 @@ import {
   chapterEditorDetailsQueryOptions,
   createChapter,
   deleteChapter,
+  normalizeCanonCheckResult,
   publishChapter,
   startCanonCheck,
   startLogicCheck,
@@ -20,6 +21,7 @@ import {
   storyKeys,
   updateChapter,
 } from "@/entities/story/api/stories-api";
+import { formatVisibleSpellcheckSummary } from "@/entities/story/model/spellcheck-result";
 import type { AiJobStatus, CanonCheckResult, ChapterDetails, LogicCheckResult, SpellcheckIssue, SpellcheckResult, StoryTag } from "@/entities/story/model/types";
 import { isApiError, isAuthError, isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
@@ -88,6 +90,7 @@ export function StoryEditorScreen({
   const [storedSpellcheckState, setStoredSpellcheckState] = useState<StoredSpellcheckState | null>(null);
   const [spellcheckContentSnapshot, setSpellcheckContentSnapshot] = useState("");
   const [saveStatusMessage, setSaveStatusMessage] = useState("");
+  const [generatedImageUrl, setGeneratedImageUrl] = useState("");
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -111,6 +114,7 @@ export function StoryEditorScreen({
     setDismissedSpellcheckIssueKeys([]);
     setStoredSpellcheckState(null);
     setSpellcheckContentSnapshot("");
+    setGeneratedImageUrl("");
   }, [chapterId]);
 
   useEffect(() => {
@@ -159,8 +163,6 @@ export function StoryEditorScreen({
       updateChapter(targetChapterId, {
         title: targetPayload.chapterTitle.trim(),
         content: targetPayload.chapterContent.trim(),
-        draftTitle: targetPayload.chapterTitle.trim(),
-        draftContent: targetPayload.chapterContent.trim(),
       }),
   });
   const createChapterMutation = useMutation({
@@ -180,7 +182,11 @@ export function StoryEditorScreen({
     mutationFn: startLogicCheck,
   });
   const canonCheckMutation = useMutation({
-    mutationFn: startCanonCheck,
+    mutationFn: ({ targetChapterId, targetPayload }: { targetChapterId: string; targetPayload: StoryEditorValues }) =>
+      startCanonCheck(targetChapterId, {
+        title: targetPayload.chapterTitle,
+        content: targetPayload.chapterContent,
+      }),
   });
 
   const spellcheckJobQuery = useQuery({
@@ -202,7 +208,7 @@ export function StoryEditorScreen({
   });
 
   const canonCheckJobQuery = useQuery({
-    ...aiJobQueryOptions<CanonCheckResult>(canonCheckJobId),
+    ...aiJobQueryOptions<CanonCheckResult>(canonCheckJobId, { mapResult: normalizeCanonCheckResult }),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
 
@@ -214,14 +220,14 @@ export function StoryEditorScreen({
   const activeSpellcheckResult = latestSpellcheckResult ?? storedSpellcheckState?.result;
 
   useEffect(() => {
-    if (!latestSpellcheckResult) {
+    if (!latestSpellcheckResult || !spellcheckContentSnapshot) {
       return;
     }
 
     const stored = writeStoredSpellcheckState({
       appliedFixes: [],
       chapterId,
-      content: spellcheckContentSnapshot || values.chapterContent,
+      content: spellcheckContentSnapshot,
       dismissedIssueKeys: [],
       result: latestSpellcheckResult,
     });
@@ -229,7 +235,7 @@ export function StoryEditorScreen({
     setStoredSpellcheckState(stored);
     setAppliedSpellcheckFixes([]);
     setDismissedSpellcheckIssueKeys([]);
-  }, [chapterId, latestSpellcheckResult, spellcheckContentSnapshot, values.chapterContent]);
+  }, [chapterId, latestSpellcheckResult, spellcheckContentSnapshot]);
 
   const spellcheckHighlights = useMemo(
     () =>
@@ -242,8 +248,14 @@ export function StoryEditorScreen({
     [activeSpellcheckResult?.items, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys, values.chapterContent],
   );
   const visibleSpellcheckResult = useMemo(
-    () => getVisibleSpellcheckResult(activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys),
-    [activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys],
+    () =>
+      getVisibleSpellcheckResult(
+        activeSpellcheckResult,
+        values.chapterContent,
+        appliedSpellcheckFixes,
+        dismissedSpellcheckIssueKeys,
+      ),
+    [activeSpellcheckResult, appliedSpellcheckFixes, dismissedSpellcheckIssueKeys, values.chapterContent],
   );
   const publishedTitle =
     chapterQuery.data?.publishedTitle ??
@@ -521,7 +533,10 @@ export function StoryEditorScreen({
         await persistCurrentDraft();
       }
 
-      const accepted = await canonCheckMutation.mutateAsync(chapterId);
+      const accepted = await canonCheckMutation.mutateAsync({
+        targetChapterId: chapterId,
+        targetPayload: values,
+      });
 
       setCanonCheckJobId(accepted.jobId);
       await queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
@@ -586,19 +601,6 @@ export function StoryEditorScreen({
       ? "Проверяем причинно-следственные связи и внутренние нестыковки..."
       : "";
 
-  const canonStatusLabel = canonCheckError
-    ? canonCheckError
-    : canonCheckJobQuery.data?.status === "failed"
-      ? sanitizeUserFacingMessage(
-          canonCheckJobQuery.data.errorMessage ?? canonCheckJobQuery.data.error,
-          "Проверка канона завершилась с ошибкой.",
-        )
-      : isPreparingCanonCheck
-        ? "Сохраняем черновик перед проверкой канона..."
-        : canonCheckJobQuery.data?.status === "processing" || canonCheckJobQuery.data?.status === "queued"
-          ? "Сверяем текст с каноном и правилами мира..."
-          : "";
-
   const isSpellcheckBusy =
     spellcheckMutation.isPending ||
     spellcheckJobQuery.data?.status === "queued" ||
@@ -646,12 +648,8 @@ export function StoryEditorScreen({
       : undefined;
   const canonStatusError =
     canonCheckError ||
-    (canonCheckJobQuery.data?.status === "failed"
-      ? sanitizeUserFacingMessage(
-          canonCheckJobQuery.data.errorMessage ?? canonCheckJobQuery.data.error,
-          "Проверка канона завершилась с ошибкой.",
-        )
-      : undefined);
+    (canonCheckJobQuery.data?.status === "failed" ? "Не удалось проверить канон" : undefined);
+  const displayImageUrl = generatedImageUrl || chapterQuery.data.imageUrl;
 
   return (
     <PlottyShell
@@ -660,6 +658,7 @@ export function StoryEditorScreen({
           <span className="plotty-page-title-row">
             <Link
               href={`${routes.write}?story=${encodeURIComponent(chapterQuery.data.storySlug)}#active-story`}
+              prefetch={false}
               className="plotty-story-title-anchor plotty-story-title-inline-anchor group text-[var(--plotty-ink)] transition-colors hover:text-[var(--plotty-accent)] focus-visible:text-[var(--plotty-accent)]"
             >
               <ArrowLeft className="plotty-page-title-back-icon size-8 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden="true" />
@@ -693,7 +692,6 @@ export function StoryEditorScreen({
         logicStatusError={logicStatusError}
         logicDisabledReason={logicDisabledReason}
         canonCheckResult={canonCheckJobQuery.data?.result}
-        canonStatusLabel={canonStatusLabel}
         canonCheckStatus={canonCheckStatus}
         canonStatusError={canonStatusError}
         canonDisabledReason={canonDisabledReason}
@@ -706,18 +704,21 @@ export function StoryEditorScreen({
         isCanonChecking={isCanonCheckBusy}
         imagePanel={
           <div className="space-y-5">
-            <div className="plotty-lift-panel rounded-[26px] border border-[rgba(41,38,34,0.08)] bg-[rgba(255,255,255,0.8)] p-4 shadow-[var(--plotty-shadow-card)]">
+            <div className="plotty-lift-panel rounded-[26px] border border-[var(--plotty-line)] bg-[var(--plotty-surface)] p-4 shadow-[var(--plotty-shadow-card)]">
               <div className="space-y-3">
                 <div>
                   <div className="plotty-section-title">Иллюстрация главы</div>
-                  <p className="plotty-meta">Сгенерируйте изображение для этой главы.</p>
                 </div>
-                <ChapterImageFrame title={values.chapterTitle || chapterQuery.data.title} imageUrl={chapterQuery.data.imageUrl} />
+                <ChapterImageFrame title={values.chapterTitle || chapterQuery.data.title} imageUrl={displayImageUrl} />
                 <GenerateChapterImageButton
                   chapterId={chapterId}
+                  storyId={storyId}
                   chapterTitle={values.chapterTitle || chapterQuery.data.title}
+                  chapterContent={values.chapterContent}
                   storySlug={chapterQuery.data.storySlug ?? ""}
                   storyTitle={chapterQuery.data.storyTitle}
+                  hasImage={Boolean(displayImageUrl)}
+                  onImageGenerated={setGeneratedImageUrl}
                 />
               </div>
             </div>
@@ -834,6 +835,7 @@ function resolveSpellcheckIssueRange(
     startOffset: adjustedOffsets.startOffset,
     endOffset: adjustedOffsets.endOffset,
     fragmentText: issue.fragmentText,
+    fallbackToFragmentSearch: true,
   });
 }
 
@@ -867,6 +869,7 @@ function getAdjustedSpellcheckOffsets(
 
 function getVisibleSpellcheckResult(
   result: SpellcheckResult | undefined,
+  content: string,
   appliedFixes: AppliedSpellcheckFix[],
   dismissedIssueKeys: string[] = [],
 ): SpellcheckResult | undefined {
@@ -875,7 +878,15 @@ function getVisibleSpellcheckResult(
   }
 
   const hiddenIssueKeys = new Set([...appliedFixes.map((fix) => fix.key), ...dismissedIssueKeys]);
-  const items = result.items.filter((issue) => !hiddenIssueKeys.has(getSpellcheckIssueKey(issue)));
+  const items = result.items.filter((issue) => {
+    const issueKey = getSpellcheckIssueKey(issue);
+
+    if (hiddenIssueKeys.has(issueKey)) {
+      return false;
+    }
+
+    return Boolean(resolveSpellcheckIssueRange(content, issue, appliedFixes));
+  });
 
   if (items.length === result.items.length) {
     return result;
@@ -884,11 +895,7 @@ function getVisibleSpellcheckResult(
   return {
     ...result,
     items,
-    summary: items.length
-      ? result.summary
-      : dismissedIssueKeys.length
-        ? "Все найденные замечания обработаны."
-        : "Все найденные замечания исправлены.",
+    summary: formatVisibleSpellcheckSummary(result.summary, items.length, result.items.length, dismissedIssueKeys.length),
   };
 }
 
@@ -1004,7 +1011,7 @@ function hashText(text: string) {
 
 function getCanonCheckErrorMessage(error: unknown) {
   if (!isApiError(error)) {
-    return "Не удалось запустить проверку канона. Попробуйте ещё раз.";
+    return "Не удалось проверить канон";
   }
 
   const rawMessage =
@@ -1021,7 +1028,7 @@ function getCanonCheckErrorMessage(error: unknown) {
     return "Маршрут проверки канона не найден на бэке.";
   }
 
-  return sanitizeUserFacingMessage(rawMessage, "Не удалось запустить проверку канона. Попробуйте ещё раз.");
+  return sanitizeUserFacingMessage(rawMessage, "Не удалось проверить канон");
 }
 
 function getCanonCheckDisabledReason(fandomTag?: StoryTag) {

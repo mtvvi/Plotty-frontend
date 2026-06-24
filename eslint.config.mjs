@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [".next/**", "node_modules/**", "public/mockServiceWorker.js", "next-env.d.ts"],
+    ignores: [".codex/**", ".next/**", "node_modules/**", "public/mockServiceWorker.js", "next-env.d.ts"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

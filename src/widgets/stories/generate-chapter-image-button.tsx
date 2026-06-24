@@ -7,14 +7,16 @@ import { creditBalanceQueryOptions, creditsKeys } from "@/entities/credits/api/c
 import { AI_CREDIT_COSTS, formatCreditsAmount } from "@/entities/credits/model/credit-utils";
 import {
   aiJobQueryOptions,
-  chapterDetailsQueryOptions,
   startImageGeneration,
   storyKeys,
 } from "@/entities/story/api/stories-api";
-import type { AiJobStatus, ImageGenerationResult } from "@/entities/story/model/types";
+import {
+  setGeneratedImageUrl as cacheGeneratedImageUrl,
+  setGeneratedStoryCoverUrl,
+} from "@/entities/story/model/generated-image-cache";
+import type { AiJobStatus, ChapterDetails, ImageGenerationResult } from "@/entities/story/model/types";
 import { isInsufficientCreditsError } from "@/shared/api/fetch-json";
 import { routes } from "@/shared/config/routes";
-import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Button, ButtonLink } from "@/shared/ui/button";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { AsyncJobStatus, type AsyncJobStatusValue } from "@/shared/ui/motion";
@@ -23,14 +25,22 @@ import { CreditCostBadge } from "@/widgets/credits/credit-cost-badge";
 
 export function GenerateChapterImageButton({
   chapterId,
+  storyId,
   chapterTitle,
+  chapterContent,
   storySlug,
   storyTitle,
+  hasImage: hasExistingImage = false,
+  onImageGenerated,
 }: {
   chapterId: string;
+  storyId: string;
   chapterTitle: string;
+  chapterContent: string;
   storySlug: string;
   storyTitle?: string;
+  hasImage?: boolean;
+  onImageGenerated?: (imageUrl: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState("");
@@ -46,11 +56,6 @@ export function GenerateChapterImageButton({
     mutationFn: startImageGeneration,
   });
   const balanceQuery = useQuery(creditBalanceQueryOptions());
-  const chapterQuery = useQuery({
-    ...chapterDetailsQueryOptions(chapterId),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
 
   const jobQuery = useQuery({
     ...aiJobQueryOptions<ImageGenerationResult>(jobId),
@@ -68,21 +73,36 @@ export function GenerateChapterImageButton({
       return;
     }
 
+    onImageGenerated?.(generatedImageUrl);
+    cacheGeneratedImageUrl(chapterId, generatedImageUrl);
+    setGeneratedStoryCoverUrl(storySlug, generatedImageUrl);
+    queryClient.setQueryData<ChapterDetails>(storyKeys.chapter(chapterId), patchChapterImageUrl(generatedImageUrl));
+    queryClient.setQueryData<ChapterDetails>(
+      storyKeys.chapterEditor(storyId, chapterId),
+      patchChapterImageUrl(generatedImageUrl),
+    );
+
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: storyKeys.chapter(chapterId) }),
+      queryClient.invalidateQueries({ queryKey: storyKeys.chapterEditor(storyId, chapterId) }),
       queryClient.invalidateQueries({ queryKey: storyKeys.details(storySlug) }),
-      queryClient.invalidateQueries({ queryKey: ["stories", "list"] }),
+      queryClient.invalidateQueries({ queryKey: storyKeys.all }),
     ]);
-  }, [chapterId, generatedImageUrl, queryClient, storySlug]);
+  }, [chapterId, generatedImageUrl, onImageGenerated, queryClient, storyId, storySlug]);
 
   async function handleGenerate() {
     setCreditError("");
+    const content = chapterContent.trim();
+
+    if (!content) {
+      setCreditError("Не удалось сгенерировать иллюстрацию");
+      return;
+    }
 
     try {
-      const chapter = await queryClient.fetchQuery(chapterDetailsQueryOptions(chapterId));
       const accepted = await imageMutation.mutateAsync({
         chapterId,
-        content: chapter.content,
+        content,
         prompt: promptDraft.trim() || defaultPrompt,
       });
 
@@ -94,17 +114,19 @@ export function GenerateChapterImageButton({
         return;
       }
 
-      setCreditError("Не удалось запустить генерацию изображения. Попробуйте ещё раз.");
+      setCreditError("Не удалось сгенерировать иллюстрацию");
     }
   }
 
+  const canGenerate = Boolean(chapterContent.trim());
   const isGenerating =
     imageMutation.isPending || jobQuery.data?.status === "queued" || jobQuery.data?.status === "processing";
-  const hasImage = Boolean(chapterQuery.data?.imageUrl || jobQuery.data?.result?.images[0]?.imageUrl);
+  const hasGeneratedImage = Boolean(generatedImageUrl);
+  const hasImage = hasExistingImage || hasGeneratedImage;
   const imageStatus = getImageAsyncStatus({
     isPending: imageMutation.isPending,
     status: jobQuery.data?.status,
-    hasResult: Boolean(jobQuery.data?.result?.images[0]?.imageUrl),
+    hasResult: hasGeneratedImage,
     hasError: Boolean(creditError),
   });
 
@@ -113,14 +135,7 @@ export function GenerateChapterImageButton({
       setPromptDraft(defaultPrompt);
     }
   }, [defaultPrompt, promptTouched]);
-  const imageStatusError =
-    creditError ||
-    (jobQuery.data?.status === "failed"
-      ? sanitizeUserFacingMessage(
-          jobQuery.data.errorMessage ?? jobQuery.data.error,
-          "Не удалось сгенерировать иллюстрацию. Попробуйте ещё раз.",
-        )
-      : undefined);
+  const imageStatusError = creditError || undefined;
   const shouldOfferTopUp =
     typeof balanceQuery.data?.balance === "number" && balanceQuery.data.balance < AI_CREDIT_COSTS.imageGeneration;
   const buttonLabel =
@@ -133,19 +148,18 @@ export function GenerateChapterImageButton({
   return (
     <div className="space-y-3">
       {shouldOfferTopUp ? (
-        <ButtonLink href={routes.credits} variant="ghost" size="sm">
+        <ButtonLink href={routes.credits} prefetch={false} variant="ghost" size="sm">
           Пополнить баланс
         </ButtonLink>
       ) : null}
       <AsyncJobStatus
         compact
         status={imageStatus}
-        label={imageStatus === "completed" ? "Иллюстрация готова" : "Генерируем иллюстрацию"}
-        description="Обновляем изображение главы после подтверждения результата."
-        error={imageStatusError}
+        label={getImageStatusLabel(imageStatus)}
+        error={imageStatusError === getImageStatusLabel(imageStatus) ? undefined : imageStatusError}
       />
       {creditError ? (
-        <ButtonLink href={routes.credits} variant="secondary" size="sm">
+        <ButtonLink href={routes.credits} prefetch={false} variant="secondary" size="sm">
           Пополнить
         </ButtonLink>
       ) : null}
@@ -162,13 +176,29 @@ export function GenerateChapterImageButton({
         />
       </Field>
       <span className="relative inline-flex">
-        <Button variant="secondary" onClick={handleGenerate} isLoading={isGenerating}>
+        <Button variant="secondary" onClick={handleGenerate} disabled={!canGenerate} isLoading={isGenerating}>
           {buttonLabel}
         </Button>
         <CreditCostBadge cost={AI_CREDIT_COSTS.imageGeneration} />
       </span>
     </div>
   );
+}
+
+function getImageStatusLabel(status: AsyncJobStatusValue) {
+  if (status === "completed") {
+    return "Готово";
+  }
+
+  if (status === "failed") {
+    return "Не удалось сгенерировать иллюстрацию";
+  }
+
+  return "Генерируем иллюстрацию";
+}
+
+function patchChapterImageUrl(imageUrl: string) {
+  return (current: ChapterDetails | undefined) => (current ? { ...current, imageUrl } : current);
 }
 
 function getImageAsyncStatus({

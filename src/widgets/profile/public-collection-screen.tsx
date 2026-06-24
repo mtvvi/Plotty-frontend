@@ -1,11 +1,11 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
-import { deleteCollection, libraryKeys, removeStoryFromCollection, updateCollection } from "@/entities/library/api/library-api";
+import { deleteCollection, libraryKeys, myShelfQueryOptions, removeStoryFromCollection, updateCollection } from "@/entities/library/api/library-api";
 import { profileKeys, publicUserCollectionQueryOptions } from "@/entities/profile/api/profile-api";
 import { routes } from "@/shared/config/routes";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
@@ -13,6 +13,7 @@ import { Button, ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { AnimatedList } from "@/shared/ui/motion";
 import { Textarea } from "@/shared/ui/textarea";
 import { PlottyPageShell, PlottySectionCard } from "@/widgets/layout/plotty-page-shell";
 import { StoryCard } from "@/widgets/stories/story-card";
@@ -31,6 +32,11 @@ export function PublicCollectionScreen({
   const { user } = useAuth();
   const profileCollectionsHref = `${routes.user(username)}?tab=collections`;
   const collectionQuery = useQuery(publicUserCollectionQueryOptions(username, collectionId));
+  const shelfQuery = useQuery(myShelfQueryOptions(null, { enabled: Boolean(user?.id) }));
+  const shelfByStoryId = useMemo(
+    () => new Map((shelfQuery.data?.items ?? []).map((entry) => [entry.storyId, entry.shelf])),
+    [shelfQuery.data?.items],
+  );
   const [editOpen, setEditOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
@@ -99,7 +105,7 @@ export function PublicCollectionScreen({
   }
 
   const collection = collectionQuery.data;
-  const isOwner = Boolean(user?.username && user.username.toLowerCase() === username.trim().toLowerCase());
+  const isOwner = Boolean(user?.id && collection.userId === user.id);
 
   function handleStartEdit() {
     setTitleDraft(collection.title);
@@ -183,40 +189,42 @@ export function PublicCollectionScreen({
       }
     >
       {isOwner && editOpen ? (
-        <PlottySectionCard className="mb-4">
-          <form className="grid gap-4" onSubmit={handleUpdate}>
-            <Field>
-              <FieldLabel htmlFor="public-collection-title">Название</FieldLabel>
-              <Input
-                id="public-collection-title"
-                value={titleDraft}
-                onChange={(event) => setTitleDraft(event.target.value)}
-                maxLength={200}
-                disabled={updateMutation.isPending}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="public-collection-description">Описание</FieldLabel>
-              <Textarea
-                id="public-collection-description"
-                value={descriptionDraft}
-                onChange={(event) => setDescriptionDraft(event.target.value)}
-                maxLength={5000}
-                className="min-h-28"
-                disabled={updateMutation.isPending}
-              />
-            </Field>
-            {localError ? <FieldError>{localError}</FieldError> : null}
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" variant="primary" disabled={updateMutation.isPending}>
-                Сохранить
-              </Button>
-              <Button type="button" variant="secondary" onClick={() => setEditOpen(false)} disabled={updateMutation.isPending}>
-                Отмена
-              </Button>
-            </div>
-          </form>
-        </PlottySectionCard>
+        <div data-presence="collection-edit" className="plotty-motion-tab-panel">
+          <PlottySectionCard className="mb-4">
+            <form className="grid gap-4" onSubmit={handleUpdate}>
+              <Field>
+                <FieldLabel htmlFor="public-collection-title">Название</FieldLabel>
+                <Input
+                  id="public-collection-title"
+                  value={titleDraft}
+                  onChange={(event) => setTitleDraft(event.target.value)}
+                  maxLength={200}
+                  disabled={updateMutation.isPending}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="public-collection-description">Описание</FieldLabel>
+                <Textarea
+                  id="public-collection-description"
+                  value={descriptionDraft}
+                  onChange={(event) => setDescriptionDraft(event.target.value)}
+                  maxLength={5000}
+                  className="min-h-28"
+                  disabled={updateMutation.isPending}
+                />
+              </Field>
+              {localError ? <FieldError>{localError}</FieldError> : null}
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" variant="primary" disabled={updateMutation.isPending}>
+                  Сохранить
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setEditOpen(false)} disabled={updateMutation.isPending}>
+                  Отмена
+                </Button>
+              </div>
+            </form>
+          </PlottySectionCard>
+        </div>
       ) : localError ? (
         <FieldError>{localError}</FieldError>
       ) : null}
@@ -226,10 +234,18 @@ export function PublicCollectionScreen({
         description={`Обновлена ${new Date(collection.updatedAt).toLocaleDateString("ru-RU")}`}
       >
         {collection.stories.length ? (
-          <div className="space-y-4">
-            {collection.stories.map((story) => (
-              <div key={story.id} className="space-y-2">
-                <StoryCard story={story} showChapterActions={false} />
+          <AnimatedList
+            items={collection.stories}
+            getKey={(story) => story.id}
+            className="plotty-collection-story-list space-y-4"
+            renderItem={(story) => (
+              <div className="space-y-2">
+                <StoryCard
+                  story={story}
+                  showChapterActions={false}
+                  initialShelf={shelfByStoryId.get(story.id) ?? null}
+                  initialCollectionIds={[collection.id]}
+                />
                 {isOwner ? (
                   <div className="flex justify-end">
                     <Button
@@ -244,8 +260,8 @@ export function PublicCollectionScreen({
                   </div>
                 ) : null}
               </div>
-            ))}
-          </div>
+            )}
+          />
         ) : (
           <EmptyState title="В подборке пока нет историй" description="Автор подборки еще не добавил публичные работы." />
         )}

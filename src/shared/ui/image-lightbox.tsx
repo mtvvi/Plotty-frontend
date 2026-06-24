@@ -6,6 +6,7 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 
 import { cn } from "@/shared/lib/utils";
+import { isUnoptimizedImageUrl, sanitizeImageUrl } from "@/shared/lib/safe-url";
 
 interface ImageLightboxProps {
   src: string;
@@ -17,6 +18,7 @@ interface ImageLightboxProps {
 
 export function ImageLightbox({ src, alt, title, open, onClose }: ImageLightboxProps) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const safeSrc = sanitizeImageUrl(src);
 
   useEffect(() => {
     if (!open) {
@@ -41,7 +43,7 @@ export function ImageLightbox({ src, alt, title, open, onClose }: ImageLightboxP
     };
   }, [onClose, open]);
 
-  if (!open) {
+  if (!open || !safeSrc) {
     return null;
   }
 
@@ -69,7 +71,14 @@ export function ImageLightbox({ src, alt, title, open, onClose }: ImageLightboxP
 
       <figure className="plotty-image-lightbox-frame" onMouseDown={(event) => event.stopPropagation()}>
         <div className="plotty-image-lightbox-media">
-          <Image src={src} alt={alt} fill sizes="100vw" unoptimized className="plotty-image-lightbox-image" />
+          <Image
+            src={safeSrc}
+            alt={alt}
+            fill
+            sizes="100vw"
+            unoptimized={isUnoptimizedImageUrl(safeSrc)}
+            className="plotty-image-lightbox-image"
+          />
         </div>
         {title ? <figcaption className="plotty-image-lightbox-caption">{title}</figcaption> : null}
       </figure>

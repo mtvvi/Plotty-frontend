@@ -1,3 +1,7 @@
+import { Suspense } from "react";
+
+import { PageContentSkeleton } from "@/shared/ui/skeletons/app-shell-skeleton";
+import { RequireAuth } from "@/widgets/auth/require-auth";
 import { ChapterReaderScreen } from "@/widgets/stories/chapter-reader-screen";
 
 export default async function ChapterPreviewPage({
@@ -7,5 +11,11 @@ export default async function ChapterPreviewPage({
 }) {
   const { slug, chapterId } = await params;
 
-  return <ChapterReaderScreen slug={slug} chapterId={chapterId} />;
+  return (
+    <Suspense fallback={<PageContentSkeleton />}>
+      <RequireAuth>
+        <ChapterReaderScreen slug={slug} chapterId={chapterId} />
+      </RequireAuth>
+    </Suspense>
+  );
 }

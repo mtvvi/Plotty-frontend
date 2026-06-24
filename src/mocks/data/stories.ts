@@ -4,6 +4,7 @@ import type {
   AiJobAccepted,
   AiJobStatus,
   AiJobType,
+  CanonCheckIssue,
   CanonCheckResult,
   ChapterDetails,
   ChapterListItem,
@@ -30,6 +31,11 @@ import type {
   UpdateStoryPayload,
 } from "@/entities/story/model/types";
 import type { CreditPackage, CreditTransaction } from "@/entities/credits/model/types";
+import {
+  FANDOM_DESCRIPTION_MAX_LENGTH,
+  type SuggestedFandom,
+  type SuggestFandomPayload,
+} from "@/entities/fandom/model/types";
 import type { AuthUser } from "@/entities/auth/model/types";
 import type { ReaderShelf } from "@/entities/library/model/types";
 import type { PublicUserProfile, UserCollectionDetail, UserCollectionSummary } from "@/entities/profile/model/types";
@@ -60,6 +66,8 @@ interface StoryRecord {
   readLabel: string;
   updatedLabel: string;
 }
+
+type MockBackendStoryListItem = StoryListItem & { coverUrl?: string | null };
 
 interface CommentRecord {
   id: string;
@@ -126,6 +134,8 @@ interface MockStoriesDb {
   collections: UserCollectionRecord[];
   collectionStories: Array<{ collectionId: string; storyId: string; createdAt: string }>;
   chapterViews: Array<{ chapterId: string; userId: number; createdAt: string }>;
+  suggestedFandoms: SuggestedFandom[];
+  approvedFandomTags: StoryTag[];
   aiJobs: AiJobRecord[];
   creditBalances: Record<number, number>;
   creditTransactions: CreditTransaction[];
@@ -136,11 +146,10 @@ interface MockStoriesDb {
   collectionSeed: number;
   imageSeed: number;
   creditTransactionSeed: number;
+  suggestedFandomSeed: number;
 }
 
-const tagMap = new Map(storyTags.map((tag) => [tag.slug, tag]));
 const multiMatchAnyCategories = new Set(["rating", "completion", "size"]);
-const storyTagCategoryBySlug = new Map(storyTags.map((tag) => [tag.slug, tag.category ?? "other"]));
 const initialCreditBalance = 50;
 const creditPackages: CreditPackage[] = [
   { id: 1, credits: 50, priceKopecks: 2900 },
@@ -169,10 +178,22 @@ function normalizeTagLabel(value: string) {
   return value.trim().toLowerCase();
 }
 
+function getAllStoryTags() {
+  return [...storyTags, ...db.approvedFandomTags];
+}
+
+function getTagBySlug(slug: string) {
+  return getAllStoryTags().find((tag) => tag.slug === slug);
+}
+
+function getTagCategoryBySlug(slug: string) {
+  return getTagBySlug(slug)?.category ?? "other";
+}
+
 function resolveTagSlugsFromPayload(payload: { tagIds?: string[] }) {
   if (payload.tagIds?.length) {
     return payload.tagIds
-      .map((tagId) => storyTags.find((tag) => tag.id === tagId)?.slug)
+      .map((tagId) => getAllStoryTags().find((tag) => tag.id === tagId)?.slug)
       .filter((slug): slug is string => Boolean(slug));
   }
 
@@ -187,6 +208,7 @@ function createInitialDb(): MockStoriesDb {
         slug: "after-midnight-the-snow-does-not-melt",
         title: "После полуночи снег не тает",
         authorId: 1,
+        coverImageUrl: "/story-cover-placeholder.jpg",
         description:
           "Гермиона пытается пережить восьмой курс, пока архив старого факультета вскрывает неудобные связи между прошлым и настоящим.",
         status: "published",
@@ -437,6 +459,8 @@ function createInitialDb(): MockStoriesDb {
         createdAt: "2026-03-21T11:10:00.000Z",
       },
     ],
+    suggestedFandoms: [],
+    approvedFandomTags: [],
     aiJobs: [],
     creditBalances: {
       1: initialCreditBalance,
@@ -449,6 +473,7 @@ function createInitialDb(): MockStoriesDb {
     collectionSeed: 2,
     imageSeed: 1,
     creditTransactionSeed: 1,
+    suggestedFandomSeed: 1,
   };
 }
 
@@ -523,7 +548,7 @@ function nowIso() {
 }
 
 function resolveTags(tagSlugs: string[]): StoryTag[] {
-  return tagSlugs.map((slug) => tagMap.get(slug)).filter(Boolean) as StoryTag[];
+  return tagSlugs.map((slug) => getTagBySlug(slug)).filter(Boolean) as StoryTag[];
 }
 
 function getChaptersForStory(storyId: string): ChapterRecord[] {
@@ -540,10 +565,15 @@ function toChapterListItem(chapter: ChapterRecord): ChapterListItem {
   };
 }
 
-function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListItem {
+function getStoryCoverUrl(story: StoryRecord, visibleChapters: ChapterRecord[]) {
+  return story.coverImageUrl ?? visibleChapters.find((chapter) => chapter.imageUrl)?.imageUrl ?? null;
+}
+
+function toStoryListItem(story: StoryRecord, viewerUserId?: number): MockBackendStoryListItem {
   const chapters = getChaptersForStory(story.id);
   const visibleChapters = story.status === "published" ? chapters.filter((ch) => isChapterPublishedMock(ch)) : chapters;
   const tags = resolveTags(story.tagSlugs);
+  const coverUrl = getStoryCoverUrl(story, visibleChapters);
 
   return {
     id: story.id,
@@ -561,7 +591,9 @@ function toStoryListItem(story: StoryRecord, viewerUserId?: number): StoryListIt
     likesCount: story.likesCount,
     viewerHasLiked: viewerUserId ? story.likedByUserIds.includes(viewerUserId) : false,
     aiHint: story.aiHint,
+    description: story.description,
     author: storyAuthors[story.authorId] ?? null,
+    ...(coverUrl ? { coverUrl } : {}),
   };
 }
 
@@ -1018,7 +1050,7 @@ function matchesStoryTags(story: StoryRecord, selectedTags: string[]) {
   const groupedAnyTags = new Map<string, string[]>();
 
   selectedTags.forEach((tagSlug) => {
-    const category = storyTagCategoryBySlug.get(tagSlug);
+    const category = getTagCategoryBySlug(tagSlug);
 
     if (category && multiMatchAnyCategories.has(category)) {
       const current = groupedAnyTags.get(category) ?? [];
@@ -1041,7 +1073,7 @@ function storyMatchesTag(story: StoryRecord, tagSlug: string) {
     return true;
   }
 
-  const tag = tagMap.get(tagSlug);
+  const tag = getTagBySlug(tagSlug);
 
   if (!tag) {
     return false;
@@ -1061,9 +1093,109 @@ function storyMatchesTag(story: StoryRecord, tagSlug: string) {
   }
 }
 
+function normalizeFandomName(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function makeSuggestedFandomSlug(name: string) {
+  const fallbackSlug = `fandom-${db.suggestedFandomSeed}`;
+  const baseSlug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || fallbackSlug;
+  let slug = baseSlug;
+  let suffix = 2;
+
+  while (getTagBySlug(slug)) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  return slug;
+}
+
+export function createSuggestedFandom(payload: SuggestFandomPayload, userId: number) {
+  const name = payload.name.trim();
+  const description = payload.description.trim();
+
+  if (!name || !description || description.length > FANDOM_DESCRIPTION_MAX_LENGTH) {
+    return { error: "invalid" as const };
+  }
+
+  const normalizedName = normalizeFandomName(name);
+  const existsInTags = getAllStoryTags().some((tag) => normalizeFandomName(tag.name) === normalizedName);
+  const existsInPending = db.suggestedFandoms.some(
+    (fandom) => fandom.status === "pending" && normalizeFandomName(fandom.name) === normalizedName,
+  );
+
+  if (existsInTags || existsInPending) {
+    return { error: "exists" as const };
+  }
+
+  const timestamp = nowIso();
+  const fandom: SuggestedFandom = {
+    id: `suggested-fandom-${db.suggestedFandomSeed}`,
+    userId,
+    name,
+    description,
+    status: "pending",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  db.suggestedFandomSeed += 1;
+  db.suggestedFandoms.unshift(fandom);
+
+  return fandom;
+}
+
+export function listPendingSuggestedFandoms() {
+  return {
+    items: db.suggestedFandoms
+      .filter((fandom) => fandom.status === "pending")
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+  };
+}
+
+export function approveSuggestedFandom(fandomId: string) {
+  const fandom = db.suggestedFandoms.find((item) => item.id === fandomId);
+
+  if (!fandom || fandom.status !== "pending") {
+    return null;
+  }
+
+  const timestamp = nowIso();
+  const tag: StoryTag = {
+    id: `suggested-fandom-tag-${db.suggestedFandomSeed}`,
+    category: "directionality",
+    slug: makeSuggestedFandomSlug(fandom.name),
+    name: fandom.name,
+  };
+
+  fandom.status = "approved";
+  fandom.updatedAt = timestamp;
+  db.approvedFandomTags.push(tag);
+
+  return { status: "approved" as const };
+}
+
+export function rejectSuggestedFandom(fandomId: string) {
+  const fandom = db.suggestedFandoms.find((item) => item.id === fandomId);
+
+  if (!fandom || fandom.status !== "pending") {
+    return null;
+  }
+
+  fandom.status = "rejected";
+  fandom.updatedAt = nowIso();
+
+  return { status: "rejected" as const };
+}
+
 export function listTags() {
   return {
-    items: storyTags,
+    items: getAllStoryTags(),
   };
 }
 
@@ -1248,6 +1380,20 @@ export function addChapterCommentRecord(chapterId: string, payload: CreateStoryC
   return toStoryComment(comment, user.id);
 }
 
+export function updateStoryCommentRecord(commentId: string, payload: CreateStoryCommentPayload, viewerUserId: number) {
+  const comment = db.comments.find((item) => item.id === commentId && item.authorId === viewerUserId);
+  const content = payload.content.trim();
+
+  if (!comment || !content) {
+    return null;
+  }
+
+  comment.content = content;
+  comment.updatedAt = nowIso();
+
+  return toStoryComment(comment, viewerUserId);
+}
+
 export function deleteStoryCommentRecord(commentId: string, viewerUserId: number) {
   const commentIndex = db.comments.findIndex((comment) => comment.id === commentId && comment.authorId === viewerUserId);
 
@@ -1349,8 +1495,8 @@ export function updateChapterRecord(chapterId: string, payload: UpdateChapterPay
     chapter.publishedUpdatedAt = chapter.updatedAt;
   }
 
-  chapter.title = payload.draftTitle ?? payload.title;
-  chapter.content = payload.draftContent ?? payload.content;
+  chapter.title = payload.title;
+  chapter.content = payload.content;
   chapter.draftTitle = chapter.title;
   chapter.draftContent = chapter.content;
   chapter.updatedAt = nowIso();
@@ -1470,18 +1616,57 @@ function createLogicCheckResult(payload: SpellcheckPayload): LogicCheckResult {
   };
 }
 
+function getMockCanonIssues(content: string): CanonCheckIssue[] {
+  const lower = content.toLowerCase();
+  const hasWitcherContext = /цири|геральт|весемир|ламберт|эскель|каэр\s+морхен|ведьмак/.test(lower);
+  const hasStarWarsDroids = /\b(c-?3po|r2-?d2)\b/.test(lower);
+  const hasLightsaber = /светов\w*\s+меч\w*/.test(lower);
+  const issues: CanonCheckIssue[] = [];
+
+  if (hasWitcherContext && hasStarWarsDroids) {
+    issues.push({
+      message: "В ведьмачьем контексте упоминаются C-3PO/R2-D2, которые относятся к канону «Звёздных войн».",
+      details: ["Если это не осознанный кроссовер, замените эти вставки на предметы или персонажей выбранного фандома."],
+    });
+  }
+
+  if (hasWitcherContext && hasLightsaber) {
+    issues.push({
+      message: "Световой меч выглядит как артефакт «Звёздных войн», а не как часть канона «Ведьмака».",
+      details: ["Для ведьмачьего канона лучше использовать стальной/серебряный меч или явно объяснить кроссовер."],
+    });
+  }
+
+  return issues;
+}
+
 function createCanonCheckResult(payload: SpellcheckPayload): CanonCheckResult {
   const lower = payload.content.toLowerCase();
+  const mockCanonIssues = getMockCanonIssues(payload.content);
+
+  if (mockCanonIssues.length) {
+    return {
+      message: "Противоречия с каноном:",
+      items: mockCanonIssues,
+    };
+  }
 
   if (lower.includes("канон") || lower.includes("лор") || lower.includes("ooc")) {
     return {
       message:
         "Возможное расхождение с каноном: проверьте факты, мотивацию персонажей и правила мира отдельно от логики сцены.",
+      items: [
+        {
+          message:
+            "Возможное расхождение с каноном: проверьте факты, мотивацию персонажей и правила мира отдельно от логики сцены.",
+        },
+      ],
     };
   }
 
   return {
     message: "Расхождений с каноном не найдено.",
+    items: [],
   };
 }
 

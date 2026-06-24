@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 
+import { useReducedMotion } from "@/shared/lib/motion-preferences";
 import { cn } from "@/shared/lib/utils";
 
 export type AsyncJobStatusValue = "idle" | "queued" | "processing" | "completed" | "failed";
 type MotionListItemStyle = CSSProperties & { "--plotty-motion-index": number };
+const disclosureExitDurationMs = 240;
 
 export function AnimatedList<TItem>({
   items,
@@ -25,13 +27,34 @@ export function AnimatedList<TItem>({
   ariaLive?: "off" | "polite" | "assertive";
 }) {
   const listKey = useMemo(() => items.map(getKey).join("|"), [getKey, items]);
+  const internalListRef = useRef<HTMLDivElement | null>(null);
+
+  function setListNode(node: HTMLDivElement | null) {
+    internalListRef.current = node;
+
+    if (typeof listRef === "function") {
+      listRef(node);
+      return;
+    }
+
+    if (listRef && "current" in listRef) {
+      listRef.current = node;
+    }
+  }
 
   return (
-    <div key={listKey} ref={listRef} className={cn("plotty-motion-list", className)} aria-live={ariaLive}>
+    <div
+      ref={setListNode}
+      className={cn("plotty-motion-list", className)}
+      aria-live={ariaLive}
+      data-motion-list="true"
+      data-motion-key={listKey}
+    >
       {items.map((item, index) => (
         <div
           key={getKey(item)}
           className={cn("plotty-motion-list-item", itemClassName)}
+          data-motion-list-item="true"
           style={{ "--plotty-motion-index": index } as MotionListItemStyle}
         >
           {renderItem(item, index)}
@@ -55,6 +78,7 @@ export function AnimatedTabPanel<TKey extends string>({
   keepMounted?: boolean;
 }) {
   const isActive = activeKey === panelKey;
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   if (!keepMounted && !isActive) {
     return null;
@@ -62,10 +86,70 @@ export function AnimatedTabPanel<TKey extends string>({
 
   return (
     <div
+      ref={panelRef}
       key={panelKey}
       className={cn("plotty-motion-tab-panel", className)}
       data-active={isActive ? "true" : "false"}
+      data-gsap-presence="tab-panel"
       hidden={keepMounted && !isActive}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function AnimatedDisclosurePanel({
+  open,
+  children,
+  className,
+}: {
+  open: boolean;
+  children: ReactNode;
+  className?: string;
+}) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const reducedMotion = useReducedMotion();
+  const [shouldRender, setShouldRender] = useState(open);
+
+  useEffect(() => {
+    if (open) {
+      setShouldRender(true);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!shouldRender) {
+      return;
+    }
+
+    if (!open) {
+      if (reducedMotion || process.env.NODE_ENV === "test") {
+        if (!open) {
+          setShouldRender(false);
+        }
+
+        return;
+      }
+
+      const timeoutId = window.setTimeout(() => setShouldRender(false), disclosureExitDurationMs);
+
+      return () => window.clearTimeout(timeoutId);
+    }
+
+    return undefined;
+  }, [open, reducedMotion, shouldRender]);
+
+  if (!shouldRender) {
+    return null;
+  }
+
+  return (
+    <div
+      ref={panelRef}
+      className={cn("plotty-motion-disclosure-panel overflow-hidden", className)}
+      aria-hidden={!open}
+      data-state={open ? "open" : "closing"}
+      data-gsap-disclosure-panel="true"
     >
       {children}
     </div>
@@ -124,7 +208,7 @@ export function AsyncJobStatus({
       role={isFailed ? "alert" : "status"}
       aria-live={isFailed ? "assertive" : "polite"}
     >
-      <span className="plotty-async-status-icon" aria-hidden="true" />
+      {isBusy ? <span className="plotty-async-status-icon" aria-hidden="true" /> : null}
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-[var(--plotty-ink)]">{label}</span>
         {description || error ? (

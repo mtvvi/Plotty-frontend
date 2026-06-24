@@ -1,24 +1,29 @@
 "use client";
 
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, X } from "lucide-react";
+import NextImage from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { authKeys, logout, updateProfile, uploadAvatar } from "@/entities/auth/api/auth-api";
 import { useAuth } from "@/entities/auth/model/auth-context";
+import { formatCreditsAmount } from "@/entities/credits/model/credit-utils";
 import { myShelfQueryOptions } from "@/entities/library/api/library-api";
 import {
+  fetchPublicUserStories,
   publicProfileQueryOptions,
   publicUserCollectionsQueryOptions,
-  publicUserStoriesQueryOptions,
 } from "@/entities/profile/api/profile-api";
-import { myStoriesQueryOptions } from "@/entities/story/api/stories-api";
+import { fetchMyStories } from "@/entities/story/api/stories-api";
+import type { StoriesQuery, StoriesResponse, StoriesSort } from "@/entities/story/model/types";
 import { routes } from "@/shared/config/routes";
+import { sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 import { cn } from "@/shared/lib/utils";
 import { usernameValidationMessage } from "@/shared/lib/username";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
+import { useRafCounter } from "@/shared/lib/raf-counter";
 import { Button } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { FieldError } from "@/shared/ui/field";
@@ -33,6 +38,7 @@ import { resetViewerSessionCache } from "@/widgets/auth/viewer-session-cache";
 
 import { ProfileCollectionsManager } from "./profile-collections-manager";
 import { getAvatarCropGeometry, getAvatarDragOffsets, type AvatarImageSize } from "./avatar-crop";
+import { profileAvatarPlaceholderSrc } from "./profile-avatar-placeholder";
 import {
   CreativityIcon,
   EditProfileIcon,
@@ -45,14 +51,12 @@ import {
 type ProfileTab = "works" | "collections";
 type ProfileInlineField = "username" | "bio";
 
-export const profileAvatarPlaceholderSrc = "/profile-avatar-placeholder.png";
+export { profileAvatarPlaceholderSrc } from "./profile-avatar-placeholder";
 
-const ownStoriesQuery = {
-  tags: [],
-  q: "",
-  page: 1,
-  pageSize: 100,
-};
+const profileWorksPageSize = 8;
+const profileWorksSearchDebounceMs = 250;
+const profileBioMaxLength = 500;
+const defaultProfileWorksSort: StoriesSort = "updated-desc";
 
 export function PublicProfileScreen({ username }: { username: string }) {
   const router = useRouter();
@@ -60,10 +64,12 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const normalizedUsername = username.trim();
-  const isOwnProfile = Boolean(user?.username && user.username.toLowerCase() === normalizedUsername.toLowerCase());
   const initialTab = getInitialTab(searchParams.get("tab"));
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [editingField, setEditingField] = useState<ProfileInlineField | null>(null);
+  const [worksSearchDraft, setWorksSearchDraft] = useState("");
+  const [worksSearch, setWorksSearch] = useState("");
+  const [worksTotalCount, setWorksTotalCount] = useState<number | null>(null);
   const [usernameDraft, setUsernameDraft] = useState("");
   const [bioDraft, setBioDraft] = useState("");
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -73,11 +79,57 @@ export function PublicProfileScreen({ username }: { username: string }) {
   const [avatarOffsetX, setAvatarOffsetX] = useState(0);
   const [avatarOffsetY, setAvatarOffsetY] = useState(0);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const worksLoadMoreRef = useRef<HTMLDivElement | null>(null);
+  const deferredWorksSearchDraft = useDeferredValue(worksSearchDraft);
+  const hasAppliedWorksSearch = Boolean(worksSearch);
+  const worksQueryBase = useMemo<Omit<StoriesQuery, "page">>(
+    () => ({
+      tags: [],
+      q: worksSearch,
+      pageSize: profileWorksPageSize,
+      sort: defaultProfileWorksSort,
+    }),
+    [worksSearch],
+  );
   const profileQuery = useQuery(publicProfileQueryOptions(normalizedUsername));
-  const publicStoriesQuery = useQuery(publicUserStoriesQueryOptions(normalizedUsername));
-  const ownStories = useQuery(myStoriesQueryOptions(ownStoriesQuery, { userId: isOwnProfile ? user?.id : null }));
-  const collectionsQuery = useQuery(publicUserCollectionsQueryOptions(normalizedUsername));
+  const isOwnProfile = Boolean(user?.id && profileQuery.data?.id === user.id);
+  const worksQuery = useInfiniteQuery({
+    queryKey: [
+      "profile-works",
+      isOwnProfile ? "mine" : "public",
+      isOwnProfile ? user?.id ?? "anonymous" : normalizedUsername,
+      worksQueryBase,
+    ] as const,
+    queryFn: ({ pageParam, signal }): Promise<StoriesResponse> => {
+      const query = {
+        ...worksQueryBase,
+        page: pageParam,
+      };
+
+      return isOwnProfile ? fetchMyStories(query, signal) : fetchPublicUserStories(normalizedUsername, query, signal);
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const { page, pageSize, total } = lastPage.pagination;
+
+      return page * pageSize < total ? page + 1 : undefined;
+    },
+    enabled: profileQuery.isSuccess && (isOwnProfile ? Boolean(user?.id) : Boolean(normalizedUsername)),
+    staleTime: 30_000,
+  });
+  const {
+    fetchNextPage: fetchNextWorksPage,
+    hasNextPage: hasNextWorksPage,
+    isError: isWorksQueryError,
+    isFetching: isWorksQueryFetching,
+    isFetchingNextPage: isFetchingNextWorksPage,
+  } = worksQuery;
+  const collectionsQuery = useQuery({
+    ...publicUserCollectionsQueryOptions(normalizedUsername),
+    enabled: profileQuery.isSuccess && !isOwnProfile && Boolean(normalizedUsername),
+  });
   const shelfQuery = useQuery(myShelfQueryOptions(null, { enabled: isOwnProfile }));
+  const firstWorksPageTotal = worksQuery.data?.pages[0]?.pagination.total;
 
   const updateProfileMutation = useMutation({
     mutationFn: updateProfile,
@@ -122,6 +174,74 @@ export function PublicProfileScreen({ username }: { username: string }) {
   }, [searchParams]);
 
   useEffect(() => {
+    setWorksSearchDraft("");
+    setWorksSearch("");
+    setWorksTotalCount(null);
+  }, [normalizedUsername]);
+
+  useEffect(() => {
+    if (!worksSearch && typeof firstWorksPageTotal === "number") {
+      setWorksTotalCount(firstWorksPageTotal);
+    }
+  }, [firstWorksPageTotal, worksSearch]);
+
+  useEffect(() => {
+    const nextSearch = deferredWorksSearchDraft.trim();
+
+    if (nextSearch === worksSearch) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setWorksSearch(nextSearch);
+    }, profileWorksSearchDebounceMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [deferredWorksSearchDraft, worksSearch]);
+
+  useEffect(() => {
+    const sentinel = worksLoadMoreRef.current;
+
+    if (
+      !sentinel ||
+      activeTab !== "works" ||
+      hasAppliedWorksSearch ||
+      !hasNextWorksPage ||
+      isWorksQueryFetching ||
+      isFetchingNextWorksPage ||
+      isWorksQueryError ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return;
+        }
+
+        void fetchNextWorksPage();
+      },
+      {
+        rootMargin: "420px 0px",
+      },
+    );
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [
+    activeTab,
+    fetchNextWorksPage,
+    hasAppliedWorksSearch,
+    hasNextWorksPage,
+    isFetchingNextWorksPage,
+    isWorksQueryError,
+    isWorksQueryFetching,
+  ]);
+
+  useEffect(() => {
     const profile = profileQuery.data;
 
     if (!profile || !isOwnProfile || editingField) {
@@ -163,10 +283,15 @@ export function PublicProfileScreen({ username }: { username: string }) {
   }
 
   const profile = profileQuery.data;
-  const worksQuery = isOwnProfile ? ownStories : publicStoriesQuery;
-  const stories = worksQuery.data?.items ?? [];
+  const stories = worksQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const worksPagination = worksQuery.data?.pages[worksQuery.data.pages.length - 1]?.pagination;
+  const worksTotal = worksPagination?.total ?? 0;
+  const visibleWorksCount = stories.length;
+  const nextWorksCount = Math.min(profileWorksPageSize, Math.max(worksTotal - visibleWorksCount, 0));
+  const isWorksSearchPending = deferredWorksSearchDraft.trim() !== worksSearch;
+  const hasWorksSearch = hasAppliedWorksSearch;
   const collections = collectionsQuery.data?.items ?? [];
-  const worksCount = worksQuery.isError ? "—" : worksQuery.data?.pagination.total ?? stories.length;
+  const worksCount = worksQuery.isError ? "—" : (worksTotalCount ?? (worksTotal || visibleWorksCount));
   const secondaryCount = isOwnProfile
     ? shelfQuery.isError
       ? "—"
@@ -175,9 +300,24 @@ export function PublicProfileScreen({ username }: { username: string }) {
       ? "—"
       : collections.length;
   const clientUsernameError = usernameValidationMessage(usernameDraft);
+  const clientBioError =
+    bioDraft.length > profileBioMaxLength
+      ? `Описание не должно быть длиннее ${profileBioMaxLength} символов.`
+      : null;
+  const activeInlineFieldError =
+    editingField === "username" ? clientUsernameError : editingField === "bio" ? clientBioError : null;
   const serverError = updateProfileMutation.error
     ? toUserFacingErrorMessage(updateProfileMutation.error, "Не удалось обновить профиль")
     : null;
+
+  function handleWorksSearchChange(value: string) {
+    setWorksSearchDraft(value);
+  }
+
+  function clearWorksSearch() {
+    setWorksSearchDraft("");
+    setWorksSearch("");
+  }
 
   function handleStartInlineEdit(field: ProfileInlineField) {
     if (!isOwnProfile || updateProfileMutation.isPending) {
@@ -202,6 +342,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
     }
 
     if (field === "username" && clientUsernameError) {
+      return;
+    }
+
+    if (field === "bio" && clientBioError) {
       return;
     }
 
@@ -302,13 +446,14 @@ export function PublicProfileScreen({ username }: { username: string }) {
     <PlottyPageShell suppressPageIntro>
       <div className="space-y-5">
         <PlottySectionCard className="plotty-panel-enter overflow-hidden !p-0">
-          <div className="grid gap-0 lg:min-h-80 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div>
+          <div className="grid gap-0 2xl:min-h-80 2xl:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="2xl:h-full">
               <div
                 data-profile-summary-frame="true"
-                className="p-0 lg:min-h-80"
+                data-profile-intro="profile-hero"
+                className="plotty-motion-tab-panel h-full p-0 lg:min-h-80 xl:min-h-80"
               >
-                <div className="flex w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid lg:min-h-80 lg:grid-cols-[20rem_minmax(0,1fr)_auto] lg:gap-0">
+                <div className="plotty-profile-hero-grid flex h-full w-full flex-col gap-0 sm:flex-row sm:items-stretch lg:grid-cols-[auto_minmax(0,1fr)_auto] 2xl:grid 2xl:min-h-80 2xl:grid-cols-[auto_minmax(0,1fr)_auto] 2xl:gap-0">
                   {isOwnProfile ? (
                     <>
                       <input
@@ -320,10 +465,10 @@ export function PublicProfileScreen({ username }: { username: string }) {
                         disabled={avatarMutation.isPending}
                         onChange={(event) => handleAvatarChange(event.target.files?.[0] ?? null)}
                       />
-                      <div className="grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 lg:h-full lg:w-auto lg:self-stretch">
+                      <div className="plotty-profile-hero-avatar-frame grid w-full justify-items-stretch gap-0 sm:w-40 sm:shrink-0 2xl:aspect-square 2xl:h-full 2xl:min-h-full 2xl:w-auto 2xl:self-stretch">
                         <button
                           type="button"
-                          className="group relative w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:h-full lg:rounded-none lg:hover:translate-y-0"
+                          className="group relative h-full w-full shrink-0 overflow-hidden rounded-none text-left transition-[box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:shadow-[0_18px_34px_rgba(195,79,50,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:opacity-60 sm:rounded-[var(--plotty-radius-md)] sm:hover:-translate-y-0.5 lg:aspect-square lg:min-h-full lg:w-auto 2xl:aspect-square 2xl:min-h-full 2xl:w-auto 2xl:rounded-none 2xl:hover:translate-y-0"
                           onClick={() => avatarInputRef.current?.click()}
                           disabled={avatarMutation.isPending}
                           aria-label="Загрузить аватар"
@@ -343,57 +488,58 @@ export function PublicProfileScreen({ username }: { username: string }) {
                       </div>
                     </>
                   ) : (
-                    <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="hero" />
-                  )}
-                  <div className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 lg:self-center lg:px-7 lg:py-7">
-                    <ProfileInlineTextField
-                      field="username"
-                      label="Ник"
-                      value={profile.username}
-                      draftValue={usernameDraft}
-                      editable={isOwnProfile}
-                      isEditing={editingField === "username"}
-                      isSaving={updateProfileMutation.isPending}
-                      placeholder="Новый ник"
-                      variant="title"
-                      onDraftChange={setUsernameDraft}
-                      onKeyDown={(event) => handleInlineFieldKeyDown(event, "username")}
-                      onSave={() => saveInlineEdit("username")}
-                      onStartEdit={() => handleStartInlineEdit("username")}
-                    />
-                    <ProfileInlineTextField
-                      field="bio"
-                      label="Описание"
-                      value={profile.bio ?? ""}
-                      fallback="Описание профиля пока не заполнено."
-                      draftValue={bioDraft}
-                      editable={isOwnProfile}
-                      isEditing={editingField === "bio"}
-                      isSaving={updateProfileMutation.isPending}
-                      multiline
-                      placeholder="Описание профиля"
-                      variant="body"
-                      onDraftChange={setBioDraft}
-                      onKeyDown={(event) => handleInlineFieldKeyDown(event, "bio")}
-                      onSave={() => saveInlineEdit("bio")}
-                      onStartEdit={() => handleStartInlineEdit("bio")}
-                    />
-                    {editingField === "username" && clientUsernameError ? <FieldError>{clientUsernameError}</FieldError> : null}
-                    {!clientUsernameError && serverError ? <FieldError>{serverError}</FieldError> : null}
-                    {avatarError ? <FieldError>{avatarError}</FieldError> : null}
-                  </div>
-                  {isOwnProfile ? (
-                    <div className="flex shrink-0 flex-wrap gap-2 px-5 pb-5 sm:self-center sm:px-0 sm:pb-0 sm:pr-6 lg:self-center lg:pr-7">
-                      <Button type="button" variant="destructive" onClick={handleLogout} disabled={logoutMutation.isPending}>
-                        <LogoutProfileIcon className="size-5 shrink-0" />
-                        {logoutMutation.isPending ? "Выходим..." : "Выйти"}
-                      </Button>
+                    <div className="plotty-profile-hero-avatar-frame">
+                      <ProfileAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="hero" />
                     </div>
-                  ) : null}
-                </div>
+                  )}
+                  <div className="min-w-0 flex-1 space-y-3 p-5 sm:p-6 2xl:grid 2xl:grid-cols-1 2xl:items-start 2xl:gap-y-3 2xl:space-y-0 2xl:self-center 2xl:px-7 2xl:py-7">
+                    <div className="min-w-0 2xl:col-start-1 2xl:row-start-1">
+                      <ProfileInlineTextField
+                        field="username"
+                        label="Ник"
+                        value={profile.username}
+                        draftValue={usernameDraft}
+                        editable={isOwnProfile}
+                        isEditing={editingField === "username"}
+                        isSaving={updateProfileMutation.isPending}
+                        placeholder="Новый ник"
+                        variant="title"
+                        characterLimit={40}
+                        error={editingField === "username" ? clientUsernameError : null}
+                        onDraftChange={setUsernameDraft}
+                        onKeyDown={(event) => handleInlineFieldKeyDown(event, "username")}
+                        onSave={() => saveInlineEdit("username")}
+                        onStartEdit={() => handleStartInlineEdit("username")}
+                      />
+                    </div>
+                    <div className="min-w-0 space-y-3 2xl:col-start-1 2xl:row-start-2">
+                      <ProfileInlineTextField
+                        field="bio"
+                        label="Описание"
+                        value={profile.bio ?? ""}
+                        fallback="Описание профиля пока не заполнено."
+                        draftValue={bioDraft}
+                        editable={isOwnProfile}
+                        isEditing={editingField === "bio"}
+                        isSaving={updateProfileMutation.isPending}
+                        multiline
+                        placeholder="Описание профиля"
+                        variant="body"
+                        characterLimit={profileBioMaxLength}
+                        error={editingField === "bio" ? clientBioError : null}
+                        onDraftChange={setBioDraft}
+                        onKeyDown={(event) => handleInlineFieldKeyDown(event, "bio")}
+                        onSave={() => saveInlineEdit("bio")}
+                        onStartEdit={() => handleStartInlineEdit("bio")}
+                      />
+                      {!activeInlineFieldError && serverError ? <FieldError>{serverError}</FieldError> : null}
+                      {avatarError ? <FieldError>{avatarError}</FieldError> : null}
+                    </div>
+                  </div>
               </div>
             </div>
-            <div className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 lg:border-l lg:border-t-0 lg:p-7">
+            </div>
+            <div className="grid auto-rows-fr gap-3 border-t border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-5 sm:p-6 2xl:border-l 2xl:border-t-0 2xl:p-7">
               <ProfileStat
                 label="Работ"
                 value={worksCount}
@@ -404,6 +550,26 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 value={secondaryCount}
                 icon={isOwnProfile ? <ProfileLibraryIcon className="size-6" /> : <PublicCollectionsIcon className="size-6" />}
               />
+              {isOwnProfile ? (
+                <>
+                  <ProfileStat
+                    label="AI-кредиты"
+                    value={formatCreditsAmount(user?.credits ?? 0)}
+                    icon={
+                      <Link
+                        href={routes.credits}
+                        prefetch={false}
+                        aria-label="Пополнить баланс"
+                        title="Пополнить баланс"
+                        className="plotty-icon-motion inline-flex size-10 items-center justify-center rounded-[var(--plotty-radius-sm)] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] text-[var(--plotty-accent)] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:border-[rgba(195,79,50,0.26)] hover:bg-[var(--plotty-accent-wash)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                      >
+                        <Plus className="size-5" aria-hidden="true" />
+                      </Link>
+                    }
+                  />
+                  <ProfileStatActions isLoggingOut={logoutMutation.isPending} onLogout={handleLogout} />
+                </>
+              ) : null}
             </div>
           </div>
         </PlottySectionCard>
@@ -424,6 +590,14 @@ export function PublicProfileScreen({ username }: { username: string }) {
             title={<ProfileTitle icon={<CreativityIcon className="size-5" />}>{"Творчество"}</ProfileTitle>}
             description={isOwnProfile ? "Ваши работы" : "Публичный список опубликованных работ автора."}
           >
+            <ProfileWorksToolbar
+              searchValue={worksSearchDraft}
+              total={worksTotal}
+              visibleCount={visibleWorksCount}
+              isPending={isWorksSearchPending || (worksQuery.isFetching && !worksQuery.isFetchingNextPage)}
+              onSearchChange={handleWorksSearchChange}
+              onSearchClear={clearWorksSearch}
+            />
             {worksQuery.isLoading ? (
               <div className="space-y-3">
                 <div className="h-44 rounded-[22px] bg-white/50" />
@@ -437,20 +611,50 @@ export function PublicProfileScreen({ username }: { username: string }) {
                 onAction={() => void worksQuery.refetch()}
               />
             ) : stories.length ? (
-              <AnimatedList
-                items={stories}
-                getKey={(story) => story.id}
-                className="space-y-4"
-                renderItem={(story) => (
-                  <StoryCard
-                    story={story}
-                    showShelfControl
-                    showChapterActions={false}
-                  />
-                )}
-              />
+              <div className="space-y-4">
+                <AnimatedList
+                  items={stories}
+                  getKey={(story) => story.id}
+                  className="plotty-profile-works-list space-y-4"
+                  ariaLive="polite"
+                  renderItem={(story, index) => (
+                    <StoryCard
+                      story={story}
+                      showShelfControl
+                      showChapterActions={false}
+                      priorityCover={index === 0}
+                    />
+                  )}
+                />
+                {!hasWorksSearch && worksQuery.hasNextPage ? (
+                  <div
+                    ref={worksLoadMoreRef}
+                    className="flex flex-col gap-2 border-t border-[var(--plotty-line)] pt-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <p className="plotty-meta">
+                      Показано {visibleWorksCount} из {worksTotal}
+                    </p>
+                    <p className="plotty-meta" role="status" aria-live="polite">
+                      {worksQuery.isFetchingNextPage
+                        ? "Загружаем ещё работы..."
+                        : `Прокрутите ниже, чтобы загрузить ещё ${nextWorksCount}`}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
             ) : (
-              <EmptyState title="Работ пока нет" description={isOwnProfile ? "Создайте первую историю в мастерской." : "У пользователя нет опубликованных историй."} />
+              <EmptyState
+                title={hasWorksSearch ? "Работы не найдены" : "Работ пока нет"}
+                description={
+                  hasWorksSearch
+                    ? "По текущему поиску ничего не нашлось."
+                    : isOwnProfile
+                      ? "Создайте первую историю в мастерской."
+                      : "У пользователя нет опубликованных историй."
+                }
+                actionLabel={hasWorksSearch ? "Очистить поиск" : undefined}
+                onAction={hasWorksSearch ? clearWorksSearch : undefined}
+              />
             )}
           </PlottySectionCard>
         </AnimatedTabPanel>
@@ -486,7 +690,8 @@ export function PublicProfileScreen({ username }: { username: string }) {
                   renderItem={(collection) => (
                     <Link
                       href={routes.userCollection(profile.username, collection.id)}
-                      className="plotty-collection-tile plotty-lift-panel block h-full rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-white/78 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+                      prefetch={false}
+                      className="plotty-collection-tile plotty-lift-panel block h-full rounded-[20px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
                     >
                       <div className="space-y-2">
                         <div className="plotty-card-title text-[1.2rem]">{collection.title}</div>
@@ -538,19 +743,27 @@ export function ProfileAvatar({
 }) {
   const className =
     size === "hero"
-      ? "aspect-square w-full text-4xl sm:aspect-auto sm:h-full sm:min-h-40 lg:min-h-80 lg:text-5xl"
+      ? "plotty-profile-hero-avatar aspect-square w-full text-4xl sm:h-full sm:min-h-40 lg:w-auto lg:min-h-80 2xl:h-full 2xl:w-auto 2xl:min-h-80 2xl:text-5xl"
       : size === "large"
         ? "size-28 text-4xl sm:size-36 lg:size-40"
         : "size-12 text-base";
-  const radiusClassName = size === "hero" ? "rounded-none sm:rounded-[var(--plotty-radius-md)] lg:rounded-none" : "rounded-[var(--plotty-radius-md)]";
-  const imageSrc = avatarUrl ?? profileAvatarPlaceholderSrc;
+  const radiusClassName = size === "hero" ? "rounded-none sm:rounded-[var(--plotty-radius-md)] 2xl:rounded-none" : "rounded-[var(--plotty-radius-md)]";
+  const safeAvatarUrl = sanitizePersistedImageUrl(avatarUrl);
+  const imageSrc = safeAvatarUrl ?? profileAvatarPlaceholderSrc;
+  const avatarSize = size === "hero" ? 640 : size === "large" ? 160 : 48;
+  const sizes = size === "hero" ? "(min-width: 1536px) 22rem, (min-width: 1024px) 20rem, (min-width: 640px) 10rem, 100vw" : `${avatarSize}px`;
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={imageSrc}
-      alt={`Аватар ${username}`}
-      className={cn(
+      <NextImage
+        src={imageSrc}
+        alt={`Аватар ${username}`}
+        width={avatarSize}
+        height={avatarSize}
+        sizes={sizes}
+        priority={size === "hero"}
+        unoptimized
+        referrerPolicy="no-referrer"
+        className={cn(
         className,
         radiusClassName,
         "shrink-0 border border-[rgba(41,38,34,0.08)] object-cover transition-[box-shadow,transform] duration-[var(--motion-base)] hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(58,43,27,0.12)] lg:hover:scale-100",
@@ -560,8 +773,10 @@ export function ProfileAvatar({
 }
 
 function ProfileInlineTextField({
+  characterLimit,
   draftValue,
   editable,
+  error,
   fallback,
   field,
   isEditing,
@@ -576,8 +791,10 @@ function ProfileInlineTextField({
   value,
   variant,
 }: {
+  characterLimit?: number;
   draftValue: string;
   editable: boolean;
+  error?: string | null;
   fallback?: string;
   field: ProfileInlineField;
   isEditing: boolean;
@@ -596,6 +813,10 @@ function ProfileInlineTextField({
   const displayText = value.trim() || fallback || "";
   const editLabel = field === "username" ? "Редактировать ник" : "Редактировать описание";
   const iconLabel = field === "username" ? "Изменить ник" : "Изменить описание";
+  const counterId = characterLimit ? `${fieldId}-counter` : undefined;
+  const errorId = error ? `${fieldId}-error` : undefined;
+  const describedBy = [errorId, counterId].filter(Boolean).join(" ") || undefined;
+  const isOverLimit = Boolean(characterLimit && draftValue.length > characterLimit);
   const labelClassName = cn(
     "flex items-center gap-1.5",
     variant === "title" ? "mb-0.5" : "mb-1",
@@ -607,7 +828,7 @@ function ProfileInlineTextField({
     }
 
     return value.trim() ? (
-      <p className="plotty-body max-w-3xl text-[var(--plotty-muted)]">{displayText}</p>
+      <p className="plotty-profile-bio-text plotty-body max-w-3xl text-[var(--plotty-muted)]">{displayText}</p>
     ) : (
       <p className="plotty-meta">{displayText}</p>
     );
@@ -637,12 +858,13 @@ function ProfileInlineTextField({
           <Textarea
             id={fieldId}
             aria-label={label}
+            aria-describedby={describedBy}
+            aria-invalid={Boolean(error)}
             autoFocus
             value={draftValue}
             placeholder={placeholder}
             disabled={isSaving}
             className="h-24 min-h-24 max-h-24 max-w-3xl resize-none overflow-auto animate-in fade-in-0 zoom-in-95 duration-200"
-            maxLength={5000}
             onBlur={onSave}
             onChange={(event) => onDraftChange(event.target.value)}
             onKeyDown={onKeyDown}
@@ -651,6 +873,8 @@ function ProfileInlineTextField({
           <Input
             id={fieldId}
             aria-label={label}
+            aria-describedby={describedBy}
+            aria-invalid={Boolean(error)}
             autoFocus
             value={draftValue}
             placeholder={placeholder}
@@ -661,39 +885,62 @@ function ProfileInlineTextField({
             onKeyDown={onKeyDown}
           />
         )
-      ) : variant === "title" ? (
-        <div className="group relative -mx-2 inline-block max-w-full rounded-[var(--plotty-radius-sm)] transition-[background-color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-[var(--plotty-accent-wash)]">
-          <h1 className="plotty-page-title px-2 py-0.5">{displayText}</h1>
-          <button
-            type="button"
-            className="absolute inset-0 rounded-[var(--plotty-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
-            onClick={onStartEdit}
-            disabled={isSaving}
-            aria-label={editLabel}
-          >
-            <span className="sr-only">{editLabel}</span>
-          </button>
-        </div>
-      ) : (
-        <div
-          className={cn(
-            "group relative -mx-2 max-w-3xl rounded-[var(--plotty-radius-sm)] transition-[background-color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-[var(--plotty-accent-wash)]",
+      ) : null}
+      {isEditing && (characterLimit || error) ? (
+        <div className="mt-2 flex min-h-5 flex-wrap items-start justify-between gap-2">
+          {error ? (
+            <FieldError id={errorId} className="min-w-0 flex-1">
+              {error}
+            </FieldError>
+          ) : (
+            <span aria-hidden="true" />
           )}
-        >
-          <p className={cn("px-2 py-1", value.trim() ? "plotty-body text-[var(--plotty-muted)]" : "plotty-meta")}>
-            {displayText}
-          </p>
-          <button
-            type="button"
-            className="absolute inset-0 rounded-[var(--plotty-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
-            onClick={onStartEdit}
-            disabled={isSaving}
-            aria-label={editLabel}
-          >
-            <span className="sr-only">{editLabel}</span>
-          </button>
+          {characterLimit ? (
+            <p
+              id={counterId}
+              className={cn("plotty-meta shrink-0 text-xs", isOverLimit && "font-semibold text-[var(--plotty-accent)]")}
+              aria-live="polite"
+            >
+              {draftValue.length}/{characterLimit}
+            </p>
+          ) : null}
         </div>
-      )}
+      ) : null}
+      {!isEditing ? (
+        variant === "title" ? (
+          <div className="group relative -mx-2 inline-block max-w-full rounded-[var(--plotty-radius-sm)] transition-[background-color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-[var(--plotty-accent-wash)]">
+            <h1 className="plotty-page-title px-2 py-0.5">{displayText}</h1>
+            <button
+              type="button"
+              className="absolute inset-0 rounded-[var(--plotty-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+              onClick={onStartEdit}
+              disabled={isSaving}
+              aria-label={editLabel}
+            >
+              <span className="sr-only">{editLabel}</span>
+            </button>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "group relative -mx-2 max-w-3xl rounded-[var(--plotty-radius-sm)] transition-[background-color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-[var(--plotty-accent-wash)]",
+            )}
+          >
+            <p className={cn("plotty-profile-bio-text px-2 py-1", value.trim() ? "plotty-body text-[var(--plotty-muted)]" : "plotty-meta")}>
+              {displayText}
+            </p>
+            <button
+              type="button"
+              className="absolute inset-0 rounded-[var(--plotty-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"
+              onClick={onStartEdit}
+              disabled={isSaving}
+              aria-label={editLabel}
+            >
+              <span className="sr-only">{editLabel}</span>
+            </button>
+          </div>
+        )
+      ) : null}
     </div>
   );
 }
@@ -821,7 +1068,7 @@ function AvatarCropDialog({
       <button
         type="button"
         aria-label="Закрыть обрезку аватара"
-        className="absolute inset-0 bg-[rgba(31,26,22,0.42)] backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgba(31,26,22,0.5)]"
         onClick={onCancel}
       />
       <div
@@ -1006,19 +1253,116 @@ function ProfileTitle({ icon, children }: { icon: ReactNode; children: ReactNode
   );
 }
 
-function ProfileStat({ label, value, icon }: { label: string; value: number | string; icon: ReactNode }) {
-  const displayValue = typeof value === "number" ? value.toLocaleString("ru-RU") : value;
+function ProfileWorksToolbar({
+  isPending,
+  onSearchChange,
+  onSearchClear,
+  searchValue,
+  total,
+  visibleCount,
+}: {
+  isPending?: boolean;
+  onSearchChange: (value: string) => void;
+  onSearchClear: () => void;
+  searchValue: string;
+  total: number;
+  visibleCount: number;
+}) {
+  const statusText = isPending
+    ? "Обновляем список..."
+    : total > 0
+      ? `Показано ${visibleCount} из ${total}`
+      : "Нет работ для отображения";
 
   return (
-    <div className="plotty-lift-panel h-full rounded-[18px] border border-[rgba(41,38,34,0.08)] bg-white/70 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-2xl font-bold text-[var(--plotty-ink)]">{displayValue}</div>
+    <div className="mb-5 grid gap-3 border-b border-[var(--plotty-line)] pb-4">
+      <div className="grid gap-3">
+        <label className="grid min-w-0 gap-2">
+          <span className="plotty-label">Поиск по работам</span>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--plotty-muted)]"
+              aria-hidden="true"
+            />
+            <Input
+              value={searchValue}
+              onChange={(event) => onSearchChange(event.target.value)}
+              aria-label="Поиск по работам автора"
+              placeholder="Название истории"
+              className="pl-10 pr-11"
+            />
+            {searchValue ? (
+              <IconButton
+                type="button"
+                aria-label="Очистить поиск по работам"
+                title="Очистить поиск"
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 min-h-8 w-8 -translate-y-1/2 rounded-[var(--plotty-radius-sm)] p-0"
+                onClick={onSearchClear}
+              >
+                <X className="size-4" aria-hidden="true" />
+              </IconButton>
+            ) : null}
+          </div>
+        </label>
+      </div>
+      <p className="plotty-meta min-h-5" role="status" aria-live="polite">
+        {statusText}
+      </p>
+    </div>
+  );
+}
+
+const profileTileClassName =
+  "plotty-lift-panel h-full rounded-[18px] border border-[var(--plotty-line)] bg-[var(--plotty-surface-soft)] p-4";
+
+function ProfileStat({ label, value, icon }: { label: string; value: number | string; icon: ReactNode }) {
+  const valueRef = useRef<HTMLDivElement | null>(null);
+  const numericValue = typeof value === "number" ? value : null;
+  const formatValue = useCallback((nextValue: number) => nextValue.toLocaleString("ru-RU"), []);
+  const displayValue = typeof value === "number" ? value.toLocaleString("ru-RU") : value;
+
+  useRafCounter(valueRef, numericValue, formatValue);
+
+  return (
+    <div className={profileTileClassName}>
+      <div className="flex h-full items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div ref={valueRef} data-raf-counter="profile-stat" className="max-w-full break-words text-2xl font-bold leading-tight text-[var(--plotty-ink)]">{displayValue}</div>
           <div className="plotty-meta">{label}</div>
         </div>
         <span className="mt-1 inline-flex shrink-0 text-[var(--plotty-muted)]">{icon}</span>
       </div>
     </div>
+  );
+}
+
+function ProfileStatActions({
+  isLoggingOut,
+  onLogout,
+}: {
+  isLoggingOut: boolean;
+  onLogout: () => Promise<void>;
+}) {
+  const actionTileClassName = cn(
+    profileTileClassName,
+    "inline-flex min-h-0 w-full items-center justify-center gap-2 text-sm font-semibold leading-tight text-[var(--plotty-danger)] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:border-[rgba(189,63,50,0.26)] hover:bg-[var(--plotty-danger-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:shadow-none disabled:opacity-60",
+  );
+
+  return (
+    <button
+      type="button"
+      className={actionTileClassName}
+      onClick={() => {
+        void onLogout();
+      }}
+      disabled={isLoggingOut}
+      aria-busy={isLoggingOut || undefined}
+    >
+      <LogoutProfileIcon className="size-5 shrink-0" />
+      <span className="min-w-0 truncate">{isLoggingOut ? "Выходим..." : "Выйти"}</span>
+    </button>
   );
 }
 

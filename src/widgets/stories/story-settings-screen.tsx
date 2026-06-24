@@ -28,6 +28,7 @@ import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { AnimatedTabPanel } from "@/shared/ui/motion";
+import { FandomSuggestionDisclosure } from "./fandom-suggestion-panel";
 import { PlottyShell, ShellCard } from "./plotty-shell";
 
 type StoryEditStage = "details" | "taxonomy" | "review";
@@ -82,6 +83,10 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
     .map((category) => [category, groupedTags[category] ?? []] as const)
     .filter(([, tags]) => tags.length);
   const selectedTagIds = useMemo(() => new Set(values.selectedTagIds), [values.selectedTagIds]);
+  const fallbackFandomTag = useMemo(
+    () => availableTags.find((tag) => tag.category === "directionality" && tag.slug === "originals"),
+    [availableTags],
+  );
   const selectedTags = useMemo(
     () => availableTags.filter((tag) => selectedTagIds.has(tag.id)),
     [availableTags, selectedTagIds],
@@ -168,6 +173,14 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
         router.push(routes.auth({ next: routes.storySettings(storyId) }));
       }
     }
+  }
+
+  function handleSelectFallbackFandom() {
+    if (!fallbackFandomTag) {
+      return;
+    }
+
+    setValues((current) => selectStoryTag(current, fallbackFandomTag, groupedTags));
   }
 
   if (storyQuery.isLoading) {
@@ -259,15 +272,36 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
           <ShellCard title="Теги и категории">
             <div className="space-y-5">
               <div className="grid gap-4 md:grid-cols-2">
-                {orderedGroups.map(([category, tags]) => (
-                  <TagCategoryCard
-                    key={category}
-                    category={category}
-                    tags={tags}
-                    selectedTagIds={selectedTagIds}
-                    onToggle={(tag) => setValues((current) => toggleStoryTag(current, tag, groupedTags))}
-                  />
-                ))}
+                {orderedGroups.map(([category, tags]) => {
+                  if (category !== "directionality") {
+                    return (
+                      <TagCategoryCard
+                        key={category}
+                        category={category}
+                        tags={tags}
+                        selectedTagIds={selectedTagIds}
+                        onToggle={(tag) => setValues((current) => toggleStoryTag(current, tag, groupedTags))}
+                      />
+                    );
+                  }
+
+                  return (
+                    <div key={category} className="space-y-3">
+                      <TagCategoryCard
+                        category={category}
+                        tags={tags}
+                        selectedTagIds={selectedTagIds}
+                        onToggle={(tag) => setValues((current) => toggleStoryTag(current, tag, groupedTags))}
+                      />
+                      <FandomSuggestionDisclosure
+                        authNext={routes.storySettings(storyId)}
+                        fallbackTag={fallbackFandomTag}
+                        isFallbackSelected={fallbackFandomTag ? selectedTagIds.has(fallbackFandomTag.id) : false}
+                        onSelectFallback={handleSelectFallbackFandom}
+                      />
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--plotty-line)] pt-5">
@@ -451,6 +485,19 @@ function toggleStoryTag(
   return {
     ...current,
     selectedTagIds: nextTagIds,
+  };
+}
+
+function selectStoryTag(
+  current: StorySettingsValues,
+  tag: StoryTag,
+  groupedTags: Record<string, StoryTag[]>,
+) {
+  const categoryTags = groupedTags[tag.category ?? "other"] ?? [];
+
+  return {
+    ...current,
+    selectedTagIds: replaceCategoryTagIds(current.selectedTagIds, categoryTags, [tag.id]),
   };
 }
 

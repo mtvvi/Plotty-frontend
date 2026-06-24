@@ -35,6 +35,7 @@ export function StoryTagLinkChip({
   return (
     <Link
       href={getStoryTagHref(tag)}
+      prefetch={false}
       aria-label={`Фильтр: ${tag.name}`}
       title={`Показать истории с тегом «${tag.name}»`}
       className="pointer-events-auto relative z-30 rounded-[var(--plotty-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)]"

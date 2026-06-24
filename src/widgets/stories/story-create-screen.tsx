@@ -169,7 +169,7 @@ export function StoryCreateScreen() {
       title={
         <span className="inline-flex items-end gap-2">
           Авторская мастерская
-          <span className="plotty-feather">✒</span>
+          <PenLine className="plotty-workshop-title-icon" strokeWidth={2.35} aria-hidden="true" focusable="false" />
         </span>
       }
       description="Создавайте, редактируйте и развивайте свои истории."
@@ -198,7 +198,7 @@ export function StoryCreateScreen() {
                   className="min-h-11 rounded-none border-0 bg-transparent px-0 shadow-none focus:border-transparent focus:shadow-none focus-visible:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
-              <div className="plotty-scroll-panel plotty-workshop-story-list space-y-3">
+              <div className="plotty-scroll-panel plotty-workshop-story-list space-y-2 lg:space-y-3">
                 {visibleStories.map((story) => {
                   const isSelected = selectedStorySlug === story.slug;
 
@@ -247,6 +247,7 @@ export function StoryCreateScreen() {
                   imageUrl={selectedStoryDisplayCover}
                   compact
                   enableLightbox
+                  priority
                   className="lg:aspect-square"
                 />
                 <div className="space-y-4">
@@ -258,17 +259,13 @@ export function StoryCreateScreen() {
                   </div>
 
                   <Surface variant="subtle" className="space-y-3 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="plotty-label">Теги, жанры и предупреждения</div>
-                        <p className="plotty-meta">Здесь настраиваются фандом, рейтинг, статус, жанры и предупреждения.</p>
-                      </div>
+                    <StoryTagsByCategory tags={selectedStoryQuery.data.tags} />
+                    <div className="flex justify-start">
                       <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary" size="sm">
                         <Settings className="size-4" aria-hidden="true" />
-                        Редактировать теги
+                        Редактировать
                       </ButtonLink>
                     </div>
-                    <StoryTagsByCategory tags={selectedStoryQuery.data.tags} />
                   </Surface>
 
                   <div className="flex flex-wrap gap-3">
@@ -279,10 +276,6 @@ export function StoryCreateScreen() {
                     <ButtonLink href={routes.story(selectedStoryQuery.data.slug)} variant="secondary">
                       <BookOpen className="size-4" aria-hidden="true" />
                       Открыть историю
-                    </ButtonLink>
-                    <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary">
-                      <Settings className="size-4" aria-hidden="true" />
-                      Редактировать теги
                     </ButtonLink>
                   </div>
                 </div>
@@ -389,10 +382,6 @@ export function StoryCreateScreen() {
                     Редактировать последнюю главу
                   </ButtonLink>
                 ) : null}
-                <ButtonLink href={routes.storySettings(selectedStoryQuery.data.id)} variant="secondary" className="w-full justify-start">
-                  <Settings className="size-4" aria-hidden="true" />
-                  Редактировать теги
-                </ButtonLink>
               </>
             ) : null}
           </div>
@@ -415,29 +404,15 @@ function StorySidebarItem({
   selectedStoryDisplayCover?: string | null;
   onSelect: (slug: string) => void;
 }) {
-  const storyDetailsQuery = useQuery({
-    ...storyDetailsQueryOptions(story.slug),
-    enabled: Boolean(story.slug && !story.coverImageUrl),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
-  const firstChapterId = storyDetailsQuery.data?.chapters[0]?.id ?? "";
-  const firstChapterQuery = useQuery({
-    ...chapterDetailsQueryOptions(firstChapterId),
-    enabled: Boolean(firstChapterId && !story.coverImageUrl),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
   const sidebarCoverImage = getSidebarStoryCoverImageUrl({
     story,
     selectedStorySlug,
     selectedStoryDisplayCover,
-    storyFirstChapterImageUrl: firstChapterQuery.data?.imageUrl,
   });
 
   return (
     <article
-      className={`plotty-lift-panel grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-[var(--plotty-radius-md)] border p-2.5 transition-[background-color,border-color,box-shadow,transform] duration-150 ${
+      className={`plotty-lift-panel plotty-workshop-story-card grid rounded-[var(--plotty-radius-md)] border transition-[background-color,border-color,box-shadow,transform] duration-150 ${
         isSelected
           ? "border-[rgba(195,79,50,0.22)] bg-[var(--plotty-accent-wash)] shadow-[0_12px_28px_rgba(195,79,50,0.08)]"
           : "border-[var(--plotty-line)] bg-[rgba(255,253,249,0.68)] hover:-translate-y-[1px] hover:bg-[var(--plotty-paper-strong)]"
@@ -453,17 +428,17 @@ function StorySidebarItem({
           title={story.title}
           imageUrl={sidebarCoverImage}
           compact
-          className="aspect-square rounded-[12px]"
+          className="plotty-workshop-story-cover aspect-square"
           imageClassName="h-full"
         />
       </button>
       <button type="button" onClick={() => onSelect(story.slug)} className="min-w-0 text-left">
-        <div className="plotty-card-title line-clamp-3 break-words text-[1.04rem] leading-5">{story.title}</div>
-        <div className="mt-1 text-xs text-[var(--plotty-muted)]">
+        <div className="plotty-card-title plotty-workshop-story-title line-clamp-2 break-words lg:line-clamp-3">{story.title}</div>
+        <div className="plotty-workshop-story-date text-xs text-[var(--plotty-muted)]">
           Обновлена {new Date(story.updatedAt).toLocaleDateString("ru-RU")}
         </div>
         {story.statusLabel ? (
-          <span className="mt-2 inline-flex rounded-full bg-[var(--plotty-olive-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--plotty-olive)]">
+          <span className="plotty-workshop-story-status inline-flex rounded-full bg-[var(--plotty-olive-soft)] font-semibold leading-4 text-[var(--plotty-olive)]">
             {story.statusLabel}
           </span>
         ) : null}

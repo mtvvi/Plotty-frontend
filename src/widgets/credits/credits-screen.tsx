@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Coins, CreditCard, RefreshCw } from "lucide-react";
 
@@ -18,10 +18,12 @@ import {
 } from "@/entities/credits/model/credit-utils";
 import type { CreditPackage, CreditTransaction } from "@/entities/credits/model/types";
 import { isApiError } from "@/shared/api/fetch-json";
+import { useRafCounter } from "@/shared/lib/raf-counter";
 import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, Surface } from "@/shared/ui/card";
+import { Chip } from "@/shared/ui/chip";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { AnimatedList, AnimatedTabPanel, AsyncJobStatus } from "@/shared/ui/motion";
 import { SegmentedControl, TabButton } from "@/shared/ui/tabs";
@@ -48,48 +50,64 @@ export function CreditsScreen() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<CreditsTab>("packages");
   const [purchaseError, setPurchaseError] = useState("");
-  const [isReturnPolling, setIsReturnPolling] = useState(true);
+  const [isReturnPolling, setIsReturnPolling] = useState(hasCreditReturnMarker);
+  const transactionsEnabled = activeTab === "transactions";
 
   const balanceQuery = useQuery(
     creditBalanceQueryOptions({ refetchInterval: isReturnPolling ? 3_000 : false }),
   );
   const packagesQuery = useQuery(creditPackagesQueryOptions());
   const transactionsQuery = useQuery(
-    creditTransactionsQueryOptions({ refetchInterval: isReturnPolling ? 3_000 : false }),
+    creditTransactionsQueryOptions({
+      enabled: transactionsEnabled,
+      refetchInterval: isReturnPolling && transactionsEnabled ? 3_000 : false,
+    }),
   );
   const purchaseMutation = useMutation({
     mutationFn: initiateCreditPurchase,
   });
 
   useEffect(() => {
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: creditsKeys.balance() }),
-      queryClient.invalidateQueries({ queryKey: creditsKeys.transactions() }),
-    ]);
+    if (!isReturnPolling) {
+      return;
+    }
+
+    void queryClient.invalidateQueries({ queryKey: creditsKeys.balance() });
+
+    if (transactionsEnabled) {
+      void queryClient.invalidateQueries({ queryKey: creditsKeys.transactions() });
+    }
 
     const timeout = window.setTimeout(() => setIsReturnPolling(false), 20_000);
 
     return () => window.clearTimeout(timeout);
-  }, [queryClient]);
+  }, [isReturnPolling, queryClient, transactionsEnabled]);
 
   const packages = useMemo(() => packagesQuery.data ?? [], [packagesQuery.data]);
   const transactions = transactionsQuery.data ?? [];
   const balance = balanceQuery.data?.balance;
   const bestPackageId = useMemo(() => getBestPackageId(packages), [packages]);
-  const hasCreditsData = Boolean(balanceQuery.data || transactionsQuery.data);
+  const hasCreditsData = Boolean(balanceQuery.data || (transactionsEnabled && transactionsQuery.data));
   const creditFeedbackStatus = purchaseError
     ? "failed"
     : purchaseMutation.isPending
       ? "processing"
-      : hasCreditsData && (isReturnPolling || balanceQuery.isFetching || transactionsQuery.isFetching)
+      : hasCreditsData && (isReturnPolling || balanceQuery.isFetching || (transactionsEnabled && transactionsQuery.isFetching))
         ? "processing"
         : "idle";
 
   async function refreshCredits() {
-    await Promise.all([
+    setIsReturnPolling(true);
+
+    const refreshes = [
       queryClient.invalidateQueries({ queryKey: creditsKeys.balance() }),
-      queryClient.invalidateQueries({ queryKey: creditsKeys.transactions() }),
-    ]);
+    ];
+
+    if (transactionsEnabled) {
+      refreshes.push(queryClient.invalidateQueries({ queryKey: creditsKeys.transactions() }));
+    }
+
+    await Promise.all(refreshes);
   }
 
   async function handlePurchase(pkg: CreditPackage) {
@@ -107,7 +125,11 @@ export function CreditsScreen() {
     <PlottyPageShell
       pageTitle="Кредиты"
       pageActions={
-        <Button variant="secondary" onClick={refreshCredits} isLoading={balanceQuery.isFetching || transactionsQuery.isFetching}>
+        <Button
+          variant="secondary"
+          onClick={refreshCredits}
+          isLoading={balanceQuery.isFetching || (transactionsEnabled && transactionsQuery.isFetching)}
+        >
           <RefreshCw className="size-4" aria-hidden="true" />
           Обновить
         </Button>
@@ -119,7 +141,7 @@ export function CreditsScreen() {
         <AsyncJobStatus
           status={creditFeedbackStatus}
           label={purchaseError ? "Не удалось начать оплату" : purchaseMutation.isPending ? "Открываем оплату" : "Обновляем баланс"}
-          description={purchaseMutation.isPending ? "Готовим ссылку на платежную страницу." : "Проверяем последние операции и доступный баланс."}
+          description={purchaseMutation.isPending ? "Готовим ссылку на платежную страницу." : "Проверяем доступный баланс."}
           error={purchaseError || undefined}
         />
 
@@ -166,6 +188,12 @@ export function CreditsScreen() {
 }
 
 function BalanceSummary({ balance, isLoading }: { balance?: number; isLoading: boolean }) {
+  const balanceRef = useRef<HTMLDivElement | null>(null);
+  const numericBalance = typeof balance === "number" && !isLoading ? balance : null;
+  const formatBalance = useCallback((value: number) => formatCreditsAmount(value), []);
+
+  useRafCounter(balanceRef, numericBalance, formatBalance);
+
   return (
     <Card variant="default" className="p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -173,13 +201,29 @@ function BalanceSummary({ balance, isLoading }: { balance?: number; isLoading: b
           <div className="plotty-kicker">Баланс</div>
           <div className="flex items-center gap-3">
             <Coins className="size-7 text-[var(--plotty-accent)]" aria-hidden="true" />
-            <div className="text-3xl font-semibold text-[var(--plotty-ink)]">
+            <div
+              ref={balanceRef}
+              data-raf-counter="credits-balance"
+              className="text-3xl font-semibold text-[var(--plotty-ink)]"
+            >
               {isLoading ? "..." : formatCreditsAmount(balance ?? 0)}
             </div>
           </div>
         </div>
       </div>
     </Card>
+  );
+}
+
+function hasCreditReturnMarker() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+
+  return ["payment", "checkout", "orderId", "status", "success", "cancel", "canceled"].some((key) =>
+    params.has(key),
   );
 }
 
@@ -202,7 +246,7 @@ function CreditPackageCard({
             <div className="text-2xl font-semibold text-[var(--plotty-ink)]">{formatCreditsAmount(pkg.credits)}</div>
             <p className="plotty-meta">Пакет #{pkg.id}</p>
           </div>
-          {isBestValue ? <Badge tone="gold">Выгоднее</Badge> : null}
+          {isBestValue ? <Chip tone="gold">Выгоднее</Chip> : null}
         </div>
         <div className="text-xl font-semibold text-[var(--plotty-accent)]">{formatCreditPrice(pkg.priceKopecks)}</div>
       </div>

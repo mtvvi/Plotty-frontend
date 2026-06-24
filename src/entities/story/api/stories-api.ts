@@ -1,12 +1,15 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 
-import { fetchJson, isApiError } from "@/shared/api/fetch-json";
+import { fetchJson } from "@/shared/api/fetch-json";
+import { encodePathSegment, sanitizePersistedImageUrl } from "@/shared/lib/safe-url";
 
+import { normalizeCanonCheckResult } from "./canon-check-result";
 import { getTagName, mapStoryListItem, type BackendStoriesResponse } from "./story-mappers";
 import { serializeStoriesQuery } from "../model/story-query";
 import type {
   AiJobAccepted,
   AiJobResponse,
+  CanonCheckPayload,
   CanonCheckResult,
   ChapterDetails,
   ChaptersViewedResponse,
@@ -28,6 +31,7 @@ import type {
   StoryListItem,
   StoryTag,
   StoryTagsResponse,
+  UpdateStoryCommentPayload,
   UpdateChapterPayload,
   UpdateStoryPayload,
 } from "../model/types";
@@ -45,9 +49,11 @@ interface BackendStory {
 interface BackendStoryDetails extends BackendStory {
   tags?: StoryTag[];
   aiHint?: string;
+  description?: string;
   status?: StoryDetails["status"];
   likesCount?: number;
   likedByMe?: boolean;
+  coverUrl?: string | null;
   coverImageUrl?: string | null;
   author?: {
     id: number;
@@ -79,6 +85,7 @@ interface BackendChapterDetails {
   imageUrl?: string;
   storySlug?: string;
   storyTitle?: string;
+  storyTags?: StoryTag[];
 }
 
 interface BackendChapterComment {
@@ -161,9 +168,15 @@ function mapStoryDetails(item: BackendStoryDetails): StoryDetails {
     sizeLabel: getTagName(tags, "size"),
     likesCount: item.likesCount,
     aiHint: item.aiHint,
+    description: item.description,
     viewerHasLiked: item.likedByMe,
-    author: item.author,
-    coverImageUrl: item.coverImageUrl ?? null,
+    author: item.author
+      ? {
+          ...item.author,
+          avatarUrl: sanitizePersistedImageUrl(item.author.avatarUrl) ?? null,
+        }
+      : item.author,
+    coverImageUrl: sanitizePersistedImageUrl(item.coverImageUrl ?? item.coverUrl) ?? null,
   };
 }
 
@@ -191,9 +204,10 @@ function mapChapterDetails(item: BackendChapterDetails): ChapterDetails {
     publishedContent,
     publishedUpdatedAt: item.publishedUpdatedAt ?? (status === "published" ? item.updatedAt : null),
     number: item.number,
-    imageUrl: item.imageUrl,
+    imageUrl: sanitizePersistedImageUrl(item.imageUrl),
     storySlug: item.storySlug,
     storyTitle: item.storyTitle,
+    storyTags: item.storyTags ?? [],
     wordCount: countWords(item.content),
   };
 }
@@ -210,7 +224,7 @@ function mapChapterComment(comment: BackendChapterComment, storyId: string): Sto
       id: author?.id ?? comment.userId ?? 0,
       username,
       email: author?.email ?? "",
-      avatarUrl: author?.avatarUrl ?? comment.avatarUrl,
+      avatarUrl: sanitizePersistedImageUrl(author?.avatarUrl ?? comment.avatarUrl) ?? null,
     },
     content: comment.content,
     createdAt: comment.createdAt,
@@ -223,12 +237,13 @@ function enrichChapterDetails(chapter: BackendChapterDetails, story: StoryDetail
   const mappedChapter = mapChapterDetails(chapter);
   const storyChapter = story.chapters.find((item) => item.id === chapter.id);
   const chapterTitle = mappedChapter.draftTitle ?? mappedChapter.title;
+  const storyTags = story.tags.length ? story.tags : mappedChapter.storyTags;
 
   return {
     ...mappedChapter,
     storySlug: story.slug,
     storyTitle: story.title,
-    storyTags: story.tags,
+    storyTags,
     storyChapters: story.chapters.map((item) =>
       item.id === chapter.id ? { ...item, title: chapterTitle, status: mappedChapter.status ?? item.status } : item,
     ),
@@ -254,8 +269,17 @@ async function fetchMyStoriesPage(query: StoriesQuery, signal?: AbortSignal) {
   return fetchJson<BackendStoriesResponse>(appendQueryString("/stories/mine", params), { signal });
 }
 
+export async function fetchMyStories(query: StoriesQuery, signal?: AbortSignal): Promise<StoriesResponse> {
+  const response = await fetchMyStoriesPage(query, signal);
+
+  return {
+    items: response.items.map(mapStoryListItem),
+    pagination: response.pagination,
+  };
+}
+
 async function fetchStoryDetails(slug: string) {
-  const story = await fetchJson<BackendStoryDetails>(`/stories/${slug}`);
+  const story = await fetchJson<BackendStoryDetails>(`/stories/${encodePathSegment(slug)}`);
 
   return mapStoryDetails(story);
 }
@@ -311,14 +335,7 @@ export function myStoriesQueryOptions(query: StoriesQuery, options?: { userId?: 
 
   return queryOptions({
     queryKey: [...storyKeys.list(query), "mine", userKey] as const,
-    queryFn: async ({ signal }): Promise<StoriesResponse> => {
-      const response = await fetchMyStoriesPage(query, signal);
-
-      return {
-        items: response.items.map(mapStoryListItem),
-        pagination: response.pagination,
-      };
-    },
+    queryFn: ({ signal }): Promise<StoriesResponse> => fetchMyStories(query, signal),
     enabled: Boolean(options?.userId),
   });
 }
@@ -343,7 +360,9 @@ export function storyDetailsByIdQueryOptions(storyId: string, options?: { scope?
 async function fetchChapterCommentsPage(chapterId: string) {
   const params = new URLSearchParams({ page: "1", pageSize: "100" });
 
-  return fetchJson<{ items: BackendChapterComment[] }>(`/chapters/${chapterId}/comments?${params.toString()}`);
+  return fetchJson<{ items: BackendChapterComment[] }>(
+    `/chapters/${encodePathSegment(chapterId)}/comments?${params.toString()}`,
+  );
 }
 
 export function chapterCommentsQueryOptions(storyId: string, chapterId: string) {
@@ -363,7 +382,7 @@ export function chapterCommentsQueryOptions(storyId: string, chapterId: string) 
 export function chapterDetailsQueryOptions(chapterId: string) {
   return queryOptions({
     queryKey: storyKeys.chapter(chapterId),
-    queryFn: async () => mapChapterDetails(await fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`)),
+    queryFn: async () => mapChapterDetails(await fetchJson<BackendChapterDetails>(`/chapters/${encodePathSegment(chapterId)}`)),
     enabled: Boolean(chapterId),
   });
 }
@@ -371,7 +390,7 @@ export function chapterDetailsQueryOptions(chapterId: string) {
 export function chaptersViewedQueryOptions(slug: string) {
   return queryOptions({
     queryKey: storyKeys.chaptersViewed(slug),
-    queryFn: () => fetchJson<ChaptersViewedResponse>(`/stories/${slug}/chapters/viewed`),
+    queryFn: () => fetchJson<ChaptersViewedResponse>(`/stories/${encodePathSegment(slug)}/chapters/viewed`),
     enabled: Boolean(slug),
   });
 }
@@ -379,13 +398,13 @@ export function chaptersViewedQueryOptions(slug: string) {
 export function chapterViewedQueryOptions(chapterId: string) {
   return queryOptions({
     queryKey: storyKeys.chapterViewed(chapterId),
-    queryFn: () => fetchJson<{ viewed: boolean }>(`/chapters/${chapterId}/viewed`),
+    queryFn: () => fetchJson<{ viewed: boolean }>(`/chapters/${encodePathSegment(chapterId)}/viewed`),
     enabled: Boolean(chapterId),
   });
 }
 
 export function markChapterViewed(chapterId: string) {
-  return fetchJson<null>(`/chapters/${chapterId}/view`, {
+  return fetchJson<null>(`/chapters/${encodePathSegment(chapterId)}/view`, {
     method: "POST",
   });
 }
@@ -393,7 +412,7 @@ export function markChapterViewed(chapterId: string) {
 export function chapterWikiQueryOptions(chapterId: string, options?: { enabled?: boolean }) {
   return queryOptions({
     queryKey: storyKeys.chapterWiki(chapterId),
-    queryFn: () => fetchJson<ChapterWiki>(`/chapters/${chapterId}/wiki`),
+    queryFn: () => fetchJson<ChapterWiki>(`/chapters/${encodePathSegment(chapterId)}/wiki`),
     enabled: Boolean(chapterId) && (options?.enabled ?? true),
   });
 }
@@ -403,7 +422,7 @@ export function chapterEditorDetailsQueryOptions(storyId: string, chapterId: str
     queryKey: storyKeys.chapterEditor(storyId, chapterId),
     queryFn: async () => {
       const [chapter, story] = await Promise.all([
-        fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`),
+        fetchJson<BackendChapterDetails>(`/chapters/${encodePathSegment(chapterId)}`),
         fetchStoryDetailsById(storyId, "mine"),
       ]);
 
@@ -413,14 +432,20 @@ export function chapterEditorDetailsQueryOptions(storyId: string, chapterId: str
   });
 }
 
-export function aiJobQueryOptions<TResult>(jobId: string) {
+export function aiJobQueryOptions<TResult>(jobId: string, options?: { mapResult?: (result: unknown) => TResult }) {
   return queryOptions({
     queryKey: aiKeys.job(jobId),
     queryFn: async () => {
-      const response = await fetchJson<AiJobResponse<TResult>>(`/ai/jobs/${jobId}`);
+      const response = await fetchJson<AiJobResponse<unknown>>(`/ai/jobs/${encodePathSegment(jobId)}`);
 
       return {
         ...response,
+        result:
+          response.result === undefined
+            ? undefined
+            : options?.mapResult
+              ? options.mapResult(response.result)
+              : (response.result as TResult),
         errorMessage: response.errorMessage ?? response.error,
       };
     },
@@ -449,88 +474,52 @@ export function updateStory(storyId: string, payload: UpdateStoryPayload) {
     body.tagIds = payload.tagIds;
   }
 
-  return fetchJson<BackendStoryMutationResponse>(`/stories/${storyId}`, {
+  return fetchJson<BackendStoryMutationResponse>(`/stories/${encodePathSegment(storyId)}`, {
     method: "PATCH",
     body: JSON.stringify(body),
   }).then((story) => fetchStoryDetails(story.slug));
 }
 
 export function deleteStory(storyId: string) {
-  return fetchJson<null>(`/stories/${storyId}`, {
+  return fetchJson<null>(`/stories/${encodePathSegment(storyId)}`, {
     method: "DELETE",
   });
 }
 
 export function createChapter(storyId: string, payload: CreateChapterPayload) {
-  return fetchJson<BackendChapterDetails>(`/stories/${storyId}/chapters`, {
+  return fetchJson<BackendChapterDetails>(`/stories/${encodePathSegment(storyId)}/chapters`, {
     method: "POST",
     body: JSON.stringify(payload),
   }).then(mapChapterDetails);
 }
 
-type ChapterPatchBody = Partial<Pick<UpdateChapterPayload, "title" | "content" | "draftTitle" | "draftContent">>;
+export function updateChapter(chapterId: string, payload: UpdateChapterPayload) {
+  const title = payload.title.trim();
+  const content = payload.content.trim();
 
-function patchChapter(chapterId: string, body: ChapterPatchBody) {
-  return fetchJson<BackendChapterDetails>(`/chapters/${chapterId}`, {
+  return fetchJson<BackendChapterDetails>(`/chapters/${encodePathSegment(chapterId)}`, {
     method: "PATCH",
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      title,
+      content,
+    }),
   }).then(mapChapterDetails);
 }
 
-function shouldRetryChapterPatch(error: unknown) {
-  return isApiError(error) && (error.status === 400 || error.status === 422 || error.status === 500);
-}
-
-export async function updateChapter(chapterId: string, payload: UpdateChapterPayload) {
-  const title = payload.title.trim();
-  const content = payload.content.trim();
-  const draftTitle = payload.draftTitle ?? title;
-  const draftContent = payload.draftContent ?? content;
-  const fallbackBodies: ChapterPatchBody[] = [
-    { draftTitle, draftContent },
-    { title, content },
-  ];
-
-  try {
-    return await patchChapter(chapterId, {
-      title,
-      content,
-      draftTitle,
-      draftContent,
-    });
-  } catch (error) {
-    if (!shouldRetryChapterPatch(error)) {
-      throw error;
-    }
-  }
-
-  for (const body of fallbackBodies) {
-    try {
-      return await patchChapter(chapterId, body);
-    } catch (error) {
-      if (!shouldRetryChapterPatch(error)) {
-        throw error;
-      }
-    }
-  }
-
-  return patchChapter(chapterId, { title, content });
-}
-
 export function deleteChapter(chapterId: string) {
-  return fetchJson<null>(`/chapters/${chapterId}`, {
+  return fetchJson<null>(`/chapters/${encodePathSegment(chapterId)}`, {
     method: "DELETE",
   });
 }
 
 export function publishChapter(chapterId: string) {
-  return fetchJson<{ status: string }>(`/chapters/${chapterId}/publish`, {
+  return fetchJson<{ status: string }>(`/chapters/${encodePathSegment(chapterId)}/publish`, {
     method: "POST",
   });
 }
 
 export function likeStory(storyId: string) {
-  return fetchJson<{ likesCount: number; likedByMe: boolean }>(`/stories/${storyId}/like`, {
+  return fetchJson<{ likesCount: number; likedByMe: boolean }>(`/stories/${encodePathSegment(storyId)}/like`, {
     method: "POST",
   }).then((response) => ({
     likesCount: response.likesCount,
@@ -540,7 +529,7 @@ export function likeStory(storyId: string) {
 }
 
 export function unlikeStory(storyId: string) {
-  return fetchJson<{ likesCount: number; likedByMe: boolean }>(`/stories/${storyId}/like`, {
+  return fetchJson<{ likesCount: number; likedByMe: boolean }>(`/stories/${encodePathSegment(storyId)}/like`, {
     method: "DELETE",
   }).then((response) => ({
     likesCount: response.likesCount,
@@ -550,14 +539,21 @@ export function unlikeStory(storyId: string) {
 }
 
 export function addChapterComment(storyId: string, chapterId: string, payload: CreateStoryCommentPayload) {
-  return fetchJson<BackendChapterComment>(`/chapters/${chapterId}/comments`, {
+  return fetchJson<BackendChapterComment>(`/chapters/${encodePathSegment(chapterId)}/comments`, {
     method: "POST",
     body: JSON.stringify(payload),
   }).then((comment) => mapChapterComment(comment, storyId));
 }
 
+export function updateStoryComment(storyId: string, commentId: string, payload: UpdateStoryCommentPayload) {
+  return fetchJson<BackendChapterComment>(`/comments/${commentId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  }).then((comment) => mapChapterComment(comment, storyId));
+}
+
 export function deleteStoryComment(commentId: string) {
-  return fetchJson<null>(`/comments/${commentId}`, {
+  return fetchJson<null>(`/comments/${encodePathSegment(commentId)}`, {
     method: "DELETE",
   });
 }
@@ -576,9 +572,18 @@ export function startLogicCheck(payload: SpellcheckPayload) {
   });
 }
 
-export function startCanonCheck(chapterId: string) {
-  return fetchJson<AiJobAccepted>(`/chapters/${chapterId}/canon-check`, {
+export function startCanonCheck(chapterId: string, payload?: Omit<CanonCheckPayload, "chapterId">) {
+  const body = payload
+    ? JSON.stringify({
+        chapterId,
+        title: payload.title?.trim(),
+        content: payload.content.trim(),
+      })
+    : undefined;
+
+  return fetchJson<AiJobAccepted>(`/chapters/${encodePathSegment(chapterId)}/canon-check`, {
     method: "POST",
+    ...(body ? { body } : {}),
   });
 }
 
@@ -621,3 +626,4 @@ export type SpellcheckJobResponse = AiJobResponse<SpellcheckResult>;
 export type LogicCheckJobResponse = AiJobResponse<LogicCheckResult>;
 export type CanonCheckJobResponse = AiJobResponse<CanonCheckResult>;
 export type ImageGenerationJobResponse = AiJobResponse<ImageGenerationResult>;
+export { normalizeCanonCheckResult };

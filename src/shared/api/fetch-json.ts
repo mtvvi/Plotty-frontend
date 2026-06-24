@@ -19,16 +19,27 @@ function withoutIncompatibleAbortSignal(init: RequestInit): RequestInit {
 }
 
 export interface ApiFieldError {
+  code?: string;
   field: string;
   message: string;
 }
+
+export type ApiValidationError = string | ApiFieldError | { code?: string; field?: string; message?: string; msg?: string };
 
 export interface ApiErrorPayload {
   error?: string;
   message?: string;
   detail?: unknown;
   code?: string;
-  errors?: ApiFieldError[];
+  errors?: ApiValidationError[];
+}
+
+function getConfiguredDirectApiUrl() {
+  if (process.env.NODE_ENV === "production") {
+    return "";
+  }
+
+  return process.env.NEXT_PUBLIC_API_URL || "";
 }
 
 export class ApiError extends Error {
@@ -43,9 +54,9 @@ export class ApiError extends Error {
   }
 }
 
-export function resolveApiInput(input: string, directApiUrl = process.env.NEXT_PUBLIC_API_URL || "") {
+export function resolveApiInput(input: string, directApiUrl = getConfiguredDirectApiUrl()) {
   if (/^https?:\/\//.test(input)) {
-    return input;
+    throw new Error("Absolute API URLs are not allowed");
   }
 
   const path = input.startsWith("/") ? input : `/${input}`;
@@ -135,14 +146,17 @@ function getPayloadMessage(value: unknown, depth = 0): string | undefined {
 
 export async function fetchJson<T>(input: string, init?: RequestInit) {
   const url = resolveApiInput(input);
+  const headers = new Headers(init?.headers);
+
+  if (init?.body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
   const requestInit = withoutIncompatibleAbortSignal({
     cache: "no-store",
     credentials: "include",
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   const response = await fetch(url, requestInit);

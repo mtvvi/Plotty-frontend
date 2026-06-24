@@ -1,10 +1,15 @@
 import type { AuthSessionResponse, AuthUser, LoginPayload, RegisterPayload, UpdateProfilePayload } from "@/entities/auth/model/types";
 
+import { getCreditBalance } from "./stories";
+
 interface MockAuthDb {
-  users: Array<AuthUser & { password: string }>;
+  users: MockAuthUser[];
   currentUserId: number | null;
   nextId: number;
 }
+
+type MockAuthUser = AuthUser & { password: string };
+const mockAuthUserIdStorageKey = "plotty:mock-auth-user-id";
 
 function createInitialDb(): MockAuthDb {
   return {
@@ -15,6 +20,7 @@ function createInitialDb(): MockAuthDb {
         username: "writer",
         password: "password123",
         avatar_url: null,
+        isAdmin: true,
         created_at: "2026-03-01T10:00:00.000Z",
         updated_at: "2026-03-01T10:00:00.000Z",
       },
@@ -26,14 +32,56 @@ function createInitialDb(): MockAuthDb {
 
 let db = createInitialDb();
 
+function readStoredCurrentUserId() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const rawValue = window.localStorage.getItem(mockAuthUserIdStorageKey);
+  const userId = rawValue ? Number(rawValue) : NaN;
+
+  return Number.isFinite(userId) ? userId : null;
+}
+
+function setCurrentUserId(userId: number | null) {
+  db.currentUserId = userId;
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (userId === null) {
+    window.localStorage.removeItem(mockAuthUserIdStorageKey);
+    return;
+  }
+
+  window.localStorage.setItem(mockAuthUserIdStorageKey, String(userId));
+}
+
+function getCurrentUserId() {
+  return db.currentUserId ?? readStoredCurrentUserId();
+}
+
+function toAuthSession(user: MockAuthUser): AuthSessionResponse {
+  const { password: _password, ...authUser } = user;
+
+  return {
+    user: {
+      ...authUser,
+      credits: getCreditBalance(user.id).balance,
+    },
+  };
+}
+
 export function resetMockAuthDb() {
   db = createInitialDb();
+  setCurrentUserId(null);
 }
 
 export function getMockSession(): AuthSessionResponse | null {
-  const user = db.users.find((item) => item.id === db.currentUserId);
+  const user = db.users.find((item) => item.id === getCurrentUserId());
 
-  return user ? { user } : null;
+  return user ? toAuthSession(user) : null;
 }
 
 export function loginMockUser(payload: LoginPayload): AuthSessionResponse | null {
@@ -43,9 +91,9 @@ export function loginMockUser(payload: LoginPayload): AuthSessionResponse | null
     return null;
   }
 
-  db.currentUserId = user.id;
+  setCurrentUserId(user.id);
 
-  return { user };
+  return toAuthSession(user);
 }
 
 export function registerMockUser(payload: RegisterPayload) {
@@ -54,25 +102,26 @@ export function registerMockUser(payload: RegisterPayload) {
   }
 
   const timestamp = new Date().toISOString();
-  const user: AuthUser & { password: string } = {
+  const user: MockAuthUser = {
     id: db.nextId,
     email: payload.email,
     username: payload.email.split("@")[0],
     password: payload.password,
     avatar_url: null,
+    isAdmin: false,
     created_at: timestamp,
     updated_at: timestamp,
   };
 
   db.nextId += 1;
-  db.currentUserId = user.id;
+  setCurrentUserId(user.id);
   db.users.push(user);
 
-  return { user };
+  return toAuthSession(user);
 }
 
 export function logoutMockUser() {
-  db.currentUserId = null;
+  setCurrentUserId(null);
 }
 
 export function updateMockUserProfile(payload: UpdateProfilePayload): AuthSessionResponse | { error: string } {
@@ -87,5 +136,5 @@ export function updateMockUserProfile(payload: UpdateProfilePayload): AuthSessio
   user.username = payload.username.trim();
   user.updated_at = timestamp;
 
-  return { user };
+  return toAuthSession(user);
 }

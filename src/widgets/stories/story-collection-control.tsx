@@ -34,10 +34,12 @@ export function StoryCollectionControl({
   storyId,
   className,
   compact = false,
+  initialCollectionIds = [],
 }: {
   storyId: string;
   className?: string;
   compact?: boolean;
+  initialCollectionIds?: readonly string[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -49,13 +51,14 @@ export function StoryCollectionControl({
   const [titleDraft, setTitleDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
-  const collectionsQuery = useQuery(myCollectionDetailsQueryOptions({ enabled: isAuthenticated }));
+  const collectionsQuery = useQuery(myCollectionDetailsQueryOptions({ enabled: isAuthenticated && popover.open }));
   const collections = useMemo(() => collectionsQuery.data ?? [], [collectionsQuery.data]);
   const containingCollections = useMemo(
     () => collections.filter((collection) => collection.stories.some((story) => story.id === storyId)),
     [collections, storyId],
   );
-  const selectedCount = containingCollections.length;
+  const initialSelectedCount = useMemo(() => new Set(initialCollectionIds).size, [initialCollectionIds]);
+  const selectedCount = collectionsQuery.data ? containingCollections.length : initialSelectedCount;
   const membershipMutation = useMutation({
     mutationFn: ({ collectionId, selected }: { collectionId: string; selected: boolean }) =>
       selected ? removeStoryFromCollection(collectionId, storyId) : addStoryToCollection(collectionId, storyId),
@@ -148,10 +151,10 @@ export function StoryCollectionControl({
   return (
     <div ref={popover.triggerRef} className={cn("relative w-full min-w-0", compact ? "" : "max-w-[18rem] space-y-1.5", className)}>
       {compact ? null : <span className="plotty-kicker">Подборки</span>}
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] overflow-hidden rounded-[16px] border border-[rgba(41,38,34,0.1)] bg-white/88 shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] hover:-translate-y-px hover:border-[rgba(195,79,50,0.18)] hover:shadow-[0_12px_28px_rgba(58,43,27,0.08)]">
+      <div className="plotty-collection-control-tone grid min-w-0 grid-cols-[minmax(0,1fr)_2.5rem] overflow-hidden rounded-[16px] border shadow-[0_8px_24px_rgba(46,35,23,0.05)] transition-[border-color,box-shadow,transform] duration-[var(--motion-base)] hover:-translate-y-px hover:shadow-[0_12px_28px_rgba(58,43,27,0.08)]">
         <button
           type="button"
-          className="plotty-button-label flex min-h-[42px] min-w-0 items-center gap-2 overflow-hidden px-3 text-left text-[var(--plotty-ink)] disabled:opacity-60"
+          className="plotty-button-label flex min-h-[42px] min-w-0 items-center gap-2 overflow-hidden px-3 text-left text-current transition-colors hover:bg-[var(--plotty-hover)] disabled:opacity-60"
           onClick={handleToggleOpen}
           disabled={busy}
           title={selectedCount ? "Открыть подборки" : "Добавить историю в подборку"}
@@ -166,7 +169,7 @@ export function StoryCollectionControl({
           aria-expanded={popover.open}
           onClick={handleToggleOpen}
           disabled={busy}
-          className="flex min-h-[42px] items-center justify-center border-l border-[rgba(41,38,34,0.1)] text-[var(--plotty-muted)] transition-colors hover:bg-white disabled:opacity-60"
+          className="flex min-h-[42px] items-center justify-center border-l border-[var(--plotty-line)] text-current transition-colors hover:bg-[var(--plotty-hover)] disabled:opacity-60"
         >
           <span className={cn("transition-transform duration-[var(--motion-base)]", popover.open && "rotate-180")} aria-hidden="true">
             ▾

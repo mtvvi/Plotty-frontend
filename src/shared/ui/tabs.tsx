@@ -90,7 +90,7 @@ export function TabButton({ className, isActive, ...props }: TabButtonProps) {
         "plotty-tab-button relative z-10 rounded-[calc(var(--plotty-radius-md)-4px)] px-4 py-2.5 text-sm font-semibold transition-[background-color,color,box-shadow,transform] duration-[var(--motion-base)] ease-[var(--ease-out-soft)] hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--plotty-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--plotty-paper)] disabled:pointer-events-none disabled:translate-y-0 disabled:scale-100 disabled:opacity-60",
         isActive
           ? "bg-[var(--plotty-accent)] text-white shadow-[0_8px_18px_rgba(188,95,61,0.16)]"
-          : "bg-transparent text-[var(--plotty-muted)] hover:bg-white/70 hover:text-[var(--plotty-ink)]",
+          : "bg-transparent text-[var(--plotty-muted)] hover:bg-[var(--plotty-hover)] hover:text-[var(--plotty-ink)]",
         className,
       )}
       data-active={isActive ? "true" : undefined}

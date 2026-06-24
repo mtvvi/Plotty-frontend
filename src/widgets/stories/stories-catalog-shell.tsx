@@ -26,9 +26,9 @@ import { StoryTagChip } from "./story-tag-chip";
 const multiSelectCategories = new Set(["rating", "completion", "size"]);
 const singleSelectCategories = new Set(["directionality"]);
 const searchDebounceMs = 300;
-const catalogFilterExitMs = 620;
+const catalogFilterExitMs = 260;
 type CatalogSort = StoriesSort | "popular-desc";
-type FilterMotionState = "expanded" | "collapsing" | "collapsed";
+type CatalogFiltersState = "expanded" | "collapsing" | "collapsed";
 
 const sortOptions: Array<{ value: CatalogSort; label: string }> = [
   { value: "popular-desc", label: "Популярное" },
@@ -55,12 +55,10 @@ export function StoriesCatalogShell() {
   const [searchDraft, setSearchDraft] = useState(appliedQuery.q);
   const [localSort, setLocalSort] = useState<CatalogSort>(appliedQuery.sort ?? defaultStoriesSort);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
-  const [filterMotionState, setFilterMotionState] = useState<FilterMotionState>("expanded");
+  const [filtersState, setFiltersState] = useState<CatalogFiltersState>("expanded");
   const lastRequestedSearchRef = useRef(appliedQuery.q);
-  const filterCollapseTimeoutRef = useRef<number | null>(null);
-  const filtersAreHiding = filterMotionState === "collapsing";
-  const filtersAreHidden = filtersCollapsed || filtersAreHiding;
+  const filtersCollapseTimeoutRef = useRef<number | null>(null);
+  const filtersAreHidden = filtersState !== "expanded";
 
   const navigateToQuery = useCallback(
     (nextQuery: StoriesQuery) => {
@@ -81,16 +79,13 @@ export function StoriesCatalogShell() {
     }
   }, [appliedQuery.q]);
 
-  const clearFilterCollapseTimeout = useCallback(() => {
-    if (filterCollapseTimeoutRef.current === null) {
-      return;
-    }
-
-    window.clearTimeout(filterCollapseTimeoutRef.current);
-    filterCollapseTimeoutRef.current = null;
+  useEffect(() => {
+    return () => {
+      if (filtersCollapseTimeoutRef.current !== null) {
+        window.clearTimeout(filtersCollapseTimeoutRef.current);
+      }
+    };
   }, []);
-
-  useEffect(() => () => clearFilterCollapseTimeout(), [clearFilterCollapseTimeout]);
 
   const normalizedSearchDraft = searchDraft.trim();
   const isSearchDirty = normalizedSearchDraft !== appliedQuery.q;
@@ -116,6 +111,7 @@ export function StoriesCatalogShell() {
   const pageHasOnlyDraftStories = (rawListItems?.length ?? 0) > 0 && catalogStories.length === 0;
   const hasInitialLoading = storiesQuery.isLoading && !storiesQuery.data;
   const appliedActiveTags = (tagsQuery.data?.items ?? []).filter((tag) => appliedQuery.tags.includes(tag.slug));
+  const hasAppliedFilters = Boolean(appliedQuery.q || appliedActiveTags.length);
 
   useEffect(() => {
     setLocalSort((current) => (current === "popular-desc" ? current : appliedQuery.sort ?? defaultStoriesSort));
@@ -177,20 +173,21 @@ export function StoriesCatalogShell() {
   }
 
   function toggleDesktopFilters() {
-    clearFilterCollapseTimeout();
+    if (filtersCollapseTimeoutRef.current !== null) {
+      window.clearTimeout(filtersCollapseTimeoutRef.current);
+      filtersCollapseTimeoutRef.current = null;
+    }
 
-    if (filtersCollapsed || filtersAreHiding) {
-      setFiltersCollapsed(false);
-      setFilterMotionState("expanded");
+    if (filtersState === "expanded") {
+      setFiltersState("collapsing");
+      filtersCollapseTimeoutRef.current = window.setTimeout(() => {
+        filtersCollapseTimeoutRef.current = null;
+        setFiltersState("collapsed");
+      }, catalogFilterExitMs);
       return;
     }
 
-    setFilterMotionState("collapsing");
-    setFiltersCollapsed(true);
-    filterCollapseTimeoutRef.current = window.setTimeout(() => {
-      setFilterMotionState("collapsed");
-      filterCollapseTimeoutRef.current = null;
-    }, catalogFilterExitMs);
+    setFiltersState("expanded");
   }
 
   function setSingleSelectTag(currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) {
@@ -267,39 +264,41 @@ export function StoriesCatalogShell() {
     >
       <div
         className="plotty-catalog-layout"
-        data-filters-collapsed={filtersCollapsed ? "true" : "false"}
-        data-filters-state={filterMotionState}
+        data-filters-collapsed={filtersState === "collapsed" ? "true" : "false"}
+        data-filters-state={filtersState}
       >
         <aside className="plotty-catalog-filter-rail hidden lg:block" aria-hidden={filtersAreHidden}>
-          <PlottySectionCard variant="sidebar" className="plotty-catalog-filter-card plotty-lift-panel sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.58)] p-4 shadow-none backdrop-blur-sm xl:p-5">
+          <PlottySectionCard variant="sidebar" className="plotty-catalog-filter-card sticky top-[7rem] space-y-5 bg-[rgba(255,250,244,0.82)] p-4 shadow-none xl:p-5">
             {filters}
           </PlottySectionCard>
         </aside>
 
         <section className="min-w-0 space-y-5">
-          <div className="flex flex-wrap items-center gap-2">
-            {appliedQuery.q ? (
-              <ActiveFilter label={`Поиск: ${appliedQuery.q}`} onClear={() => navigateToQuery({ ...appliedQuery, q: "", page: 1 })} />
-            ) : null}
-            {appliedActiveTags.map((tag) => (
-              <ActiveFilter
-                key={tag.id}
-                label={tag.name}
-                onClear={() =>
-                  navigateToQuery({
-                    ...appliedQuery,
-                    tags: appliedQuery.tags.filter((slug) => slug !== tag.slug),
-                    page: 1,
-                  })
-                }
-              />
-            ))}
-            {(appliedQuery.q || appliedActiveTags.length) && !hasInitialLoading ? (
-              <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearAppliedFilters}>
-                Очистить всё
-              </Button>
-            ) : null}
-          </div>
+          {hasAppliedFilters ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {appliedQuery.q ? (
+                <ActiveFilter label={`Поиск: ${appliedQuery.q}`} onClear={() => navigateToQuery({ ...appliedQuery, q: "", page: 1 })} />
+              ) : null}
+              {appliedActiveTags.map((tag) => (
+                <ActiveFilter
+                  key={tag.id}
+                  label={tag.name}
+                  onClear={() =>
+                    navigateToQuery({
+                      ...appliedQuery,
+                      tags: appliedQuery.tags.filter((slug) => slug !== tag.slug),
+                      page: 1,
+                    })
+                  }
+                />
+              ))}
+              {!hasInitialLoading ? (
+                <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearAppliedFilters}>
+                  Очистить всё
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
 
           {hasInitialLoading ? (
             <CatalogInitialLoading />
@@ -321,9 +320,9 @@ export function StoriesCatalogShell() {
             <AnimatedList
               items={catalogStories}
               getKey={(story) => story.id}
-              className="space-y-4"
+              className="plotty-catalog-story-list space-y-4"
               ariaLive="polite"
-              renderItem={(story) => <StoryCard story={story} showChapterActions={false} />}
+              renderItem={(story, index) => <StoryCard story={story} showChapterActions={false} priorityCover={index === 0} />}
             />
           ) : (
             <EmptyState

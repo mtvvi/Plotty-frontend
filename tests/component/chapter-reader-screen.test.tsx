@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 
@@ -30,6 +31,7 @@ describe("ChapterReaderScreen", () => {
 
     await waitFor(() => expect(screen.getByText("Комментарии к главе")).toBeInTheDocument());
 
+    expect(document.querySelector("[data-reader-progress='true']")).not.toBeNull();
     expect(screen.getByText(/Очень хорошо держится ритм/i)).toHaveClass("break-words", "whitespace-pre-wrap");
   });
 
@@ -42,5 +44,57 @@ describe("ChapterReaderScreen", () => {
 
     expect(screen.queryByText("Комментариев пока нет")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+  });
+
+  it("uses theme-aware surfaces for the chapter wiki drawer", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("*/chapters/:chapterId/wiki", () =>
+        HttpResponse.json({
+          characters: [{ name: "Санса Старк", state: "Первокурсница школы чародейства и волшебства Хогвартс." }],
+          locations: [],
+          items: [],
+        }),
+      ),
+    );
+
+    renderChapterReader();
+
+    await user.click(await screen.findByRole("button", { name: "Справочник" }));
+    await screen.findByRole("heading", { name: "Персонажи" });
+
+    expect(document.querySelector(".plotty-motion-drawer")).toHaveClass(
+      "bg-[var(--plotty-surface-strong)]",
+      "border-[var(--plotty-line)]",
+    );
+    expect(screen.getByText("Санса Старк").parentElement).toHaveClass(
+      "bg-[var(--plotty-surface-soft)]",
+      "border-[var(--plotty-line)]",
+    );
+  });
+
+  it("does not render unsafe comment avatar URLs", async () => {
+    server.use(
+      http.get("*/chapters/:chapterId/comments", () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "unsafe-avatar-comment",
+              chapterId: "chapter-1",
+              userId: 404,
+              username: "unsafe_avatar",
+              avatarUrl: "javascript:alert(1)",
+              content: "Комментарий с небезопасным аватаром.",
+              createdAt: "2026-05-01T10:00:00.000Z",
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderChapterReader();
+
+    expect(await screen.findByText("unsafe_avatar")).toBeInTheDocument();
+    expect(screen.queryByAltText("Аватар unsafe_avatar")).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, passthrough } from "msw";
 
 import { parseStoriesQuery } from "@/entities/story/model/story-query";
 import type { ReaderShelf } from "@/entities/library/model/types";
@@ -53,14 +53,25 @@ import {
   removeStoryFromUserCollection,
   addChapterCommentRecord,
   addStoryToUserCollection,
+  approveSuggestedFandom,
+  createSuggestedFandom,
   setReaderShelf,
+  listPendingSuggestedFandoms,
+  rejectSuggestedFandom,
   unlikeStoryRecord,
   publishChapterRecord,
   updateChapterRecord,
+  updateStoryCommentRecord,
   updateStoryRecord,
   updateUserCollection,
 } from "./data/stories";
 import { getMockSession, loginMockUser, logoutMockUser, registerMockUser, updateMockUserProfile } from "./data/auth";
+
+function passthroughAppRouteRequest(request: Request) {
+  const url = new URL(request.url);
+
+  return !url.pathname.startsWith("/api/") && url.searchParams.has("_rsc");
+}
 
 export const handlers = [
   http.get("*/session", () => {
@@ -229,6 +240,86 @@ export const handlers = [
 
   http.get("*/tags", () => {
     return HttpResponse.json(listTags());
+  }),
+
+  http.post("*/fandoms/suggest", async ({ request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as { name?: string; description?: string };
+    const result = createSuggestedFandom(
+      {
+        name: payload.name ?? "",
+        description: payload.description ?? "",
+      },
+      session.user.id,
+    );
+
+    if ("error" in result) {
+      return HttpResponse.json(
+        { error: result.error === "exists" ? "fandom already exists" : "invalid input" },
+        { status: result.error === "exists" ? 409 : 400 },
+      );
+    }
+
+    return HttpResponse.json(result, { status: 201 });
+  }),
+
+  http.get("*/admin/fandoms/pending", () => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    if (!session.user.isAdmin) {
+      return HttpResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    return HttpResponse.json(listPendingSuggestedFandoms());
+  }),
+
+  http.post("*/admin/fandoms/:fandomId/approve", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    if (!session.user.isAdmin) {
+      return HttpResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    const result = approveSuggestedFandom(String(params.fandomId));
+
+    if (!result) {
+      return HttpResponse.json({ message: "Fandom not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(result);
+  }),
+
+  http.post("*/admin/fandoms/:fandomId/reject", ({ params }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    if (!session.user.isAdmin) {
+      return HttpResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    const result = rejectSuggestedFandom(String(params.fandomId));
+
+    if (!result) {
+      return HttpResponse.json({ message: "Fandom not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(result);
   }),
 
   http.get("*/stories", ({ request }) => {
@@ -453,7 +544,11 @@ export const handlers = [
     return HttpResponse.json(response);
   }),
 
-  http.get("*/stories/:slug", ({ params }) => {
+  http.get("*/stories/:slug", ({ request, params }) => {
+    if (passthroughAppRouteRequest(request)) {
+      return passthrough();
+    }
+
     const session = getMockSession();
     const story = getStoryBySlug(String(params.slug), session?.user.id);
 
@@ -510,6 +605,23 @@ export const handlers = [
     }
 
     return HttpResponse.json(comment, { status: 201 });
+  }),
+
+  http.patch("*/comments/:commentId", async ({ params, request }) => {
+    const session = getMockSession();
+
+    if (!session) {
+      return HttpResponse.json({ error: "no session" }, { status: 401 });
+    }
+
+    const payload = (await request.json()) as CreateStoryCommentPayload;
+    const comment = updateStoryCommentRecord(String(params.commentId), payload, session.user.id);
+
+    if (!comment) {
+      return HttpResponse.json({ message: "Comment not found" }, { status: 404 });
+    }
+
+    return HttpResponse.json(comment);
   }),
 
   http.delete("*/comments/:commentId", ({ params }) => {
@@ -626,7 +738,11 @@ export const handlers = [
     return HttpResponse.json(result);
   }),
 
-  http.get("*/chapters/:chapterId", ({ params }) => {
+  http.get("*/chapters/:chapterId", ({ request, params }) => {
+    if (passthroughAppRouteRequest(request)) {
+      return passthrough();
+    }
+
     const chapter = getChapterById(String(params.chapterId));
 
     if (!chapter) {
@@ -668,7 +784,7 @@ export const handlers = [
     return HttpResponse.json(createLogicCheckJob(payload), { status: 202 });
   }),
 
-  http.post("*/chapters/:chapterId/canon-check", ({ params }) => {
+  http.post("*/chapters/:chapterId/canon-check", async ({ request, params }) => {
     const session = getMockSession();
 
     if (!session) {
@@ -686,10 +802,23 @@ export const handlers = [
       return HttpResponse.json({ error: "insufficient credits" }, { status: 402 });
     }
 
+    let requestPayload: Partial<SpellcheckPayload> = {};
+
+    try {
+      requestPayload = (await request.json()) as Partial<SpellcheckPayload>;
+    } catch {
+      requestPayload = {};
+    }
+
+    const content =
+      typeof requestPayload.content === "string" && requestPayload.content.trim()
+        ? requestPayload.content
+        : chapter.draftContent ?? chapter.content;
+
     return HttpResponse.json(
       createCanonCheckJob({
         chapterId,
-        content: chapter.draftContent ?? chapter.content,
+        content,
       }),
       { status: 202 },
     );

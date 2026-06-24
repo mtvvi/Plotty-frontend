@@ -83,11 +83,11 @@ function ReaderLibraryContent() {
               <AnimatedList
                 items={visibleEntries}
                 getKey={(entry) => `${entry.storyId}-${entry.shelf}`}
-                className="space-y-4"
+                className="plotty-library-story-list space-y-4"
                 renderItem={(entry) => (
                   <div className="space-y-2">
                     <div className="plotty-meta">{`Статус: ${readerShelfLabels[entry.shelf]} · обновлен ${new Date(entry.updatedAt).toLocaleDateString("ru-RU")}`}</div>
-                    <StoryCard story={entry.story} showChapterActions={false} />
+                    <StoryCard story={entry.story} showChapterActions={false} initialShelf={entry.shelf} />
                   </div>
                 )}
               />

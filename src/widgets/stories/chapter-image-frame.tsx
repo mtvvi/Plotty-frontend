@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
+import { isUnoptimizedImageUrl, sanitizeImageUrl } from "@/shared/lib/safe-url";
 import { ImageLightbox, lightboxTriggerClassName } from "@/shared/ui/image-lightbox";
 
 interface ChapterImageFrameProps {
@@ -12,14 +13,15 @@ interface ChapterImageFrameProps {
 }
 
 export function ChapterImageFrame({ title, imageUrl, enableLightbox = true }: ChapterImageFrameProps) {
+  const safeImageUrl = sanitizeImageUrl(imageUrl);
   const [hasFailed, setHasFailed] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   useEffect(() => {
     setHasFailed(false);
-  }, [imageUrl]);
+  }, [safeImageUrl]);
 
-  if (!imageUrl || hasFailed) {
+  if (!safeImageUrl || hasFailed) {
     return (
       <div
         data-chapter-image-frame="true"
@@ -31,7 +33,7 @@ export function ChapterImageFrame({ title, imageUrl, enableLightbox = true }: Ch
           </div>
           <div className="plotty-serif text-3xl font-semibold tracking-[-0.03em]">{title}</div>
           <p className="text-sm leading-6 text-[var(--plotty-muted)]">
-            Для этой главы ещё нет готового изображения. Его можно сгенерировать прямо из редактора главы.
+            Для этой главы ещё нет готового изображения.
           </p>
         </div>
       </div>
@@ -52,11 +54,11 @@ export function ChapterImageFrame({ title, imageUrl, enableLightbox = true }: Ch
           onClick={() => setIsLightboxOpen(true)}
         >
           <Image
-            src={imageUrl}
+            src={safeImageUrl}
             alt={title}
             fill
-            sizes="100vw"
-            unoptimized
+            sizes="min(100vw, 48rem)"
+            unoptimized={isUnoptimizedImageUrl(safeImageUrl)}
             onError={() => setHasFailed(true)}
             className="object-cover"
           />
@@ -64,11 +66,11 @@ export function ChapterImageFrame({ title, imageUrl, enableLightbox = true }: Ch
       ) : (
         <div data-chapter-image-surface="true" className="relative aspect-square w-full">
           <Image
-            src={imageUrl}
+            src={safeImageUrl}
             alt={title}
             fill
-            sizes="100vw"
-            unoptimized
+            sizes="min(100vw, 48rem)"
+            unoptimized={isUnoptimizedImageUrl(safeImageUrl)}
             onError={() => setHasFailed(true)}
             className="object-cover"
           />
@@ -76,7 +78,7 @@ export function ChapterImageFrame({ title, imageUrl, enableLightbox = true }: Ch
       )}
       {enableLightbox ? (
         <ImageLightbox
-          src={imageUrl}
+          src={safeImageUrl}
           alt={title}
           title={title}
           open={isLightboxOpen}

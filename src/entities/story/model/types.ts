@@ -31,8 +31,10 @@ export interface StoryListItem {
   likesCount?: number;
   viewerHasLiked?: boolean;
   aiHint?: string;
+  description?: string;
   author?: StoryAuthor | null;
   coverImageUrl?: string | null;
+  readChapterNumber?: number | null;
 }
 
 export interface ChapterListItem {
@@ -69,6 +71,7 @@ export interface StoryDetails {
   likesCount?: number;
   viewerHasLiked?: boolean;
   aiHint?: string;
+  description?: string;
   author?: StoryAuthor | null;
   coverImageUrl?: string | null;
 }
@@ -143,10 +146,7 @@ export interface CreateChapterPayload {
   content: string;
 }
 
-export interface UpdateChapterPayload extends CreateChapterPayload {
-  draftTitle?: string;
-  draftContent?: string;
-}
+export type UpdateChapterPayload = CreateChapterPayload;
 
 export interface SpellcheckIssue {
   fragmentText: string;
@@ -165,8 +165,14 @@ export interface LogicCheckResult {
   message: string;
 }
 
+export interface CanonCheckIssue {
+  message: string;
+  details?: string[];
+}
+
 export interface CanonCheckResult {
   message: string;
+  items: CanonCheckIssue[];
 }
 
 export interface GeneratedImage {
@@ -196,6 +202,10 @@ export interface AiJobResponse<TResult> {
 export interface SpellcheckPayload {
   chapterId: string;
   content: string;
+}
+
+export interface CanonCheckPayload extends SpellcheckPayload {
+  title?: string;
 }
 
 export interface ImageGenerationPayload extends SpellcheckPayload {
@@ -231,6 +241,8 @@ export interface StoryCommentsResponse {
 export interface CreateStoryCommentPayload {
   content: string;
 }
+
+export type UpdateStoryCommentPayload = CreateStoryCommentPayload;
 
 export interface ToggleLikeResult {
   storyId: string;

@@ -1,7 +1,7 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { BookOpen, CalendarDays, Heart, List, MessageCircle, Tag, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -13,7 +13,9 @@ import {
   storyDetailsQueryOptions,
 } from "@/entities/story/api/stories-api";
 import { useStoryLikeMutation } from "@/entities/story/api/story-like-hooks";
+import { getGeneratedStoryCoverUrl } from "@/entities/story/model/generated-image-cache";
 import { publicChaptersForReader } from "@/entities/story/model/story-query";
+import type { StoriesResponse } from "@/entities/story/model/types";
 import { isAuthError } from "@/shared/api/fetch-json";
 import { STORY_ANNOTATION_PLACEHOLDER } from "@/shared/config/story-annotation";
 import { routes } from "@/shared/config/routes";
@@ -52,6 +54,7 @@ type AdaptiveStoryTitleState = {
 export function StoryDetailsScreen({ slug }: { slug: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const searchParamsString = searchParams.toString();
   const { isAuthenticated } = useAuth();
   const [activeMobileSection, setActiveMobileSection] = useState<MobileStorySection>(() =>
@@ -69,9 +72,14 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
   );
   const chaptersScrollRef = useRef<HTMLDivElement | null>(null);
   const firstChapter = readerChapters[0] ?? null;
-  const firstChapterQuery = useQuery({
+  const [fallbackCoverLoadRequested, setFallbackCoverLoadRequested] = useState(false);
+  const [localGeneratedCoverUrl, setLocalGeneratedCoverUrl] = useState("");
+  const cachedStoryCoverImage = findCachedStoryCoverImage(queryClient, slug);
+  const storyCoverImage =
+    storyQuery.data?.coverImageUrl ?? cachedStoryCoverImage ?? (localGeneratedCoverUrl || undefined);
+  const fallbackChapterCoverQuery = useQuery({
     ...chapterDetailsQueryOptions(firstChapter?.id ?? ""),
-    enabled: Boolean(firstChapter?.id && !storyQuery.data?.coverImageUrl),
+    enabled: Boolean(storyQuery.data && !storyCoverImage && fallbackCoverLoadRequested && firstChapter?.id),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
@@ -105,6 +113,35 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
     setActiveMobileSection(getInitialMobileSection(new URLSearchParams(searchParamsString)));
   }, [searchParamsString]);
 
+  useEffect(() => {
+    setLocalGeneratedCoverUrl(getGeneratedStoryCoverUrl(slug) ?? "");
+  }, [slug]);
+
+  useEffect(() => {
+    setFallbackCoverLoadRequested(false);
+  }, [slug]);
+
+  useEffect(() => {
+    if (!storyQuery.data || storyCoverImage || !firstChapter?.id) {
+      return;
+    }
+
+    const requestIdleCallback = window.requestIdleCallback;
+    const cancelIdleCallback = window.cancelIdleCallback;
+    let timeoutId = 0;
+    let idleId = 0;
+
+    if (requestIdleCallback && cancelIdleCallback) {
+      idleId = requestIdleCallback(() => setFallbackCoverLoadRequested(true), { timeout: 900 });
+
+      return () => cancelIdleCallback(idleId);
+    }
+
+    timeoutId = window.setTimeout(() => setFallbackCoverLoadRequested(true), 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [firstChapter?.id, storyCoverImage, storyQuery.data]);
+
   if (storyQuery.isLoading) {
     return (
       <PlottyPageShell
@@ -129,7 +166,7 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
   const story = storyQuery.data;
   const storyDescription = story.aiHint?.trim() ? story.aiHint : STORY_ANNOTATION_PLACEHOLDER;
-  const displayCoverImage = story.coverImageUrl ?? firstChapterQuery.data?.imageUrl;
+  const displayCoverImage = storyCoverImage ?? fallbackChapterCoverQuery.data?.imageUrl ?? undefined;
   const revealCoverImage = displayCoverImage ?? storyCoverPlaceholderSrc;
   const readChapter = firstReadableChapter ?? firstChapter;
   const viewerHasLiked = Boolean(story.viewerHasLiked);
@@ -158,13 +195,14 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
 
   return (
     <PlottyPageShell suppressPageIntro>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
+      <div className="plotty-story-details-layout grid gap-5 min-[1331px]:grid-cols-[minmax(0,1fr)_21rem]">
         <main className="min-w-0 space-y-5">
           <PlottySectionCard className="plotty-panel-enter overflow-hidden p-0">
             <div className="grid lg:grid-cols-[minmax(18rem,28rem)_minmax(0,1fr)]">
               <StoryCoverPreview
                 title={story.title}
                 imageUrl={displayCoverImage}
+                isLoading={!displayCoverImage && fallbackChapterCoverQuery.isLoading}
                 enableLightbox
                 className="self-start rounded-[var(--plotty-radius-lg)] border-0 border-b border-[var(--plotty-line)] lg:border-b-0 lg:border-r"
               />
@@ -173,7 +211,11 @@ export function StoryDetailsScreen({ slug }: { slug: string }) {
                 <div className="w-full min-w-0 space-y-3">
                   <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--plotty-muted)]">
                     {story.author?.username ? (
-                      <Link href={routes.user(story.author.username)} className="inline-flex items-center gap-1.5 font-semibold hover:text-[var(--plotty-accent)]">
+                      <Link
+                        href={routes.user(story.author.username)}
+                        prefetch={false}
+                        className="inline-flex items-center gap-1.5 font-semibold hover:text-[var(--plotty-accent)]"
+                      >
                         <UserRound className="size-4" aria-hidden="true" />
                         Автор {story.author.username}
                       </Link>
@@ -656,4 +698,18 @@ function areTitleStatesEqual(currentState: AdaptiveStoryTitleState, nextState: A
     currentState.hyphenated === nextState.hyphenated &&
     Math.abs(currentFontSize - nextFontSize) < 0.5
   );
+}
+
+function findCachedStoryCoverImage(queryClient: QueryClient, slug: string) {
+  const listQueries = queryClient.getQueriesData<StoriesResponse>({ queryKey: ["stories", "list"] });
+
+  for (const [, data] of listQueries) {
+    const match = data?.items.find((story) => story.slug === slug && story.coverImageUrl);
+
+    if (match?.coverImageUrl) {
+      return match.coverImageUrl;
+    }
+  }
+
+  return undefined;
 }

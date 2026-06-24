@@ -1,6 +1,8 @@
 import { queryOptions } from "@tanstack/react-query";
 
+import { mapStoryListItem, type BackendStoryListItem } from "@/entities/story/api/story-mappers";
 import { fetchJson } from "@/shared/api/fetch-json";
+import { encodePathSegment } from "@/shared/lib/safe-url";
 
 import type {
   UserCollectionBase,
@@ -10,6 +12,15 @@ import type {
 } from "@/entities/profile/model/types";
 
 import type { CreateCollectionPayload, ReaderShelf, ReaderShelfResponse, UpdateCollectionPayload } from "../model/types";
+
+interface BackendReaderShelfResponse {
+  items: Array<{
+    storyId: string;
+    shelf: ReaderShelf;
+    updatedAt: string;
+    story: BackendStoryListItem;
+  }>;
+}
 
 export const readerShelfLabels: Record<ReaderShelf, string> = {
   reading: "Читаю",
@@ -38,7 +49,7 @@ export const libraryKeys = {
 export function myShelfQueryOptions(shelf?: ReaderShelf | null, options?: { enabled?: boolean }) {
   return queryOptions({
     queryKey: libraryKeys.shelf(shelf),
-    queryFn: () => {
+    queryFn: async () => {
       const params = new URLSearchParams();
 
       if (shelf) {
@@ -47,21 +58,28 @@ export function myShelfQueryOptions(shelf?: ReaderShelf | null, options?: { enab
 
       const query = params.toString();
 
-      return fetchJson<ReaderShelfResponse>(`/me/library/shelf${query ? `?${query}` : ""}`);
+      const response = await fetchJson<BackendReaderShelfResponse>(`/me/library/shelf${query ? `?${query}` : ""}`);
+
+      return {
+        items: response.items.map((entry) => ({
+          ...entry,
+          story: mapStoryListItem(entry.story),
+        })),
+      } satisfies ReaderShelfResponse;
     },
     enabled: options?.enabled ?? true,
   });
 }
 
 export function setStoryShelf(storyId: string, shelf: ReaderShelf) {
-  return fetchJson<null>(`/me/library/shelf/${storyId}`, {
+  return fetchJson<null>(`/me/library/shelf/${encodePathSegment(storyId)}`, {
     method: "PUT",
     body: JSON.stringify({ shelf }),
   });
 }
 
 export function removeStoryShelf(storyId: string) {
-  return fetchJson<null>(`/me/library/shelf/${storyId}`, {
+  return fetchJson<null>(`/me/library/shelf/${encodePathSegment(storyId)}`, {
     method: "DELETE",
   });
 }
@@ -78,7 +96,7 @@ export function myCollectionQueryOptions(collectionId: string, options?: { enabl
   return queryOptions({
     queryKey: libraryKeys.collection(collectionId),
     queryFn: async (): Promise<UserCollectionDetail> => {
-      const response = await fetchJson<UserCollectionResponse>(`/me/collections/${collectionId}`);
+      const response = await fetchJson<UserCollectionResponse>(`/me/collections/${encodePathSegment(collectionId)}`);
 
       return response.collection;
     },
@@ -94,7 +112,7 @@ export function myCollectionDetailsQueryOptions(options?: { enabled?: boolean })
 
       return Promise.all(
         response.items.map(async (collection) => {
-          const detail = await fetchJson<UserCollectionResponse>(`/me/collections/${collection.id}`);
+          const detail = await fetchJson<UserCollectionResponse>(`/me/collections/${encodePathSegment(collection.id)}`);
 
           return detail.collection;
         }),
@@ -125,27 +143,27 @@ export function updateCollection(collectionId: string, payload: UpdateCollection
     body.description = normalizeDescription(payload.description);
   }
 
-  return fetchJson<{ collection: UserCollectionBase }>(`/me/collections/${collectionId}`, {
+  return fetchJson<{ collection: UserCollectionBase }>(`/me/collections/${encodePathSegment(collectionId)}`, {
     method: "PATCH",
     body: JSON.stringify(body),
   }).then((response) => response.collection);
 }
 
 export function deleteCollection(collectionId: string) {
-  return fetchJson<null>(`/me/collections/${collectionId}`, {
+  return fetchJson<null>(`/me/collections/${encodePathSegment(collectionId)}`, {
     method: "DELETE",
   });
 }
 
 export function addStoryToCollection(collectionId: string, storyId: string) {
-  return fetchJson<null>(`/me/collections/${collectionId}/stories`, {
+  return fetchJson<null>(`/me/collections/${encodePathSegment(collectionId)}/stories`, {
     method: "POST",
     body: JSON.stringify({ storyId }),
   });
 }
 
 export function removeStoryFromCollection(collectionId: string, storyId: string) {
-  return fetchJson<null>(`/me/collections/${collectionId}/stories/${storyId}`, {
+  return fetchJson<null>(`/me/collections/${encodePathSegment(collectionId)}/stories/${encodePathSegment(storyId)}`, {
     method: "DELETE",
   });
 }
