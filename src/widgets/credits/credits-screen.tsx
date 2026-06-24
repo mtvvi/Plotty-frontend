@@ -97,8 +97,6 @@ export function CreditsScreen() {
         : "idle";
 
   async function refreshCredits() {
-    setIsReturnPolling(true);
-
     const refreshes = [
       queryClient.invalidateQueries({ queryKey: creditsKeys.balance() }),
     ];
