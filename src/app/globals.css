@@ -1492,6 +1492,10 @@ button:active .plotty-chip-motion {
   transform-origin: top center;
 }
 
+.plotty-catalog-story-list .plotty-motion-list-item:first-child {
+  animation-name: plotty-motion-list-item-enter;
+}
+
 .plotty-catalog-story-list .plotty-story-card {
   content-visibility: auto;
   contain-intrinsic-size: auto 18rem;
@@ -1777,6 +1781,15 @@ button:active .plotty-chip-motion {
   transition:
     filter var(--motion-base) var(--ease-out-soft),
     transform var(--motion-base) var(--ease-out-soft);
+}
+
+.plotty-workshop-title-icon {
+  width: 0.72em;
+  height: 0.72em;
+  flex: 0 0 auto;
+  align-self: center;
+  color: var(--plotty-accent);
+  transform: translateY(0.03em);
 }
 
 .plotty-page-title {

@@ -27,6 +27,7 @@ export const StoryCard = memo(function StoryCard({
   showChapterActions = true,
   priorityCover = false,
   initialShelf = null,
+  initialCollectionIds = [],
 }: {
   story: StoryListItem;
   storyHref?: string;
@@ -34,6 +35,7 @@ export const StoryCard = memo(function StoryCard({
   showChapterActions?: boolean;
   priorityCover?: boolean;
   initialShelf?: ReaderShelf | "" | null;
+  initialCollectionIds?: readonly string[];
 }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
@@ -205,7 +207,12 @@ export const StoryCard = memo(function StoryCard({
           {showShelfControl && isAuthenticated ? (
             <div className="grid gap-2 border-t border-[var(--plotty-line)] pt-3 sm:grid-cols-2 md:grid-cols-1">
               <StoryShelfControl storyId={story.id} initialShelf={initialShelf} className="max-w-none min-w-0" compact />
-              <StoryCollectionControl storyId={story.id} className="max-w-none min-w-0" compact />
+              <StoryCollectionControl
+                storyId={story.id}
+                initialCollectionIds={initialCollectionIds}
+                className="max-w-none min-w-0"
+                compact
+              />
             </div>
           ) : null}
         </aside>

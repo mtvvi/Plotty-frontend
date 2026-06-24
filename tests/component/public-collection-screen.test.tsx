@@ -75,6 +75,13 @@ describe("PublicCollectionScreen", () => {
     expect(document.querySelector("[data-presence='collection-edit']")).not.toBeNull();
   });
 
+  it("hydrates story card shelf and collection state on initial render", async () => {
+    renderPublicCollection();
+
+    expect(await screen.findByRole("button", { name: "Читаю" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "В 1 подборке" })).not.toHaveLength(0);
+  });
+
   it("hides owner controls when the returned collection belongs to another user id", async () => {
     server.use(
       http.get("*/users/:username/collections/:collectionId", () =>

@@ -34,10 +34,12 @@ export function StoryCollectionControl({
   storyId,
   className,
   compact = false,
+  initialCollectionIds = [],
 }: {
   storyId: string;
   className?: string;
   compact?: boolean;
+  initialCollectionIds?: readonly string[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,7 +57,8 @@ export function StoryCollectionControl({
     () => collections.filter((collection) => collection.stories.some((story) => story.id === storyId)),
     [collections, storyId],
   );
-  const selectedCount = containingCollections.length;
+  const initialSelectedCount = useMemo(() => new Set(initialCollectionIds).size, [initialCollectionIds]);
+  const selectedCount = collectionsQuery.data ? containingCollections.length : initialSelectedCount;
   const membershipMutation = useMutation({
     mutationFn: ({ collectionId, selected }: { collectionId: string; selected: boolean }) =>
       selected ? removeStoryFromCollection(collectionId, storyId) : addStoryToCollection(collectionId, storyId),

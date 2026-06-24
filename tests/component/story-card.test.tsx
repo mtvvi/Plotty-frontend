@@ -78,6 +78,13 @@ describe("StoryCard", () => {
     expect(screen.getAllByRole("button", { name: "В подборку" })).not.toHaveLength(0);
   });
 
+  it("shows initial collection membership before collection details are fetched", async () => {
+    loginMockUser({ email: "writer@plotty.test", password: "password123" });
+    renderStoryCard(1, {}, { initialCollectionIds: ["collection-1"] });
+
+    expect(await screen.findAllByRole("button", { name: "В 1 подборке" })).not.toHaveLength(0);
+  });
+
   it("renders empty shelf and collection actions as outlined controls", async () => {
     loginMockUser({ email: "writer@plotty.test", password: "password123" });
     renderStoryCard(1);

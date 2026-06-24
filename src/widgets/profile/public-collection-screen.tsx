@@ -1,11 +1,11 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/entities/auth/model/auth-context";
-import { deleteCollection, libraryKeys, removeStoryFromCollection, updateCollection } from "@/entities/library/api/library-api";
+import { deleteCollection, libraryKeys, myShelfQueryOptions, removeStoryFromCollection, updateCollection } from "@/entities/library/api/library-api";
 import { profileKeys, publicUserCollectionQueryOptions } from "@/entities/profile/api/profile-api";
 import { routes } from "@/shared/config/routes";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
@@ -32,6 +32,11 @@ export function PublicCollectionScreen({
   const { user } = useAuth();
   const profileCollectionsHref = `${routes.user(username)}?tab=collections`;
   const collectionQuery = useQuery(publicUserCollectionQueryOptions(username, collectionId));
+  const shelfQuery = useQuery(myShelfQueryOptions(null, { enabled: Boolean(user?.id) }));
+  const shelfByStoryId = useMemo(
+    () => new Map((shelfQuery.data?.items ?? []).map((entry) => [entry.storyId, entry.shelf])),
+    [shelfQuery.data?.items],
+  );
   const [editOpen, setEditOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
@@ -235,7 +240,12 @@ export function PublicCollectionScreen({
             className="plotty-collection-story-list space-y-4"
             renderItem={(story) => (
               <div className="space-y-2">
-                <StoryCard story={story} showChapterActions={false} />
+                <StoryCard
+                  story={story}
+                  showChapterActions={false}
+                  initialShelf={shelfByStoryId.get(story.id) ?? null}
+                  initialCollectionIds={[collection.id]}
+                />
                 {isOwner ? (
                   <div className="flex justify-end">
                     <Button

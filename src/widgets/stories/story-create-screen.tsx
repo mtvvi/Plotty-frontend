@@ -169,7 +169,7 @@ export function StoryCreateScreen() {
       title={
         <span className="inline-flex items-end gap-2">
           Авторская мастерская
-          <span className="plotty-feather">✒</span>
+          <PenLine className="plotty-workshop-title-icon" strokeWidth={2.35} aria-hidden="true" focusable="false" />
         </span>
       }
       description="Создавайте, редактируйте и развивайте свои истории."
