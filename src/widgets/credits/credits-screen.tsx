@@ -87,14 +87,11 @@ export function CreditsScreen() {
   const transactions = transactionsQuery.data ?? [];
   const balance = balanceQuery.data?.balance;
   const bestPackageId = useMemo(() => getBestPackageId(packages), [packages]);
-  const hasCreditsData = Boolean(balanceQuery.data || (transactionsEnabled && transactionsQuery.data));
   const creditFeedbackStatus = purchaseError
     ? "failed"
     : purchaseMutation.isPending
       ? "processing"
-      : hasCreditsData && (isReturnPolling || balanceQuery.isFetching || (transactionsEnabled && transactionsQuery.isFetching))
-        ? "processing"
-        : "idle";
+      : "idle";
 
   async function refreshCredits() {
     const refreshes = [
@@ -138,8 +135,8 @@ export function CreditsScreen() {
 
         <AsyncJobStatus
           status={creditFeedbackStatus}
-          label={purchaseError ? "Не удалось начать оплату" : purchaseMutation.isPending ? "Открываем оплату" : "Обновляем баланс"}
-          description={purchaseMutation.isPending ? "Готовим ссылку на платежную страницу." : "Проверяем доступный баланс."}
+          label={purchaseError ? "Не удалось начать оплату" : "Открываем оплату"}
+          description={purchaseMutation.isPending ? "Готовим ссылку на платежную страницу." : undefined}
           error={purchaseError || undefined}
         />
 

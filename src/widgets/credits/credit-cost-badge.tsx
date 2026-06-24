@@ -1,3 +1,5 @@
+import { Coins } from "lucide-react";
+
 import { formatCreditsAmount } from "@/entities/credits/model/credit-utils";
 import { cn } from "@/shared/lib/utils";
 
@@ -16,9 +18,7 @@ export function CreditCostBadge({ cost, className }: { cost: number; className?:
       <span aria-hidden="true" className="text-[9px] font-extrabold leading-none">
         {cost}
       </span>
-      <span aria-hidden="true" className="text-[6px] font-bold leading-none">
-        кр
-      </span>
+      <Coins className="size-2.5" aria-hidden="true" strokeWidth={2.4} />
     </span>
   );
 }
