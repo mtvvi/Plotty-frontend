@@ -12,8 +12,8 @@ Plotty - сервис для чтения, публикации и ведени�
 
 ## Ссылка на backend
 
-[github.com/andrey57x/plotty_backend](https://github.com/andrey57x/plotty_backend)
+[Plotty Backend](https://github.com/andrey57x/plotty_backend)
 
 ## Ссылка на сайт
 
-[plotty-stories.duckdns.org](https://plotty-stories.duckdns.org/)
+[Plotty Stories](https://plotty-stories.duckdns.org/)
