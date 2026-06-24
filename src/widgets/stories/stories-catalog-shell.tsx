@@ -262,32 +262,6 @@ export function StoriesCatalogShell() {
       }
       contentClassName="pt-5 lg:pt-10"
     >
-      {hasAppliedFilters ? (
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          {appliedQuery.q ? (
-            <ActiveFilter label={`Поиск: ${appliedQuery.q}`} onClear={() => navigateToQuery({ ...appliedQuery, q: "", page: 1 })} />
-          ) : null}
-          {appliedActiveTags.map((tag) => (
-            <ActiveFilter
-              key={tag.id}
-              label={tag.name}
-              onClear={() =>
-                navigateToQuery({
-                  ...appliedQuery,
-                  tags: appliedQuery.tags.filter((slug) => slug !== tag.slug),
-                  page: 1,
-                })
-              }
-            />
-          ))}
-          {!hasInitialLoading ? (
-            <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearAppliedFilters}>
-              Очистить всё
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-
       <div
         className="plotty-catalog-layout"
         data-filters-collapsed={filtersState === "collapsed" ? "true" : "false"}
@@ -300,6 +274,32 @@ export function StoriesCatalogShell() {
         </aside>
 
         <section className="min-w-0 space-y-5">
+          {hasAppliedFilters ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {appliedQuery.q ? (
+                <ActiveFilter label={`Поиск: ${appliedQuery.q}`} onClear={() => navigateToQuery({ ...appliedQuery, q: "", page: 1 })} />
+              ) : null}
+              {appliedActiveTags.map((tag) => (
+                <ActiveFilter
+                  key={tag.id}
+                  label={tag.name}
+                  onClear={() =>
+                    navigateToQuery({
+                      ...appliedQuery,
+                      tags: appliedQuery.tags.filter((slug) => slug !== tag.slug),
+                      page: 1,
+                    })
+                  }
+                />
+              ))}
+              {!hasInitialLoading ? (
+                <Button variant="ghost" className="min-h-9 px-2.5 text-sm" onClick={clearAppliedFilters}>
+                  Очистить всё
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
           {hasInitialLoading ? (
             <CatalogInitialLoading />
           ) : storiesQuery.isError ? (
