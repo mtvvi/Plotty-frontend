@@ -1,6 +1,6 @@
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -132,5 +132,35 @@ describe("StorySettingsScreen", () => {
     expect(queryClient.getQueryData<StoryDetails>([...storyKeys.detailsById(story.id), "mine"])?.title).toBe(nextTitle);
 
     releasePatch();
+  });
+
+  it("confirms story deletion with an in-app dialog", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    renderStorySettings();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Название/i })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /Теги и категории/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "DC" })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "DC" }));
+    await user.click(screen.getByRole("button", { name: "NC-17" }));
+    await user.click(screen.getByRole("button", { name: "В процессе" }));
+    await user.click(screen.getByRole("button", { name: "Макси" }));
+
+    await user.click(screen.getByRole("button", { name: /Проверка и сохранение/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Удалить историю" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Удалить историю" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Удалить историю?" });
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Удалить главу" })).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Удалить историю" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith(routes.write));
   });
 });

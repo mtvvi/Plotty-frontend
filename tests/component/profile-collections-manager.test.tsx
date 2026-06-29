@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -25,7 +25,7 @@ describe("ProfileCollectionsManager", () => {
     vi.restoreAllMocks();
   });
 
-  it("requires confirmation before deleting a collection from the profile manager", async () => {
+  it("confirms collection deletion with an in-app dialog from the profile manager", async () => {
     const user = userEvent.setup();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
 
@@ -33,8 +33,13 @@ describe("ProfileCollectionsManager", () => {
 
     await user.click(await screen.findByLabelText("Действия с подборкой"));
     await user.click(screen.getByRole("button", { name: "Удалить" }));
+    const dialog = await screen.findByRole("dialog", { name: "Удалить подборку?" });
 
-    expect(confirm).toHaveBeenCalledWith("Удалить подборку?");
+    expect(confirm).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole("button", { name: "Отмена" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Удалить подборку?" })).not.toBeInTheDocument());
     expect(await screen.findByText(/Фанфики по Гарри Поттеру/i)).toBeInTheDocument();
   });
 });

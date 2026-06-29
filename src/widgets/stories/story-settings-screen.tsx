@@ -24,6 +24,7 @@ import {
 } from "@/shared/config/story-tags";
 import { Button } from "@/shared/ui/button";
 import { Chip } from "@/shared/ui/chip";
+import { ConfirmationDialog } from "@/shared/ui/confirmation-dialog";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -52,6 +53,7 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
   const tagsQuery = useQuery(storyTagsQueryOptions());
   const [stage, setStage] = useState<StoryEditStage>("details");
   const [values, setValues] = useState<StorySettingsValues>(emptyValues);
+  const [deleteStoryConfirmOpen, setDeleteStoryConfirmOpen] = useState(false);
   const updateStoryMutation = useMutation({
     mutationFn: ({ targetStoryId, targetPayload }: { targetStoryId: string; targetPayload: StorySettingsValues }) =>
       updateStory(targetStoryId, {
@@ -159,17 +161,27 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
     }
   }
 
-  async function handleDeleteStory() {
-    if (!storyQuery.data || !window.confirm("Удалить историю целиком?")) {
+  function handleDeleteStory() {
+    if (!storyQuery.data) {
+      return;
+    }
+
+    setDeleteStoryConfirmOpen(true);
+  }
+
+  async function handleConfirmDeleteStory() {
+    if (!storyQuery.data) {
       return;
     }
 
     try {
       await deleteStoryMutation.mutateAsync(storyId);
       await queryClient.invalidateQueries({ queryKey: storyKeys.all });
+      setDeleteStoryConfirmOpen(false);
       router.push(routes.write);
     } catch (error) {
       if (isAuthError(error)) {
+        setDeleteStoryConfirmOpen(false);
         router.push(routes.auth({ next: routes.storySettings(storyId) }));
       }
     }
@@ -393,6 +405,15 @@ export function StorySettingsScreen({ storyId }: { storyId: string }) {
           </div>
         </AnimatedTabPanel>
       </div>
+      <ConfirmationDialog
+        open={deleteStoryConfirmOpen}
+        title="Удалить историю?"
+        description={`История «${storyQuery.data.title}» и все связанные главы будут удалены из мастерской.`}
+        confirmLabel="Удалить историю"
+        isConfirming={deleteStoryMutation.isPending}
+        onCancel={() => setDeleteStoryConfirmOpen(false)}
+        onConfirm={handleConfirmDeleteStory}
+      />
     </PlottyShell>
   );
 }

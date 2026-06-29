@@ -344,11 +344,13 @@ export function StoriesCatalogShell() {
       </div>
 
       <PlottyMobileSheet open={isMobileFiltersOpen} title="Фильтры" onClose={() => setIsMobileFiltersOpen(false)}>
-        <div className="mb-5">
-          <Button variant="secondary" fullWidth onClick={clearTagFilters}>
-            Сбросить
-          </Button>
-        </div>
+        {appliedQuery.tags.length ? (
+          <div className="mb-5">
+            <Button variant="secondary" fullWidth onClick={clearTagFilters}>
+              Сбросить
+            </Button>
+          </div>
+        ) : null}
         {filters}
       </PlottyMobileSheet>
       {isRouting ? <span className="sr-only">Каталог обновляется</span> : null}
@@ -373,6 +375,8 @@ function CatalogFilters({
   toggleMultiSelectTag: (currentTags: string[], tagSlug: string, categoryTags: StoryTag[]) => string[];
   toggleGenericTag: (currentTags: string[], tagSlug: string) => string[];
 }) {
+  const hasSelectedTags = selectedTags.length > 0;
+
   return (
     <div className="space-y-5">
       <div className="space-y-3">
@@ -381,9 +385,11 @@ function CatalogFilters({
             <SlidersHorizontal className="size-4 text-[var(--plotty-accent)]" aria-hidden="true" />
             Фильтры
           </h2>
-          <Button variant="ghost" className="min-h-8 px-2 text-xs" onClick={clearTagFilters}>
-            Сбросить всё
-          </Button>
+          {hasSelectedTags ? (
+            <Button variant="ghost" className="min-h-8 px-2 text-xs" onClick={clearTagFilters}>
+              Сбросить всё
+            </Button>
+          ) : null}
         </div>
       </div>
 

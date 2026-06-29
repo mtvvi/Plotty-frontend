@@ -10,6 +10,7 @@ import { profileKeys, publicUserCollectionQueryOptions } from "@/entities/profil
 import { routes } from "@/shared/config/routes";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { Button, ButtonLink } from "@/shared/ui/button";
+import { ConfirmationDialog } from "@/shared/ui/confirmation-dialog";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -42,6 +43,7 @@ export function PublicCollectionScreen({
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const updateMutation = useMutation({
     mutationFn: ({ title, description }: { title: string; description: string }) =>
       updateCollection(collectionId, { title, description }),
@@ -155,11 +157,13 @@ export function PublicCollectionScreen({
   }
 
   function handleDeleteCollection() {
-    if (!window.confirm("Удалить подборку?")) {
-      return;
-    }
+    setDeleteConfirmOpen(true);
+  }
 
-    deleteMutation.mutate();
+  function handleConfirmDeleteCollection() {
+    deleteMutation.mutate(undefined, {
+      onSettled: () => setDeleteConfirmOpen(false),
+    });
   }
 
   return (
@@ -266,6 +270,15 @@ export function PublicCollectionScreen({
           <EmptyState title="В подборке пока нет историй" description="Автор подборки еще не добавил публичные работы." />
         )}
       </PlottySectionCard>
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        title="Удалить подборку?"
+        description={`Подборка «${collection.title}» исчезнет из профиля, но сами истории останутся в каталоге.`}
+        confirmLabel="Удалить подборку"
+        isConfirming={deleteMutation.isPending}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDeleteCollection}
+      />
     </PlottyPageShell>
   );
 }

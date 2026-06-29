@@ -16,6 +16,7 @@ import type { UserCollectionSummary } from "@/entities/profile/model/types";
 import { routes } from "@/shared/config/routes";
 import { toUserFacingErrorMessage } from "@/shared/lib/user-facing-error";
 import { Button, ButtonLink } from "@/shared/ui/button";
+import { ConfirmationDialog } from "@/shared/ui/confirmation-dialog";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field, FieldError, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -35,6 +36,7 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
   const [editDescriptionDraft, setEditDescriptionDraft] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [deleteTargetCollection, setDeleteTargetCollection] = useState<UserCollectionSummary | null>(null);
   const collections = collectionsQuery.data?.items ?? [];
   const createMutation = useMutation({
     mutationFn: createCollection,
@@ -143,30 +145,36 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
     window.setTimeout(() => setCopiedId((current) => (current === collectionId ? null : current)), 1800);
   }
 
-  function handleDeleteCollection(collectionId: string) {
-    if (!window.confirm("Удалить подборку?")) {
+  function handleDeleteCollection(collection: UserCollectionSummary) {
+    setDeleteTargetCollection(collection);
+  }
+
+  function handleConfirmDeleteCollection() {
+    if (!deleteTargetCollection) {
       return;
     }
 
-    deleteMutation.mutate(collectionId);
+    deleteMutation.mutate(deleteTargetCollection.id, {
+      onSettled: () => setDeleteTargetCollection(null),
+    });
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <div className="plotty-section-title inline-flex items-center gap-2">
-            <PublicCollectionsIcon className="size-5 shrink-0 text-[var(--plotty-muted)]" />
-            Публичные подборки
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <div className="plotty-section-title inline-flex items-center gap-2">
+              <PublicCollectionsIcon className="size-5 shrink-0 text-[var(--plotty-muted)]" />
+              Публичные подборки
+            </div>
+            <p className="plotty-meta">Соберите рекомендации и делитесь ими</p>
           </div>
-          <p className="plotty-meta">Соберите рекомендации и делитесь ими</p>
+          <Button type="button" variant="primary" onClick={() => setCreateOpen((current) => !current)}>
+            Новая подборка
+          </Button>
         </div>
-        <Button type="button" variant="primary" onClick={() => setCreateOpen((current) => !current)}>
-          Новая подборка
-        </Button>
-      </div>
 
-      {createOpen ? (
+        {createOpen ? (
         <form className="grid gap-4 rounded-[20px] border border-[rgba(41,38,34,0.08)] bg-[var(--plotty-panel-muted)] p-4" onSubmit={handleCreate}>
           <Field>
             <FieldLabel htmlFor="profile-collection-title">Название</FieldLabel>
@@ -198,11 +206,11 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
             </Button>
           </div>
         </form>
-      ) : null}
+        ) : null}
 
-      {localError ? <FieldError>{localError}</FieldError> : null}
+        {localError ? <FieldError>{localError}</FieldError> : null}
 
-      {collectionsQuery.isLoading ? (
+        {collectionsQuery.isLoading ? (
         <div className="grid gap-3 md:grid-cols-2">
           <div className="h-36 rounded-[20px] bg-white/50" />
           <div className="h-36 rounded-[20px] bg-white/50" />
@@ -281,7 +289,7 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
                           className="rounded-[var(--plotty-radius-sm)] px-3 py-2 text-left text-sm font-semibold text-[var(--plotty-danger)] transition-colors hover:bg-[var(--plotty-danger-soft)]"
                           onClick={(event) => {
                             event.currentTarget.closest("details")?.removeAttribute("open");
-                            handleDeleteCollection(collection.id);
+                            handleDeleteCollection(collection);
                           }}
                           disabled={deleteMutation.isPending}
                         >
@@ -315,9 +323,18 @@ export function ProfileCollectionsManager({ username }: { username: string }) {
             );
           }}
         />
-      ) : (
-        <EmptyState title="Подборок пока нет" description="Создайте первую подборку и добавляйте туда фанфики из каталога или страницы истории." />
-      )}
+        ) : (
+          <EmptyState title="Подборок пока нет" description="Создайте первую подборку и добавляйте туда фанфики из каталога или страницы истории." />
+        )}
+      <ConfirmationDialog
+        open={Boolean(deleteTargetCollection)}
+        title="Удалить подборку?"
+        description={`Подборка «${deleteTargetCollection?.title ?? ""}» исчезнет из профиля, но сами истории останутся в каталоге.`}
+        confirmLabel="Удалить подборку"
+        isConfirming={deleteMutation.isPending}
+        onCancel={() => setDeleteTargetCollection(null)}
+        onConfirm={handleConfirmDeleteCollection}
+      />
     </div>
   );
 }

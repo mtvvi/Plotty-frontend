@@ -1,9 +1,9 @@
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loginMockUser, resetMockAuthDb } from "@/mocks/data/auth";
 import { server } from "@/mocks/server";
@@ -31,10 +31,14 @@ function renderEditor(storyId = "story-1", chapterId = "chapter-1") {
 
 describe("StoryEditorScreen", () => {
   beforeEach(() => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+    push.mockReset();
     window.localStorage.clear();
     resetMockAuthDb();
     loginMockUser({ email: "writer@plotty.test", password: "password123" });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("saves the chapter and updates the mock API state", async () => {
@@ -293,11 +297,17 @@ describe("StoryEditorScreen", () => {
 
   it("deletes the current chapter and navigates back to the selected workshop story", async () => {
     const user = userEvent.setup();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
 
     renderEditor();
 
     await waitFor(() => expect(screen.getByDisplayValue("Глава 1. Архив под лестницей")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Удалить главу" }));
+    const dialog = await screen.findByRole("dialog", { name: "Удалить главу?" });
+
+    expect(confirm).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole("button", { name: "Удалить главу" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/write?story=after-midnight-the-snow-does-not-melt#active-story"));
     const response = await fetch("http://localhost/chapters/chapter-1");

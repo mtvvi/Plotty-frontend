@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -39,15 +39,20 @@ describe("PublicCollectionScreen", () => {
     vi.restoreAllMocks();
   });
 
-  it("requires confirmation before deleting a public collection", async () => {
+  it("confirms public collection deletion with an in-app dialog", async () => {
     const user = userEvent.setup();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
 
     renderPublicCollection();
 
     await user.click(await screen.findByRole("button", { name: "Удалить" }));
+    const dialog = await screen.findByRole("dialog", { name: "Удалить подборку?" });
 
-    expect(confirm).toHaveBeenCalledWith("Удалить подборку?");
+    expect(confirm).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole("button", { name: "Отмена" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Удалить подборку?" })).not.toBeInTheDocument());
     expect(push).not.toHaveBeenCalled();
   });
 

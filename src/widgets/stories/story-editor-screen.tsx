@@ -28,6 +28,7 @@ import { routes } from "@/shared/config/routes";
 import { diffWords } from "@/shared/lib/text-diff";
 import { resolveTextRangeByOffsets, type ResolvedTextRange } from "@/shared/lib/text-ranges";
 import { sanitizeUserFacingMessage } from "@/shared/lib/user-facing-error";
+import { ConfirmationDialog } from "@/shared/ui/confirmation-dialog";
 import { EmptyState } from "@/shared/ui/empty-state";
 import type { HighlightRange } from "@/shared/ui/highlighted-textarea";
 import type { AsyncJobStatusValue } from "@/shared/ui/motion";
@@ -91,6 +92,7 @@ export function StoryEditorScreen({
   const [spellcheckContentSnapshot, setSpellcheckContentSnapshot] = useState("");
   const [saveStatusMessage, setSaveStatusMessage] = useState("");
   const [generatedImageUrl, setGeneratedImageUrl] = useState("");
+  const [deleteChapterConfirmOpen, setDeleteChapterConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!chapterQuery.data) {
@@ -341,19 +343,22 @@ export function StoryEditorScreen({
     }
   }
 
-  async function handleDeleteChapter() {
-    if (!window.confirm("Удалить эту главу?")) {
-      return;
-    }
+  function handleDeleteChapter() {
+    setDeleteChapterConfirmOpen(true);
+  }
 
+  async function handleConfirmDeleteChapter() {
     try {
       await deleteChapterMutation.mutateAsync(chapterId);
     } catch (error) {
       if (isAuthError(error)) {
+        setDeleteChapterConfirmOpen(false);
         router.push(routes.auth({ next: routes.chapterEditor(storyId, chapterId) }));
       }
       return;
     }
+
+    setDeleteChapterConfirmOpen(false);
 
     if (chapterQuery.data?.storySlug) {
       await queryClient.invalidateQueries({ queryKey: storyKeys.all });
@@ -741,6 +746,15 @@ export function StoryEditorScreen({
         onCanonCheck={handleCanonCheck}
         onApplySpellcheckIssue={handleApplySpellcheckIssue}
         onDismissSpellcheckIssue={handleDismissSpellcheckIssue}
+      />
+      <ConfirmationDialog
+        open={deleteChapterConfirmOpen}
+        title="Удалить главу?"
+        description={`Глава «${values.chapterTitle || chapterQuery.data.title}» исчезнет из мастерской и страницы истории.`}
+        confirmLabel="Удалить главу"
+        isConfirming={deleteChapterMutation.isPending}
+        onCancel={() => setDeleteChapterConfirmOpen(false)}
+        onConfirm={handleConfirmDeleteChapter}
       />
     </PlottyShell>
   );
