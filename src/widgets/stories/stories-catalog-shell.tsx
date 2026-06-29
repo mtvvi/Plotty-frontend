@@ -344,13 +344,19 @@ export function StoriesCatalogShell() {
       </div>
 
       <PlottyMobileSheet open={isMobileFiltersOpen} title="Фильтры" onClose={() => setIsMobileFiltersOpen(false)}>
-        {appliedQuery.tags.length ? (
-          <div className="mb-5">
-            <Button variant="secondary" fullWidth onClick={clearTagFilters}>
-              Сбросить
-            </Button>
-          </div>
-        ) : null}
+        <div className="mb-5">
+          <Button
+            variant="secondary"
+            fullWidth
+            onClick={clearTagFilters}
+            disabled={!appliedQuery.tags.length}
+            aria-hidden={!appliedQuery.tags.length || undefined}
+            tabIndex={appliedQuery.tags.length ? undefined : -1}
+            className={!appliedQuery.tags.length ? "invisible pointer-events-none" : undefined}
+          >
+            Сбросить
+          </Button>
+        </div>
         {filters}
       </PlottyMobileSheet>
       {isRouting ? <span className="sr-only">Каталог обновляется</span> : null}
@@ -385,11 +391,16 @@ function CatalogFilters({
             <SlidersHorizontal className="size-4 text-[var(--plotty-accent)]" aria-hidden="true" />
             Фильтры
           </h2>
-          {hasSelectedTags ? (
-            <Button variant="ghost" className="min-h-8 px-2 text-xs" onClick={clearTagFilters}>
-              Сбросить всё
-            </Button>
-          ) : null}
+          <Button
+            variant="ghost"
+            className={cn("min-h-8 px-2 text-xs", !hasSelectedTags && "invisible pointer-events-none")}
+            onClick={clearTagFilters}
+            disabled={!hasSelectedTags}
+            aria-hidden={!hasSelectedTags || undefined}
+            tabIndex={hasSelectedTags ? undefined : -1}
+          >
+            Сбросить всё
+          </Button>
         </div>
       </div>
 
